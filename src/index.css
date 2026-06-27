@@ -113,7 +113,7 @@
     margin: 0;
     min-width: 320px;
     min-height: 100dvh;
-    background: #2f3038;
+    background: #ffffff;
     color: #1a1b22;
   }
 
@@ -136,12 +136,6 @@
   .bn-shadcn * {
     @apply border-border outline-ring/50;
   }
-}
-
-.app-background {
-  background:
-    radial-gradient(circle at top left, rgb(255 255 255 / 8%) 0 1px, transparent 1px 100%) 0 0 / 16px 16px,
-    #2f3038;
 }
 
 .column-resize-active {

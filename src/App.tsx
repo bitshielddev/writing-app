@@ -336,11 +336,11 @@ export default function App() {
   } as CSSProperties;
 
   return (
-    <div className="app-background min-h-dvh p-0 xl:p-2 2xl:p-[18px]">
+    <div className="min-h-dvh bg-white">
       <main
         ref={workspaceRef}
         aria-label="ScribeAI writing workspace"
-        className={`workspace-grid grid h-dvh min-h-0 overflow-hidden bg-white xl:h-[calc(100dvh-1rem)] xl:rounded-3xl xl:border xl:border-[#bec0cb] xl:shadow-[0_22px_70px_rgb(0_0_0/28%)] 2xl:h-[calc(100dvh-36px)] 2xl:rounded-[2rem] ${
+        className={`workspace-grid grid h-dvh min-h-0 overflow-hidden bg-white ${
           inbox.selectedEntry ? "workspace-grid--detail" : ""
         }`}
         style={workspaceColumnStyles}
