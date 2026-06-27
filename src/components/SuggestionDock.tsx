@@ -1,36 +1,31 @@
 import {
   ArrowLeft,
-  BookOpenText,
   ChevronRight,
   CircleAlert,
   FileText,
-  GitBranch,
   Lightbulb,
-  ListTree,
-  Network,
   PanelRightOpen,
-  Quote,
+  PanelsTopLeft,
+  Pin,
+  PinOff,
   Send,
   Sparkles,
-  Tag,
   Trash2,
-  type LucideIcon,
 } from "lucide-react";
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 
-import type { InboxEntry } from "../suggestions/inbox";
+import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type {
   AgentStatus,
-  StructureNode,
   SuggestionFeed,
-  SuggestionKind,
   SuggestionItem,
 } from "../suggestions/types";
-import { MermaidDiagram } from "./MermaidDiagram";
+import { KindBadge, SuggestionVisual } from "./SuggestionPresentation";
 
 type SuggestionDockProps = {
   feed: SuggestionFeed;
   entries: InboxEntry[];
+  pinnedEntries: PinnedInboxEntry[];
   selectedEntry?: InboxEntry;
   activePreviewId?: string;
   unreadCount: number;
@@ -40,36 +35,11 @@ type SuggestionDockProps = {
   onSelect: (id: string) => void;
   onBack: () => void;
   onDismiss: (id: string) => void;
+  onPin: (id: string) => void;
+  onUnpin: (id: string) => void;
+  onPlaceOnWorkspace: (item: SuggestionItem) => void;
   onPreview: (item: SuggestionItem) => void;
 };
-
-type KindPresentation = {
-  label: string;
-  icon: LucideIcon;
-  tone: string;
-};
-
-const kindPresentation: Record<SuggestionKind, KindPresentation> = {
-  snippet: { label: "Snippet", icon: Quote, tone: "text-brand-700 bg-brand-100" },
-  fact: { label: "Fact", icon: BookOpenText, tone: "text-sky-800 bg-sky-100" },
-  term: { label: "Terminology", icon: Tag, tone: "text-emerald-800 bg-emerald-100" },
-  outline: { label: "Outline", icon: ListTree, tone: "text-indigo-800 bg-indigo-100" },
-  layout: { label: "Layout", icon: GitBranch, tone: "text-amber-800 bg-amber-100" },
-  mindMap: { label: "Mind map", icon: Network, tone: "text-fuchsia-800 bg-fuchsia-100" },
-};
-
-function KindBadge({ kind }: { kind: SuggestionKind }) {
-  const presentation = kindPresentation[kind];
-  const Icon = presentation.icon;
-  return (
-    <span
-      className={`inline-flex min-h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-bold ${presentation.tone}`}
-    >
-      <Icon className="size-3.5" aria-hidden="true" />
-      {presentation.label}
-    </span>
-  );
-}
 
 function SourceLabels({ labels }: { labels: string[] }) {
   if (!labels.length) {
@@ -90,74 +60,87 @@ function SourceLabels({ labels }: { labels: string[] }) {
   );
 }
 
-function StructureTree({ nodes }: { nodes: StructureNode[] }) {
-  return (
-    <ol className="grid gap-2.5">
-      {nodes.map((node) => (
-        <li
-          key={node.id}
-          className="rounded-lg border border-[#dedbe9] bg-white/75 px-4 py-3"
-        >
-          <p className="text-sm font-semibold text-[#272631]">{node.label}</p>
-          {node.detail ? (
-            <p className="mt-1 text-sm leading-5 text-[#686577]">{node.detail}</p>
-          ) : null}
-          {node.children?.length ? (
-            <div className="mt-3 border-l-2 border-brand-200 pl-3">
-              <StructureTree nodes={node.children} />
-            </div>
-          ) : null}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function QueueRow({ entry, onSelect }: { entry: InboxEntry; onSelect: () => void }) {
+function QueueRow({
+  entry,
+  pinned,
+  onSelect,
+  onPinToggle,
+}: {
+  entry: InboxEntry;
+  pinned: boolean;
+  onSelect: () => void;
+  onPinToggle: () => void;
+}) {
   const { item } = entry;
   return (
-    <button
-      type="button"
-      className="group relative w-full rounded-xl border border-[#dedbe9] bg-white/75 px-4 py-4 text-left shadow-sm shadow-slate-900/5 transition hover:border-brand-300 hover:bg-white"
-      onClick={onSelect}
-    >
+    <article className="group relative rounded-xl border border-[#dedbe9] bg-white/75 shadow-sm shadow-slate-900/5 transition hover:border-brand-300 hover:bg-white">
       {!entry.viewed ? (
         <span
-          className="absolute top-4 right-4 size-2 rounded-full bg-brand-500"
+          className="absolute top-5 right-14 z-10 size-2 rounded-full bg-brand-500"
           aria-label="Unread"
         />
       ) : null}
-      <KindBadge kind={item.kind} />
-      <h3 className="mt-3 pr-4 text-sm font-bold leading-5 text-[#20212a]">
-        {item.title}
-      </h3>
-      <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-[#686577]">
-        {item.summary}
-      </p>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="truncate text-xs text-[#8b8798]">
-          {item.sourceLabels[0] ?? "From the evolving draft"}
-        </span>
-        <ChevronRight
-          className="size-4 shrink-0 text-[#aaa6bd] transition group-hover:translate-x-0.5 group-hover:text-brand-600"
-          aria-hidden="true"
-        />
-      </div>
-    </button>
+      <button
+        type="button"
+        aria-label={`Open ${item.title}`}
+        className="w-full rounded-xl px-4 py-4 pr-12 text-left"
+        onClick={onSelect}
+      >
+        <KindBadge kind={item.kind} />
+        <h3 className="mt-3 text-sm font-bold leading-5 text-[#20212a]">
+          {item.title}
+        </h3>
+        <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-[#686577]">
+          {item.summary}
+        </p>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="truncate text-xs text-[#8b8798]">
+            {item.sourceLabels[0] ?? "From the evolving draft"}
+          </span>
+          <ChevronRight
+            className="size-4 shrink-0 text-[#aaa6bd] transition group-hover:translate-x-0.5 group-hover:text-brand-600"
+            aria-hidden="true"
+          />
+        </div>
+      </button>
+      <button
+        type="button"
+        aria-label={`${pinned ? "Unpin" : "Pin"} ${item.title}`}
+        aria-pressed={pinned}
+        className={`absolute top-3 right-3 grid size-9 place-items-center rounded-md transition ${
+          pinned
+            ? "bg-brand-100 text-brand-700 hover:bg-brand-200"
+            : "text-[#777386] hover:bg-brand-50 hover:text-brand-700"
+        }`}
+        onClick={onPinToggle}
+      >
+        {pinned ? (
+          <PinOff className="size-4" aria-hidden="true" />
+        ) : (
+          <Pin className="size-4" aria-hidden="true" />
+        )}
+      </button>
+    </article>
   );
 }
 
 function DetailView({
   entry,
+  pinned,
   activePreviewId,
   onBack,
   onDismiss,
+  onPinToggle,
+  onPlaceOnWorkspace,
   onPreview,
 }: {
   entry: InboxEntry;
+  pinned: boolean;
   activePreviewId?: string;
   onBack: () => void;
   onDismiss: () => void;
+  onPinToggle: () => void;
+  onPlaceOnWorkspace: () => void;
   onPreview: () => void;
 }) {
   const { item } = entry;
@@ -202,25 +185,21 @@ function DetailView({
           {item.body}
         </div>
 
-        {item.kind === "outline" || item.kind === "layout" ? (
+        {item.kind === "outline" || item.kind === "layout" || item.kind === "mindMap" ? (
           <div className="mt-5">
-            <StructureTree nodes={item.nodes} />
-          </div>
-        ) : null}
-
-        {item.kind === "mindMap" ? (
-          <div className="mt-5">
-            <MermaidDiagram
-              source={item.mermaidSource}
-              title={item.title}
-              description={item.accessibleDescription}
-            />
+            <SuggestionVisual item={item} />
           </div>
         ) : null}
 
         <div className="mt-5">
           <SourceLabels labels={item.sourceLabels} />
         </div>
+
+        {pinned ? (
+          <p className="mt-5 text-xs font-semibold text-[#777386] xl:hidden">
+            Workspace placement is available in the desktop layout.
+          </p>
+        ) : null}
 
         <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#dedbe9] pt-5">
           <button
@@ -232,8 +211,32 @@ function DetailView({
             <Trash2 className="size-4" aria-hidden="true" />
             Dismiss
           </button>
-          {isTextSuggestion ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
+              type="button"
+              className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-brand-700 hover:bg-white"
+              onClick={onPinToggle}
+            >
+              {pinned ? (
+                <PinOff className="size-4" aria-hidden="true" />
+              ) : (
+                <Pin className="size-4" aria-hidden="true" />
+              )}
+              {pinned ? "Unpin" : "Pin"}
+            </button>
+            {pinned ? (
+              <button
+                type="button"
+                className="hidden min-h-10 items-center gap-2 rounded-md border border-brand-300 bg-white px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45 xl:inline-flex"
+                disabled={previewIsActive}
+                onClick={onPlaceOnWorkspace}
+              >
+                <PanelsTopLeft className="size-4" aria-hidden="true" />
+                Place on workspace
+              </button>
+            ) : null}
+            {isTextSuggestion ? (
+              <button
               type="button"
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow-md shadow-brand-600/15 hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-[#aaa6bd] disabled:shadow-none"
               disabled={entry.withdrawn || Boolean(activePreviewId)}
@@ -245,8 +248,9 @@ function DetailView({
                 : anotherPreviewIsActive
                   ? "Finish current preview"
                   : "Preview in document"}
-            </button>
-          ) : null}
+              </button>
+            ) : null}
+          </div>
         </div>
       </article>
     </div>
@@ -256,6 +260,7 @@ function DetailView({
 export function SuggestionDock({
   feed,
   entries,
+  pinnedEntries,
   selectedEntry,
   activePreviewId,
   unreadCount,
@@ -265,6 +270,9 @@ export function SuggestionDock({
   onSelect,
   onBack,
   onDismiss,
+  onPin,
+  onUnpin,
+  onPlaceOnWorkspace,
   onPreview,
 }: SuggestionDockProps) {
   const [prompt, setPrompt] = useState("");
@@ -322,9 +330,18 @@ export function SuggestionDock({
       {selectedEntry ? (
         <DetailView
           entry={selectedEntry}
+          pinned={pinnedEntries.some(
+            (entry) => entry.item.id === selectedEntry.item.id,
+          )}
           activePreviewId={activePreviewId}
           onBack={onBack}
           onDismiss={() => onDismiss(selectedEntry.item.id)}
+          onPinToggle={() =>
+            pinnedEntries.some((entry) => entry.item.id === selectedEntry.item.id)
+              ? onUnpin(selectedEntry.item.id)
+              : onPin(selectedEntry.item.id)
+          }
+          onPlaceOnWorkspace={() => onPlaceOnWorkspace(selectedEntry.item)}
           onPreview={() => onPreview(selectedEntry.item)}
         />
       ) : (
@@ -399,6 +416,33 @@ export function SuggestionDock({
             </div>
           ) : null}
 
+          {pinnedEntries.length ? (
+            <section aria-labelledby="pinned-suggestions-title" className="mt-7">
+              <div className="flex items-center justify-between gap-3">
+                <h2
+                  id="pinned-suggestions-title"
+                  className="text-xs font-extrabold tracking-[0.1em] text-brand-700 uppercase"
+                >
+                  Pins
+                </h2>
+                <span className="text-xs font-semibold text-[#8b8798]">
+                  {pinnedEntries.length}
+                </span>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {pinnedEntries.map((entry) => (
+                  <QueueRow
+                    key={entry.item.id}
+                    entry={entry}
+                    pinned
+                    onSelect={() => onSelect(entry.item.id)}
+                    onPinToggle={() => onUnpin(entry.item.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <section aria-labelledby="suggestion-inbox-title" className="mt-7">
             <div className="flex items-center justify-between gap-3">
               <h2
@@ -417,7 +461,9 @@ export function SuggestionDock({
                 <QueueRow
                   key={entry.item.id}
                   entry={entry}
+                  pinned={false}
                   onSelect={() => onSelect(entry.item.id)}
+                  onPinToggle={() => onPin(entry.item.id)}
                 />
               ))}
               {!entries.length ? (

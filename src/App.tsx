@@ -14,6 +14,7 @@ import {
 import { createAgentContextSource } from "./suggestions/contextSource";
 import { useSuggestionInbox } from "./suggestions/inbox";
 import { createMockSuggestionFeed } from "./suggestions/mockSuggestionFeed";
+import { getInitialWorkspacePinSize } from "./suggestions/workspacePinLayout";
 import type {
   ArtifactReference,
   SuggestionItem,
@@ -162,10 +163,19 @@ export default function App() {
     }
   };
 
+  const handlePlaceOnWorkspace = (item: SuggestionItem) => {
+    inbox.placeOnWorkspace(item.id, {
+      x: 16,
+      y: 16,
+      ...getInitialWorkspacePinSize(item),
+    });
+  };
+
   const dock = (
     <SuggestionDock
       feed={feed}
       entries={inbox.entries}
+      pinnedEntries={inbox.pinnedEntries}
       selectedEntry={inbox.selectedEntry}
       activePreviewId={inbox.activePreviewId}
       unreadCount={inbox.unreadCount}
@@ -175,6 +185,9 @@ export default function App() {
       onSelect={inbox.select}
       onBack={inbox.back}
       onDismiss={inbox.dismiss}
+      onPin={inbox.pin}
+      onUnpin={inbox.unpin}
+      onPlaceOnWorkspace={handlePlaceOnWorkspace}
       onPreview={handlePreview}
     />
   );
@@ -195,11 +208,15 @@ export default function App() {
 
         <EditorWorkspace
           editor={editor}
+          workspacePins={inbox.workspacePins}
           onOpenNavigation={() => setNavigationOpen(true)}
           onOpenContext={() => setContextOpen(true)}
           onGenerateIdeas={openSteering}
           onEditorChange={handleEditorChange}
           onEditorSelectionChange={handleEditorSelectionChange}
+          onWorkspacePinGeometryChange={inbox.updateWorkspaceGeometry}
+          onRaiseWorkspacePin={inbox.raiseWorkspacePin}
+          onReturnToPins={inbox.returnToPins}
         />
 
         <div className="hidden min-h-0 xl:block">

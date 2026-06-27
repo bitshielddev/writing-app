@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension Review: Pinned Suggestions and Workspace Cards</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f3ec;
+      --paper: #fffdf8;
+      --ink: #24211f;
+      --muted: #68635e;
+      --line: #dfd7ca;
+      --soft: #f1ebe1;
+      --accent: #5a46d6;
+      --accent-2: #7a651d;
+      --accent-soft: #ece8ff;
+      --pin: #fff7c9;
+      --pin-line: #e4dcae;
+      --warn-bg: #fff4df;
+      --warn-ink: #754500;
+      --ok-bg: #eaf7ee;
+      --ok-ink: #166534;
+      --code-bg: #201f27;
+      --code-ink: #f6f1e8;
+      --shadow: 0 18px 54px rgba(36, 26, 13, 0.09);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% -4%, rgba(90, 70, 214, .16), transparent 34rem),
+        linear-gradient(180deg, #fbf8f2 0, var(--bg) 52rem);
+      color: var(--ink);
+      font: 16px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page { max-width: 1160px; margin: 0 auto; padding: 38px 22px 72px; }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 290px;
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 28px;
+    }
+    .eyebrow { color: var(--accent); font-size: .78rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+    h1 { margin: 8px 0 16px; max-width: 850px; font-size: clamp(2.2rem, 5.3vw, 4.6rem); line-height: .97; letter-spacing: -.06em; }
+    .lede { max-width: 780px; color: #4d4842; font-size: 1.1rem; }
+    .meta, section, nav {
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 248, .88);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    .meta { padding: 17px; }
+    .meta dl { display: grid; gap: 12px; margin: 0; }
+    .meta dt { color: var(--muted); font-size: .75rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    .meta dd { margin: 2px 0 0; font-weight: 680; }
+    .shell { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 24px; align-items: start; }
+    nav { position: sticky; top: 18px; padding: 14px; }
+    nav a { display: block; border-radius: 11px; padding: 8px 10px; color: #514b43; text-decoration: none; font-size: .92rem; }
+    nav a:hover { background: var(--soft); color: var(--accent); }
+    main { display: grid; gap: 24px; }
+    section { padding: clamp(21px, 4vw, 34px); }
+    h2 { margin: 0 0 14px; font-size: clamp(1.45rem, 3vw, 2.1rem); line-height: 1.12; letter-spacing: -.035em; }
+    h3 { margin: 26px 0 10px; font-size: 1.08rem; }
+    p { margin: 0 0 14px; }
+    ul, ol { padding-left: 1.2rem; }
+    li + li { margin-top: 6px; }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: .92em; }
+    pre {
+      margin: 14px 0 18px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      border-radius: 16px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+      line-height: 1.48;
+      font-size: .86rem;
+    }
+    pre mark { background: rgba(255, 214, 102, .24); color: inherit; border-radius: 4px; padding: 0 2px; }
+    .note, .risk, .ok, .question, .file-card, .state-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 15px 16px;
+      background: #fffaf2;
+    }
+    .note strong, .risk strong, .ok strong { display: block; margin-bottom: 4px; }
+    .risk { border-color: #efd19e; background: var(--warn-bg); color: var(--warn-ink); }
+    .ok { border-color: #b9e1c4; background: var(--ok-bg); color: var(--ok-ink); }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .map { display: grid; gap: 12px; margin: 18px 0; }
+    .map-row { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; }
+    .label {
+      border-radius: 14px;
+      background: var(--accent-soft);
+      color: #35278a;
+      padding: 14px;
+      font-weight: 820;
+    }
+    .desc { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: #fffaf2; }
+    .mini-table { width: 100%; border-collapse: collapse; margin: 14px 0; overflow: hidden; border-radius: 14px; }
+    .mini-table th, .mini-table td { border: 1px solid var(--line); padding: 11px 12px; text-align: left; vertical-align: top; }
+    .mini-table th { background: #f1ebe1; font-size: .8rem; letter-spacing: .05em; text-transform: uppercase; }
+    .pin-card {
+      border: 1px solid var(--pin-line);
+      background: var(--pin);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 14px 38px rgba(57, 52, 38, .12);
+    }
+    .pin-card .bar { display: flex; align-items: center; justify-content: space-between; margin: -16px -16px 13px; padding: 11px 14px; border-bottom: 1px solid var(--pin-line); background: #fff0a7; border-radius: 18px 18px 0 0; font-weight: 800; }
+    .pill { display: inline-flex; align-items: center; min-height: 26px; border-radius: 999px; background: var(--soft); color: #4e4841; padding: 0 9px; font-size: .78rem; font-weight: 800; }
+    .flowline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+    .flowline span { border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; background: #fffaf2; font-weight: 720; font-size: .88rem; }
+    .arrow { color: var(--muted); font-weight: 900; }
+    details { border: 1px solid var(--line); border-radius: 14px; background: #fffaf2; padding: 12px 14px; }
+    details + details { margin-top: 10px; }
+    summary { cursor: pointer; font-weight: 780; }
+    .question { background: #fbf9ff; }
+    .question h3 { margin-top: 0; }
+    .small { color: var(--muted); font-size: .92rem; }
+    .path { color: var(--accent); font-weight: 820; }
+    @media (max-width: 900px) {
+      .hero, .shell, .grid-2, .grid-3, .map-row { grid-template-columns: 1fr; }
+      nav { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">Comprehension review</div>
+        <h1>Pinned suggestions now have a second life on the workspace.</h1>
+        <p class="lede">
+          This uncommitted change turns the suggestion inbox into a three-place system: the regular queue, a pinned list, and draggable workspace cards over the editor. The reducer owns the transitions; the dock exposes the controls; the editor renders the desktop canvas.
+        </p>
+      </div>
+      <aside class="meta" aria-label="Review metadata">
+        <dl>
+          <div><dt>Working tree</dt><dd>10 changed source/test files</dd></div>
+          <div><dt>History anchor</dt><dd><code>bb071f9</code> introduced the suggestion flow</dd></div>
+          <div><dt>Verification</dt><dd><code>npm test -- --run</code>: 5 files, 15 tests passed</dd></div>
+        </dl>
+      </aside>
+    </header>
+
+    <div class="shell">
+      <nav aria-label="Review navigation">
+        <a href="#route">The route through the app</a>
+        <a href="#state">State machine changes</a>
+        <a href="#dock">Dock behaviour</a>
+        <a href="#workspace">Workspace canvas</a>
+        <a href="#tests">Tests and history</a>
+        <a href="#risks">Assumptions to keep in mind</a>
+        <a href="#check">Comprehension check</a>
+      </nav>
+
+      <main>
+        <section id="route">
+          <h2>The new route through the app</h2>
+          <p>
+            Before this diff, <span class="path">src/suggestions/inbox.ts</span> managed a single bounded queue of suggestions, plus selection and document preview state. The working tree adds two more locations for the same suggestion concept: pinned entries and workspace pins.
+          </p>
+          <div class="flowline" aria-label="suggestion movement path">
+            <span>agent event</span><span class="arrow">-&gt;</span><span>queue entry</span><span class="arrow">-&gt;</span><span>pinned snapshot</span><span class="arrow">-&gt;</span><span>workspace card</span><span class="arrow">-&gt;</span><span>pinned snapshot</span>
+          </div>
+          <p>
+            The important boundary is in <span class="path">src/App.tsx</span>. App wires the reducer outputs into the two surfaces that need them: <code>SuggestionDock</code> and <code>EditorWorkspace</code>.
+          </p>
+          <pre><code>// src/App.tsx
+const handlePlaceOnWorkspace = (item: SuggestionItem) =&gt; {
+  inbox.placeOnWorkspace(item.id, {
+    x: 16,
+    y: 16,
+    ...getInitialWorkspacePinSize(item),
+  });
+};
+
+&lt;SuggestionDock
+  entries={inbox.entries}
+  <mark>pinnedEntries={inbox.pinnedEntries}</mark>
+  onPin={inbox.pin}
+  onUnpin={inbox.unpin}
+  onPlaceOnWorkspace={handlePlaceOnWorkspace}
+  ...
+/&gt;
+
+&lt;EditorWorkspace
+  editor={editor}
+  <mark>workspacePins={inbox.workspacePins}</mark>
+  onWorkspacePinGeometryChange={inbox.updateWorkspaceGeometry}
+  onRaiseWorkspacePin={inbox.raiseWorkspacePin}
+  onReturnToPins={inbox.returnToPins}
+  ...
+/&gt;</code></pre>
+          <div class="note">
+            <strong>What to notice</strong>
+            Placement starts with a generic rectangle from <code>getInitialWorkspacePinSize</code>, but the editor recalculates a better visible position after it can measure the canvas. The initial <code>x: 16, y: 16</code> is a reducer payload, not the final desktop location in normal rendering.
+          </div>
+        </section>
+
+        <section id="state">
+          <h2>The reducer now protects three kinds of suggestion state</h2>
+          <p>
+            Most of the behavioural change is concentrated in <span class="path">src/suggestions/inbox.ts</span>. The old state had <code>entries</code>, <code>selectedId</code>, and <code>activePreviewId</code>. The new state adds pinned snapshots, workspace geometry, and a monotonically increasing z-index counter.
+          </p>
+          <pre><code>// src/suggestions/inbox.ts
+export type PinnedInboxEntry = InboxEntry &amp; {
+  pinnedAt: number;
+};
+
+export type WorkspacePin = WorkspacePinRect &amp; {
+  item: SuggestionItem;
+  pinnedAt: number;
+  pendingInitialPlacement: boolean;
+  zIndex: number;
+};
+
+type InboxState = {
+  entries: InboxEntry[];
+  <mark>pinnedEntries: PinnedInboxEntry[];</mark>
+  <mark>workspacePins: WorkspacePin[];</mark>
+  selectedId?: string;
+  activePreviewId?: string;
+  <mark>nextZIndex: number;</mark>
+  status: AgentStatus;
+};</code></pre>
+
+          <div class="grid-3">
+            <div class="state-card">
+              <span class="pill">Queue</span>
+              <p class="small">Updated by agent events, sorted unread-first, capped at 30 entries.</p>
+            </div>
+            <div class="state-card">
+              <span class="pill">Pins</span>
+              <p class="small">Copied snapshots, sorted newest pin first, excluded from the 30-entry queue cap.</p>
+            </div>
+            <div class="state-card">
+              <span class="pill">Workspace</span>
+              <p class="small">Pinned snapshots with rectangle and z-index. Hidden until initial placement is committed.</p>
+            </div>
+          </div>
+
+          <h3>Pinning freezes the item</h3>
+          <p>
+            Pinning is not a reference to the live queue entry. The reducer removes the item from <code>entries</code> and stores a JSON copy in <code>pinnedEntries</code>. That supports the test named "freezes pinned snapshots and excludes them from the queue limit".
+          </p>
+          <pre><code>// src/suggestions/inbox.ts
+function copySuggestion(item: SuggestionItem): SuggestionItem {
+  return JSON.parse(JSON.stringify(item)) as SuggestionItem;
+}
+
+if (action.type === "pin") {
+  const entry = state.entries.find((candidate) =&gt; candidate.item.id === action.id);
+  if (!entry) {
+    return state;
+  }
+  return {
+    ...state,
+    entries: state.entries.filter((candidate) =&gt; candidate.item.id !== action.id),
+    pinnedEntries: [
+      ...state.pinnedEntries,
+      {
+        ...entry,
+        <mark>item: copySuggestion(entry.item),</mark>
+        stale: false,
+        withdrawn: false,
+        pinnedAt: action.pinnedAt,
+      },
+    ],
+  };
+}</code></pre>
+          <p>
+            A later <code>suggestion.updated</code> maps only over <code>state.entries</code>, and a retraction returns early when the id is pinned or already on the workspace.
+          </p>
+          <pre><code>// src/suggestions/inbox.ts
+if (event.type === "suggestion.updated") {
+  return {
+    ...state,
+    entries: state.entries.map((entry) =&gt;
+      entry.item.id === event.item.id
+        ? { ...entry, item: event.item, stale: entry.item.id === state.activePreviewId }
+        : entry,
+    ),
+  };
+}
+
+if (
+  <mark>state.pinnedEntries.some((entry) =&gt; entry.item.id === event.id)</mark> ||
+  <mark>state.workspacePins.some((pin) =&gt; pin.item.id === event.id)</mark>
+) {
+  return state;
+}</code></pre>
+          <div class="note">
+            <strong>Inference, with evidence</strong>
+            The code appears to treat a pin as user-owned reference material. Evidence: the snapshot copy, the retraction guard, and tests expecting a pinned title to remain unchanged after an agent update and retraction. There is no separate product note in the repository, so this is inferred from implementation and tests.
+          </div>
+
+          <h3>Workspace transitions are explicit</h3>
+          <p>
+            Moving to the workspace only works from the pinned list. The reducer does not search the regular queue for <code>workspace.place</code>. It removes the pinned entry, clears selection if needed, and creates a <code>WorkspacePin</code> with <code>pendingInitialPlacement: true</code>.
+          </p>
+          <pre><code>// src/suggestions/inbox.ts
+if (action.type === "workspace.place") {
+  if (state.activePreviewId === action.id) {
+    return state;
+  }
+  const entry = state.pinnedEntries.find(
+    (candidate) =&gt; candidate.item.id === action.id,
+  );
+  if (!entry) {
+    return state;
+  }
+  return {
+    ...state,
+    selectedId: state.selectedId === action.id ? undefined : state.selectedId,
+    pinnedEntries: state.pinnedEntries.filter(
+      (candidate) =&gt; candidate.item.id !== action.id,
+    ),
+    workspacePins: [
+      ...state.workspacePins,
+      {
+        item: entry.item,
+        pinnedAt: entry.pinnedAt,
+        <mark>pendingInitialPlacement: true,</mark>
+        ...action.rect,
+        zIndex: state.nextZIndex,
+      },
+    ],
+    nextZIndex: state.nextZIndex + 1,
+  };
+}</code></pre>
+          <p>
+            Returning from workspace recreates a pinned entry and marks it viewed. Geometry changes also flip <code>pendingInitialPlacement</code> off, which is what allows the card to render.
+          </p>
+          <pre><code>// src/suggestions/inbox.ts
+if (action.type === "workspace.geometry") {
+  return {
+    ...state,
+    workspacePins: state.workspacePins.map((pin) =&gt;
+      pin.item.id === action.id
+        ? <mark>{ ...pin, ...action.rect, pendingInitialPlacement: false }</mark>
+        : pin,
+    ),
+  };
+}</code></pre>
+        </section>
+
+        <section id="dock">
+          <h2>The dock separates "inbox" from "pins"</h2>
+          <p>
+            <span class="path">src/components/SuggestionDock.tsx</span> now takes <code>pinnedEntries</code> and pin callbacks. A queue row was changed from a single full-card button into an <code>article</code> with two buttons: one opens the detail view, and the other toggles pin state.
+          </p>
+          <pre><code>// src/components/SuggestionDock.tsx
+function QueueRow({ entry, pinned, onSelect, onPinToggle }: { ... }) {
+  const { item } = entry;
+  return (
+    &lt;article className="group relative rounded-xl ..."&gt;
+      &lt;button
+        type="button"
+        <mark>aria-label={`Open ${item.title}`}</mark>
+        className="w-full rounded-xl px-4 py-4 pr-12 text-left"
+        onClick={onSelect}
+      &gt;
+        ...
+      &lt;/button&gt;
+      &lt;button
+        type="button"
+        <mark>aria-label={`${pinned ? "Unpin" : "Pin"} ${item.title}`}</mark>
+        aria-pressed={pinned}
+        onClick={onPinToggle}
+      &gt;
+        {pinned ? &lt;PinOff ... /&gt; : &lt;Pin ... /&gt;}
+      &lt;/button&gt;
+    &lt;/article&gt;
+  );
+}</code></pre>
+          <p>
+            The detail view shows the same pin toggle. When the current detail item is pinned, desktop users also get a "Place on workspace" action.
+          </p>
+          <pre><code>// src/components/SuggestionDock.tsx
+{pinned ? (
+  &lt;button
+    type="button"
+    className="hidden ... xl:inline-flex"
+    disabled={previewIsActive}
+    onClick={onPlaceOnWorkspace}
+  &gt;
+    &lt;PanelsTopLeft className="size-4" aria-hidden="true" /&gt;
+    Place on workspace
+  &lt;/button&gt;
+) : null}</code></pre>
+          <div class="note">
+            <strong>Small extraction with practical value</strong>
+            <span class="path">src/components/SuggestionPresentation.tsx</span> now owns <code>KindBadge</code>, <code>StructureTree</code>, and <code>SuggestionVisual</code>. That prevents the dock and workspace card from duplicating badge/tree/mermaid rendering logic.
+          </div>
+          <table class="mini-table">
+            <thead><tr><th>Dock surface</th><th>What changed</th><th>Why it matters for behaviour</th></tr></thead>
+            <tbody>
+              <tr><td>List rows</td><td>Open and pin are separate controls.</td><td>Pinning no longer requires entering the detail page.</td></tr>
+              <tr><td>Pins section</td><td>Pinned entries render above the regular queue.</td><td>Pins are excluded from "entries.length of 30" but still count as unread until viewed.</td></tr>
+              <tr><td>Detail actions</td><td>Pinned details can move to workspace on desktop.</td><td>Workspace cards are opt-in and only start from pinned entries.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="workspace">
+          <h2>The editor becomes a measured canvas</h2>
+          <p>
+            The old <code>DocumentEditor</code> rendered a centered BlockNote editor inside the scroll area. The new version wraps that editor in a full-width relative canvas and overlays <code>WorkspacePins</code> on top.
+          </p>
+          <pre><code>// src/components/DocumentEditor.tsx
+&lt;section ref={scrollRef} aria-label="Document editor" className="... overflow-y-auto ..."&gt;
+  &lt;div
+    ref={canvasRef}
+    className="relative mx-auto min-h-full w-full"
+    style={requiredCanvasHeight ? { minHeight: requiredCanvasHeight } : undefined}
+  &gt;
+    &lt;div className="mx-auto min-h-full w-full max-w-[55rem]"&gt;
+      &lt;BlockNoteView editor={editor} ... /&gt;
+    &lt;/div&gt;
+    <mark>&lt;WorkspacePins canvasRef={canvasRef} pins={workspacePins} ... /&gt;</mark>
+  &lt;/div&gt;
+&lt;/section&gt;</code></pre>
+          <p>
+            Initial placement is a two-step process. The reducer creates a pending pin. Then <code>DocumentEditor</code> waits for a frame, measures the scroll area and canvas, computes a cascaded rectangle near the visible right side, and commits it through <code>onWorkspacePinGeometryChange</code>.
+          </p>
+          <pre><code>// src/components/DocumentEditor.tsx
+const getInitialWorkspacePinRect = useCallback(
+  (pin: WorkspacePin, stackIndex: number) =&gt; {
+    const scroll = scrollRef.current;
+    const canvas = canvasRef.current;
+    if (!scroll || !canvas) {
+      return undefined;
+    }
+    const baseSize = getInitialWorkspacePinSize(pin.item);
+    const width = Math.min(baseSize.width, Math.max(280, canvas.clientWidth - 32));
+    const height = Math.min(baseSize.height, Math.max(180, canvas.clientHeight - 32));
+    const cascade = (stackIndex % 5) * 24;
+    const scrollRect = scroll.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const visibleTop = Math.max(0, scrollRect.top - canvasRect.top);
+    return {
+      x: Math.max(16, canvas.clientWidth - width - 24 - cascade),
+      y: Math.min(
+        Math.max(16, visibleTop + 24 + cascade),
+        Math.max(16, canvas.clientHeight - height - 16),
+      ),
+      width,
+      height,
+    };
+  },
+  [],
+);</code></pre>
+          <div class="pin-card" aria-label="Workspace card mental model">
+            <div class="bar"><span>Workspace pin card</span><span>move | return</span></div>
+            <p><strong>Card content:</strong> badge, summary, body, and visual content for outline/layout/mind-map suggestions.</p>
+            <p><strong>Geometry controls:</strong> pointer drag, pointer resize, keyboard arrow movement, keyboard arrow resizing.</p>
+            <p><strong>Bounds:</strong> cards are clamped to the measured canvas with a minimum size of 280 by 180 and 16px edge padding.</p>
+          </div>
+          <pre><code>// src/components/WorkspacePins.tsx
+function clampRect(
+  rect: WorkspacePinRect,
+  bounds: { width: number; height: number },
+): WorkspacePinRect {
+  const maxWidth = Math.max(MIN_WIDTH, bounds.width - EDGE_PADDING * 2);
+  const maxHeight = Math.max(MIN_HEIGHT, bounds.height - EDGE_PADDING * 2);
+  const width = clamp(rect.width, MIN_WIDTH, maxWidth);
+  const height = clamp(rect.height, MIN_HEIGHT, maxHeight);
+  return {
+    x: clamp(rect.x, EDGE_PADDING, bounds.width - width - EDGE_PADDING),
+    y: clamp(rect.y, EDGE_PADDING, bounds.height - height - EDGE_PADDING),
+    width,
+    height,
+  };
+}</code></pre>
+          <p>
+            The workspace overlay itself is desktop-only: <code>className="pointer-events-none absolute inset-0 z-20 hidden xl:block"</code>. Cards opt back into interaction with <code>pointer-events-auto</code> on the card. That means the overlay should not block normal editor clicks outside cards.
+          </p>
+        </section>
+
+        <section id="tests">
+          <h2>Tests describe the intended behaviour better than the UI labels</h2>
+          <p>
+            The test suite grew around reducer transitions and direct card manipulation. I ran the suite after inspecting the diff: <code>npm test -- --run</code> passed 15 tests across 5 files.
+          </p>
+          <div class="grid-2">
+            <div class="ok">
+              <strong>Reducer tests</strong>
+              <p><span class="path">src/suggestions/inbox.test.ts</span> now covers snapshot freezing, queue limit exclusion, workspace place/geometry/return, pinned preview resolution, and z-index raising.</p>
+            </div>
+            <div class="ok">
+              <strong>Component tests</strong>
+              <p><span class="path">SuggestionDock.test.tsx</span> checks pin/unpin UI and workspace placement from detail. <span class="path">WorkspacePins.test.tsx</span> checks rendering, return, keyboard geometry, and pointer drag commit.</p>
+            </div>
+          </div>
+          <pre><code>// src/suggestions/inbox.test.ts
+expect(state.pinnedEntries).toHaveLength(1);
+expect(state.pinnedEntries[0]?.item.title).toBe(original.title);
+expect(state.entries).toHaveLength(30);
+
+// later test
+expect(state.workspacePins[0]).toMatchObject({
+  x: 20,
+  y: 30,
+  width: 320,
+  height: 240,
+  pendingInitialPlacement: true,
+  zIndex: 1,
+});</code></pre>
+
+          <h3>How this fits the short project history</h3>
+          <p>
+            The repository has three commits in the visible log. <code>ec06c0b</code> started with an HTML mockup, <code>b6326e9</code> moved into TypeScript, and <code>bb071f9</code> introduced the writing partner suggestion flow with an inbox reducer, dock UI, mock feed, previews, and tests. This working-tree change builds on <code>bb071f9</code> rather than replacing it: the existing queue and preview model remain, while a second persistence layer is added for suggestions the user wants to keep nearby.
+          </p>
+        </section>
+
+        <section id="risks">
+          <h2>Assumptions a future maintainer should check before extending this</h2>
+          <div class="grid-2">
+            <div class="risk">
+              <strong>Pins use JSON cloning.</strong>
+              <p><code>copySuggestion</code> is safe for the current <code>SuggestionItem</code> union because the types are plain data. If suggestions later carry Dates, class instances, Maps, or functions, the snapshot behaviour will change or lose data.</p>
+            </div>
+            <div class="risk">
+              <strong>Workspace pins are desktop-only in the UI.</strong>
+              <p>Once a pin is placed on the workspace, it is removed from <code>pinnedEntries</code>. On non-<code>xl</code> layouts, the workspace overlay is hidden, so there is no visible return control in the changed code.</p>
+            </div>
+            <div class="risk">
+              <strong>Agent updates do not refresh pins.</strong>
+              <p>This is probably intentional, but it means a pinned suggestion can become outdated relative to the feed. The code preserves the snapshot and ignores retractions for pinned/workspace items.</p>
+            </div>
+            <div class="risk">
+              <strong>Z-index only increases.</strong>
+              <p><code>nextZIndex</code> increments on placement and raise. That is simple and predictable for a browser session, but there is no compaction or persistence strategy in this diff.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="check">
+          <h2>Pause here and check your mental model</h2>
+          <div class="question">
+            <h3>Questions</h3>
+            <details>
+              <summary>1. A suggestion is pinned, then the agent sends <code>suggestion.updated</code> for the same id. Which copy changes?</summary>
+              <p>The pinned copy does not change. The reducer's update branch maps over <code>state.entries</code> only, and pinning stores <code>copySuggestion(entry.item)</code> in <code>pinnedEntries</code>. The queue copy is gone after pinning, so the pinned snapshot remains as it was.</p>
+            </details>
+            <details>
+              <summary>2. Why does a workspace pin start with <code>pendingInitialPlacement: true</code>?</summary>
+              <p>The reducer can create a pin before the editor canvas has been measured. <code>DocumentEditor</code> computes a better visible rectangle on the next animation frame, commits that geometry, and the geometry reducer sets <code>pendingInitialPlacement</code> to false. <code>WorkspacePins</code> filters out pending pins, so users should see the card after placement is measured.</p>
+            </details>
+            <details>
+              <summary>3. What would break if <code>SuggestionVisual</code> stayed private to <code>SuggestionDock</code>?</summary>
+              <p>The workspace card would either have to duplicate outline/layout/mind-map rendering or omit those visuals. The extraction lets both detail view and workspace cards render structured suggestions through the same badge/tree/mermaid path.</p>
+            </details>
+            <details>
+              <summary>4. Where would you start debugging if a dragged card jumps outside the editor?</summary>
+              <p>Start in <code>WorkspacePins.tsx</code>, especially <code>clampRect</code>, the measured <code>bounds</code> from <code>canvas.clientWidth/clientHeight</code>, and the pointer operation delta calculation. If the stored geometry is valid but rendering is wrong, check the canvas wrapper in <code>DocumentEditor.tsx</code>.</p>
+            </details>
+            <details>
+              <summary>5. Which invariant keeps a workspace card above another card after the user interacts with it?</summary>
+              <p><code>workspace.raise</code> assigns the selected pin <code>state.nextZIndex</code> and then increments <code>nextZIndex</code>. The card style uses <code>zIndex: pin.zIndex</code>, so the raised card renders above cards with older z-index values.</p>
+            </details>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
