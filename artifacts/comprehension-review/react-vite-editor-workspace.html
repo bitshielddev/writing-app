@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension Review: Static Mockup to React Editor Workspace</title>
+  <style>
+    :root {
+      --ink: #1d2030;
+      --muted: #626779;
+      --paper: #fbfaf7;
+      --panel: #ffffff;
+      --line: #ddd9e8;
+      --accent: #5748e5;
+      --accent-soft: #efedff;
+      --warn: #8a5a0a;
+      --warn-bg: #fff7df;
+      --code-bg: #171923;
+      --code-fg: #f4f0ff;
+      --green: #23765a;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f4f2fd 0%, var(--paper) 42%);
+      color: var(--ink);
+      font: 16px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--accent); }
+    .page {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 64px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 28px;
+      align-items: end;
+      padding: 34px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: rgba(255,255,255,.84);
+      box-shadow: 0 18px 70px rgba(42, 38, 81, .10);
+    }
+    h1, h2, h3 { line-height: 1.15; margin: 0; }
+    h1 {
+      max-width: 780px;
+      font-size: clamp(2.1rem, 4vw, 4.2rem);
+      letter-spacing: -0.055em;
+    }
+    h2 { margin-top: 54px; font-size: clamp(1.45rem, 2vw, 2rem); letter-spacing: -.03em; }
+    h3 { margin-top: 28px; font-size: 1.05rem; }
+    p { margin: 12px 0 0; }
+    .lede { max-width: 760px; margin-top: 18px; color: var(--muted); font-size: 1.08rem; }
+    .meta {
+      border-left: 4px solid var(--accent);
+      padding-left: 16px;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+    .meta strong { display: block; color: var(--ink); }
+    .grid-3, .grid-2 {
+      display: grid;
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      padding: 20px;
+    }
+    .card h3 { margin-top: 0; }
+    .small { color: var(--muted); font-size: .92rem; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #392da5;
+      font-size: .78rem;
+      font-weight: 700;
+    }
+    .path {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .step {
+      position: relative;
+      min-height: 104px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      padding: 14px;
+      font-size: .92rem;
+    }
+    .step b { display: block; margin-bottom: 6px; }
+    .step span { color: var(--muted); }
+    pre {
+      margin: 16px 0 0;
+      overflow: auto;
+      border-radius: 16px;
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 18px;
+      font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .mark { color: #b5aaff; font-weight: 700; }
+    .note, .warn, .verify {
+      margin-top: 18px;
+      border-radius: 18px;
+      padding: 18px 20px;
+    }
+    .note { border: 1px solid #d8d2ff; background: #f6f4ff; }
+    .warn { border: 1px solid #f0d68b; background: var(--warn-bg); color: #3f300e; }
+    .verify { border: 1px solid #badfce; background: #effaf5; color: #183e31; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+    }
+    th, td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { width: 28%; background: #f7f5ff; font-size: .86rem; text-transform: uppercase; letter-spacing: .06em; color: #4c4870; }
+    tr:last-child th, tr:last-child td { border-bottom: 0; }
+    details {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      padding: 14px 16px;
+    }
+    summary { cursor: pointer; font-weight: 750; }
+    .quiz details { background: #fff; }
+    .toc {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(255,255,255,.9);
+      padding: 16px;
+    }
+    .toc a { display: block; margin-top: 8px; color: var(--muted); text-decoration: none; font-size: .9rem; }
+    .toc a:hover { color: var(--accent); }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 230px;
+      gap: 30px;
+      align-items: start;
+      margin-top: 34px;
+    }
+    .maincol { min-width: 0; }
+    .file-list { display: grid; gap: 10px; margin-top: 16px; }
+    .file-row {
+      display: grid;
+      grid-template-columns: 210px minmax(0,1fr);
+      gap: 14px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+    .file-row:last-child { border-bottom: 0; }
+    .file-row code { color: #392da5; }
+    @media (max-width: 900px) {
+      .hero, .layout, .grid-2, .grid-3, .path { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .file-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div>
+        <span class="tag">working tree review</span>
+        <h1>Static mockup becomes a Vite React writing workspace</h1>
+        <p class="lede">The committed project started as a single HTML/CSS mockup. The current working tree turns it into a typed React app with Tailwind v4 styling, a BlockNote editor, componentized side panels, and mobile drawers for navigation and AI context.</p>
+      </div>
+      <div class="meta">
+        <strong>History anchor</strong>
+        Only one commit exists: <code>ec06c0b Initial commit with html mock up</code>. There is no multi-commit design trail, so behavioural intent here is inferred from the diff and the code that replaced the mockup.
+      </div>
+    </section>
+
+    <div class="layout">
+      <main class="maincol">
+        <section id="old-new">
+          <h2>The change at the boundary</h2>
+          <p>The app boundary changed from browser-rendered markup and a linked stylesheet to a JavaScript application mounted into <code>#root</code>. That is the largest behavioural shift: UI that used to be fixed markup can now hold state, respond to viewport changes, and host an editable document surface.</p>
+
+          <div class="grid-2">
+            <div class="card">
+              <h3>Before</h3>
+              <p class="small">The initial commit rendered the whole workspace directly in <code>index.html</code> and loaded <code>styles.css</code>. No app runtime or package manifest existed.</p>
+              <pre><code>&lt;main class="app-shell" aria-label="ScribeAI writing workspace"&gt;
+  &lt;aside class="sidebar" aria-label="Project navigation"&gt;...&lt;/aside&gt;
+  &lt;section class="workspace" aria-label="Draft editor"&gt;...&lt;/section&gt;
+  &lt;aside class="context-gutter" aria-label="AI context gutter"&gt;...&lt;/aside&gt;
+&lt;/main&gt;</code></pre>
+            </div>
+            <div class="card">
+              <h3>Now</h3>
+              <p class="small"><code>index.html</code> keeps document metadata and hands rendering to Vite. The React entrypoint enforces that the mount node exists.</p>
+              <pre><code>&lt;body&gt;
+  &lt;div id="root"&gt;&lt;/div&gt;
+  &lt;script type="module" src="/src/main.tsx"&gt;&lt;/script&gt;
+&lt;/body&gt;</code></pre>
+              <pre><code>const rootElement = document.getElementById("root");
+
+if (!rootElement) {
+  throw new Error("Root element not found");
+}
+
+createRoot(rootElement).render(
+  &lt;StrictMode&gt;
+    &lt;App /&gt;
+  &lt;/StrictMode&gt;,
+);</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section id="runtime-path">
+          <h2>Follow a user action through the new runtime</h2>
+          <p>A good way to understand the new app is to follow the mobile drawer path. On desktop, the side panels are normal grid columns. Below the <code>xl</code> breakpoint, the header buttons open modal drawers. This is where most of the new control flow lives.</p>
+
+          <div class="path" aria-label="Control flow path">
+            <div class="step"><b>1. Header button</b><span><code>DocumentHeader</code> receives callbacks and calls them from responsive-only icon buttons.</span></div>
+            <div class="step"><b>2. App state</b><span><code>navigationOpen</code> or <code>contextOpen</code> flips to true.</span></div>
+            <div class="step"><b>3. Drawer mounts</b><span><code>ResponsiveDrawer</code> returns modal markup only when <code>open</code> is true.</span></div>
+            <div class="step"><b>4. Focus loop</b><span>Escape closes the drawer. Tab wraps between focusable elements in the panel.</span></div>
+            <div class="step"><b>5. Desktop reset</b><span>A media query closes drawers when the viewport reaches desktop width.</span></div>
+          </div>
+
+          <pre><code>export default function App() {
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [contextOpen, setContextOpen] = useState(false);
+
+  useEffect(() =&gt; {
+    const desktopQuery = window.matchMedia("(min-width: 1280px)");
+    const closeDrawersAtDesktop = (event: MediaQueryListEvent) =&gt; {
+      if (event.matches) {
+        setNavigationOpen(false);
+        setContextOpen(false);
+      }
+    };
+
+    desktopQuery.addEventListener("change", closeDrawersAtDesktop);
+    return () =&gt; desktopQuery.removeEventListener("change", closeDrawersAtDesktop);
+  }, []);
+
+  return (
+    &lt;main className="grid h-dvh ... xl:grid-cols-[248px_minmax(0,1fr)_320px] ..."&gt;
+      &lt;div className="hidden min-h-0 xl:block"&gt;&lt;Sidebar /&gt;&lt;/div&gt;
+      &lt;EditorWorkspace
+        onOpenNavigation={() =&gt; setNavigationOpen(true)}
+        onOpenContext={() =&gt; setContextOpen(true)}
+      /&gt;
+      &lt;div className="hidden min-h-0 xl:block"&gt;&lt;ContextGutter /&gt;&lt;/div&gt;
+    &lt;/main&gt;
+  );
+}</code></pre>
+
+          <p>The responsive behaviour is not only CSS. The media-query effect prevents an open mobile drawer from lingering after a resize to desktop, where the same content is already visible in grid columns.</p>
+
+          <pre><code>&lt;IconButton
+  icon={Menu}
+  label="Open project navigation"
+  onClick={onOpenNavigation}
+  responsiveOnly
+/&gt;
+...
+&lt;IconButton
+  icon={PanelRightOpen}
+  label="Open AI context"
+  onClick={onOpenContext}
+  responsiveOnly
+/&gt;</code></pre>
+        </section>
+
+        <section id="editor-path">
+          <h2>The mock article is now an editable BlockNote document</h2>
+          <p>The old editor canvas was a set of styled blocks in HTML. The new center pane creates a BlockNote editor with seeded content and renders <code>BlockNoteView</code>. This is the main functional upgrade: text can be edited through the BlockNote surface instead of being static display text.</p>
+
+          <pre><code>const initialContent: PartialBlock[] = [
+  {
+    type: "heading",
+    props: { level: 1 },
+    content: "The Future of AI Collaboration",
+  },
+  {
+    type: "paragraph",
+    content:
+      "The integration of artificial intelligence into creative workflows is no longer a speculative concept; it is an active paradigm shift. As we observe the maturation of language models, the focus is moving from mere automation to profound augmentation.",
+  },
+  {
+    type: "paragraph",
+    content:
+      "Unlike early tools that acted as opaque oracles, the next generation of AI interfaces is designed for cognitive partnership. They exist in the gutters of our digital canvas, offering contextual relevance without disrupting the user's flow state.",
+  },
+  {
+    type: "paragraph",
+  },
+];
+
+export function EditorWorkspace({ onOpenContext, onOpenNavigation }: EditorWorkspaceProps) {
+  <span class="mark">const editor = useCreateBlockNote({ initialContent });</span>
+
+  return (
+    &lt;section aria-label="Draft workspace" className="flex min-h-0 min-w-0 flex-col bg-white"&gt;
+      &lt;DocumentHeader ... /&gt;
+      &lt;LayoutSuggestions /&gt;
+      &lt;DocumentEditor editor={editor} /&gt;
+    &lt;/section&gt;
+  );
+}</code></pre>
+
+          <pre><code>export function DocumentEditor({ editor }: DocumentEditorProps) {
+  return (
+    &lt;section aria-label="Document editor" className="min-h-0 flex-1 overflow-y-auto ..."&gt;
+      &lt;div className="mx-auto min-h-full w-full max-w-[55rem]"&gt;
+        &lt;BlockNoteView
+          editor={editor}
+          theme="light"
+          aria-label="Editable draft content"
+          data-editor-surface
+        /&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+  );
+}</code></pre>
+
+          <div class="note">
+            <strong>Current limit:</strong> the document has client-side editor state only. The changed code does not add persistence, export behaviour, sharing, AI insertion, or server communication. Buttons for those flows are present visually, but the only wired interactions in this diff are drawer open/close and editable BlockNote content.
+          </div>
+        </section>
+
+        <section id="component-map">
+          <h2>The component split mirrors the old three-column shell</h2>
+          <p>The implementation breaks the original large HTML file into files with fairly direct responsibilities. This makes the old mockup maintainable as app code, but it also means visual copy and placeholder data now live in arrays inside components.</p>
+
+          <div class="file-list">
+            <div class="file-row"><code>src/App.tsx</code><span>Owns drawer state, desktop resize cleanup, and the three-column layout.</span></div>
+            <div class="file-row"><code>src/components/DocumentHeader.tsx</code><span>Renders title, tabs, actions, and mobile buttons that open the navigation or context drawer.</span></div>
+            <div class="file-row"><code>src/components/EditorWorkspace.tsx</code><span>Creates the BlockNote editor with initial content and composes header, suggestions, and editor.</span></div>
+            <div class="file-row"><code>src/components/DocumentEditor.tsx</code><span>Hosts <code>BlockNoteView</code> and marks it with <code>data-editor-surface</code> for custom CSS targeting.</span></div>
+            <div class="file-row"><code>src/components/Sidebar.tsx</code><span>Turns nav items, footer items, and sources into mapped button lists using Lucide icons.</span></div>
+            <div class="file-row"><code>src/components/ContextGutter.tsx</code><span>Renders AI snippets, tabs, copy/insert icon buttons, and the context steering input.</span></div>
+            <div class="file-row"><code>src/components/ResponsiveDrawer.tsx</code><span>Provides the modal behaviour used by both side panels on smaller screens.</span></div>
+            <div class="file-row"><code>src/index.css</code><span>Replaces <code>styles.css</code> with Tailwind v4 setup, theme tokens, base rules, and BlockNote-specific overrides.</span></div>
+          </div>
+
+          <h3>Static lists are now data-driven inside components</h3>
+          <pre><code>const navigationItems: NavigationItem[] = [
+  { icon: BookOpen, label: "Library" },
+  { icon: Clock3, label: "Recent", active: true },
+  { icon: FileText, label: "Templates" },
+  { icon: FolderClosed, label: "Collections" },
+  { icon: Settings2, label: "Settings" },
+];
+
+...
+
+&lt;nav aria-label="Main sections" className="grid gap-1.5"&gt;
+  {navigationItems.map((item) =&gt; (
+    &lt;NavigationButton key={item.label} {...item} /&gt;
+  ))}
+&lt;/nav&gt;</code></pre>
+
+          <p>That pattern also appears in <code>LayoutSuggestions</code> and <code>ContextGutter</code>. Adding or renaming a placeholder item is now a data edit rather than a markup duplication edit.</p>
+        </section>
+
+        <section id="drawer-details">
+          <h2>The most stateful code is the drawer</h2>
+          <p><code>ResponsiveDrawer</code> is the part of the change with the most behaviour beyond rendering. It mounts a dialog, focuses the close button, closes on Escape, closes on backdrop click, wraps Tab within the panel, and restores focus after cleanup.</p>
+
+          <pre><code>useEffect(() =&gt; {
+  if (!open) {
+    return;
+  }
+
+  const previouslyFocused = document.activeElement as HTMLElement | null;
+  const focusFrame = window.requestAnimationFrame(() =&gt; closeButtonRef.current?.focus());
+  const handleKeyDown = (event: KeyboardEvent) =&gt; {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusableElements = panelRef.current?.querySelectorAll&lt;HTMLElement&gt;(
+      'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+    );
+
+    if (!focusableElements?.length) {
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  };
+
+  document.addEventListener("keydown", handleKeyDown);
+
+  return () =&gt; {
+    window.cancelAnimationFrame(focusFrame);
+    document.removeEventListener("keydown", handleKeyDown);
+    window.requestAnimationFrame(() =&gt; previouslyFocused?.focus());
+  };
+}, [onClose, open]);</code></pre>
+
+          <div class="warn">
+            <strong>Maintainer note:</strong> <code>onClose</code> is passed as an inline arrow from <code>App</code>. If future parent state updates happen while a drawer is open, this effect can clean up and re-run because <code>onClose</code> has a new identity. In the current code, user edits in BlockNote should not re-render <code>App</code>, so this is mainly a future-change risk. If drawer focus starts jumping after more state is added, wrapping the close handlers in <code>useCallback</code> would be a reasonable first check.
+          </div>
+        </section>
+
+        <section id="styling-build">
+          <h2>Styling moved from authored CSS classes to Tailwind plus targeted BlockNote CSS</h2>
+          <p>The deleted <code>styles.css</code> held custom selectors for every part of the mockup. The new <code>src/index.css</code> sets Tailwind v4 up, defines theme variables, applies base accessibility rules, and then customizes BlockNote using the <code>data-editor-surface</code> marker from <code>DocumentEditor</code>.</p>
+
+          <pre><code>@import "tailwindcss";
+@source "../node_modules/@blocknote/shadcn";
+
+@theme inline {
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: "Literata", Georgia, "Times New Roman", serif;
+  --color-brand-600: #5748e5;
+  --color-brand-700: #4434c9;
+}
+
+.bn-root[data-editor-surface][data-color-scheme] {
+  --bn-colors-editor-text: #2c2a35;
+  --bn-colors-editor-background: transparent;
+  --bn-colors-selected-background: #5748e5;
+  --bn-border-radius: 6px;
+  --bn-font-family: "Inter", system-ui, sans-serif;
+}
+
+.bn-root[data-editor-surface] .bn-block-content[data-content-type="paragraph"] .bn-inline-content {
+  color: #2c2a35;
+  font-family: "Literata", Georgia, serif;
+  font-size: clamp(1.05rem, 0.45vw + 0.95rem, 1.35rem);
+  line-height: 1.72;
+}</code></pre>
+
+          <p>The <code>@source</code> directive matters because the project is using Tailwind v4 and BlockNote's shadcn package. It tells Tailwind to include class usage from that dependency. The rest of the app mostly uses utility classes directly in JSX.</p>
+        </section>
+
+        <section id="tooling">
+          <h2>The project now has a build contract</h2>
+          <p>New package and config files define how this should be run and checked. The relevant scripts are short:</p>
+
+          <pre><code>"scripts": {
+  "dev": "vite",
+  "build": "tsc -b && vite build",
+  "lint": "eslint .",
+  "preview": "vite preview"
+}</code></pre>
+
+          <table>
+            <tr><th>Runtime dependencies</th><td><code>react</code>, <code>react-dom</code>, BlockNote packages, and <code>lucide-react</code> for icons.</td></tr>
+            <tr><th>Tooling</th><td>Vite 8, TypeScript 6, ESLint 10, Tailwind v4, React plugin for Vite.</td></tr>
+            <tr><th>Type posture</th><td><code>strict</code>, <code>noUnusedLocals</code>, <code>noUnusedParameters</code>, and project references via <code>tsconfig.json</code>.</td></tr>
+            <tr><th>Ignored outputs</th><td><code>.gitignore</code> now excludes <code>node_modules/</code>, <code>dist/</code>, <code>*.local</code>, and <code>.DS_Store</code>.</td></tr>
+          </table>
+
+          <div class="verify">
+            <strong>Verification run for this review:</strong> <code>npm run lint</code> completed with no output. <code>npm run build</code> completed successfully, with Vite warning that one generated JS chunk is larger than 500 kB after minification. That warning is consistent with adding BlockNote and does not fail the build.
+          </div>
+        </section>
+
+        <section id="risks">
+          <h2>What future you should be careful about</h2>
+          <div class="grid-2">
+            <div class="card">
+              <h3>Do not assume all visible controls are wired</h3>
+              <p>The header's Export, Share, history, generate ideas, and more buttons have no action handlers. Context snippet copy/insert buttons also render without behaviour. The UI looks app-like, but the implemented behaviours are narrower.</p>
+            </div>
+            <div class="card">
+              <h3>Keep editor styling coupled to <code>data-editor-surface</code></h3>
+              <p>The BlockNote CSS selectors rely on <code>data-editor-surface</code>. If that attribute is removed from <code>BlockNoteView</code>, editor typography and colors will stop matching the workspace styling.</p>
+            </div>
+            <div class="card">
+              <h3>Drawer accessibility depends on mounted content</h3>
+              <p>The focus loop queries buttons, inputs, links, and non-negative tabindex elements inside the panel. If a future drawer has no focusable children, the loop returns early. This code is safe, but the resulting dialog would not have a meaningful tab target beyond any close button that remains.</p>
+            </div>
+            <div class="card">
+              <h3>Large client bundle is now part of the baseline</h3>
+              <p>The production build succeeded but reported a large chunk. If startup performance becomes a goal, the editor package is a likely place to inspect for code-splitting.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="quiz" class="quiz">
+          <h2>Comprehension check</h2>
+          <p>Use these to test whether the main paths are clear before editing this code.</p>
+
+          <details>
+            <summary>1. On a phone-sized viewport, what path opens the navigation panel?</summary>
+            <p><code>DocumentHeader</code> renders a responsive-only menu <code>IconButton</code>. Its <code>onClick</code> calls <code>onOpenNavigation</code>, passed from <code>EditorWorkspace</code> props into <code>DocumentHeader</code>. In <code>App</code>, that callback sets <code>navigationOpen</code> to true, causing the left <code>ResponsiveDrawer</code> to mount with <code>Sidebar</code> as its children.</p>
+          </details>
+
+          <details>
+            <summary>2. What would break visually if <code>data-editor-surface</code> were removed from <code>BlockNoteView</code>?</summary>
+            <p>The custom BlockNote selectors in <code>src/index.css</code> would no longer match. The editor would still render, but the configured editor colors, transparent background, heading style, paragraph font, spacing, and mobile padding rules would not apply through those selectors.</p>
+          </details>
+
+          <details>
+            <summary>3. Which parts of the app are real interactions now, and which are placeholders?</summary>
+            <p>Real interactions in this diff: BlockNote editing and responsive drawer open/close, including Escape, backdrop click, focus movement, and desktop resize cleanup. Placeholder controls include Export, Share, history, generate ideas, more options, context tab switching, snippet copy, snippet insert, source upload, and navigation buttons.</p>
+          </details>
+
+          <details>
+            <summary>4. Why does the App media-query effect close both drawers at <code>min-width: 1280px</code>?</summary>
+            <p>At <code>xl</code>, the layout shows <code>Sidebar</code> and <code>ContextGutter</code> as grid columns. Closing the drawer state during the transition prevents a mobile modal version of the same content from staying mounted on top of the desktop layout.</p>
+          </details>
+
+          <details>
+            <summary>5. Where would you start debugging if the editor rendered but looked unstyled?</summary>
+            <p>Start with <code>DocumentEditor.tsx</code> and <code>src/index.css</code>: confirm <code>BlockNoteView</code> imports <code>@blocknote/shadcn/style.css</code>, still has <code>data-editor-surface</code>, and that Tailwind is processing <code>src/index.css</code> through the Vite Tailwind plugin. The project also uses <code>@source "../node_modules/@blocknote/shadcn"</code>, which is relevant to generated classes from that package.</p>
+          </details>
+        </section>
+      </main>
+
+      <aside class="toc" aria-label="Review navigation">
+        <strong>Review path</strong>
+        <a href="#old-new">Boundary change</a>
+        <a href="#runtime-path">Runtime path</a>
+        <a href="#editor-path">Editor path</a>
+        <a href="#component-map">Component map</a>
+        <a href="#drawer-details">Drawer behaviour</a>
+        <a href="#styling-build">Styling and build</a>
+        <a href="#risks">Risks</a>
+        <a href="#quiz">Questions</a>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>

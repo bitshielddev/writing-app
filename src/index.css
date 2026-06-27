@@ -1,0 +1,206 @@
+@import "tailwindcss";
+@source "../node_modules/@blocknote/shadcn";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: light;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --radius: 0.5rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.18 0.018 286);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.018 286);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.018 286);
+  --primary: oklch(0.51 0.23 276);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0.008 286);
+  --secondary-foreground: oklch(0.25 0.024 286);
+  --muted: oklch(0.96 0.012 286);
+  --muted-foreground: oklch(0.51 0.025 286);
+  --accent: oklch(0.94 0.028 286);
+  --accent-foreground: oklch(0.42 0.19 276);
+  --destructive: oklch(0.58 0.23 28);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.9 0.018 286);
+  --input: oklch(0.9 0.018 286);
+  --ring: oklch(0.58 0.18 276);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.96 0.012 286);
+  --sidebar-foreground: oklch(0.18 0.018 286);
+  --sidebar-primary: oklch(0.51 0.23 276);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.92 0.027 286);
+  --sidebar-accent-foreground: oklch(0.42 0.19 276);
+  --sidebar-border: oklch(0.88 0.024 286);
+  --sidebar-ring: oklch(0.58 0.18 276);
+}
+
+@theme inline {
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: "Literata", Georgia, "Times New Roman", serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-brand-50: #f7f6ff;
+  --color-brand-100: #eceaff;
+  --color-brand-200: #ddd9ff;
+  --color-brand-300: #c3bdff;
+  --color-brand-400: #9c8fff;
+  --color-brand-500: #7565f4;
+  --color-brand-600: #5748e5;
+  --color-brand-700: #4434c9;
+  --color-brand-800: #392da5;
+  --color-brand-900: #332a83;
+
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: calc(var(--radius) - 0.125rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100dvh;
+    background: #2f3038;
+    color: #1a1b22;
+  }
+
+  button,
+  a,
+  input {
+    outline-offset: 3px;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible {
+    outline: 3px solid rgb(87 72 229 / 28%);
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  .bn-shadcn * {
+    @apply border-border outline-ring/50;
+  }
+}
+
+.app-background {
+  background:
+    radial-gradient(circle at top left, rgb(255 255 255 / 8%) 0 1px, transparent 1px 100%) 0 0 / 16px 16px,
+    #2f3038;
+}
+
+.bn-root[data-editor-surface][data-color-scheme] {
+  --bn-colors-editor-text: #2c2a35;
+  --bn-colors-editor-background: transparent;
+  --bn-colors-menu-text: #2c2a35;
+  --bn-colors-menu-background: #ffffff;
+  --bn-colors-tooltip-text: #ffffff;
+  --bn-colors-tooltip-background: #2f3038;
+  --bn-colors-hovered-text: #3525cd;
+  --bn-colors-hovered-background: #eeedf7;
+  --bn-colors-selected-text: #ffffff;
+  --bn-colors-selected-background: #5748e5;
+  --bn-colors-disabled-text: #9b98aa;
+  --bn-colors-disabled-background: #f4f2fd;
+  --bn-colors-shadow: rgb(25 24 37 / 18%);
+  --bn-colors-border: #d7d4e8;
+  --bn-colors-side-menu: #aaa6bd;
+  --bn-border-radius: 6px;
+  --bn-font-family: "Inter", system-ui, sans-serif;
+}
+
+.bn-root[data-editor-surface] {
+  min-height: 100%;
+  background: transparent;
+}
+
+.bn-root[data-editor-surface] .bn-container,
+.bn-root[data-editor-surface] .bn-editor {
+  background: transparent;
+}
+
+.bn-root[data-editor-surface] .bn-editor {
+  min-height: 36rem;
+  padding: 0 3.375rem 10rem;
+}
+
+.bn-root[data-editor-surface] .bn-block-content[data-content-type="heading"] .bn-inline-content {
+  color: #1a1b22;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: clamp(2rem, 2vw + 1rem, 2.75rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.bn-root[data-editor-surface] .bn-block-content[data-content-type="paragraph"] .bn-inline-content {
+  color: #2c2a35;
+  font-family: "Literata", Georgia, serif;
+  font-size: clamp(1.05rem, 0.45vw + 0.95rem, 1.35rem);
+  line-height: 1.72;
+}
+
+.bn-root[data-editor-surface] .bn-block[data-node-type="blockContainer"]:first-child {
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 767px) {
+  .bn-root[data-editor-surface] .bn-editor {
+    padding-inline: 2.5rem 1.25rem;
+  }
+}
