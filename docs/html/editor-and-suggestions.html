@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Trace agent context, feed events, inbox transitions, editable previews, and workspace pins end to end." />
+    <meta name="theme-color" content="#f7f8fc" />
+    <title>Editor and suggestion system · ScribeAI docs</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script>try{const t=localStorage.getItem("scribe-docs-theme");if(t){document.documentElement.dataset.theme=t}else if(matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.dataset.theme="dark"}}catch{}</script>
+    <script src="assets/search-index.js" defer></script>
+    <script src="assets/site.js" defer></script>
+  </head>
+  <body data-page="editor-and-suggestions.html">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="reading-progress" aria-hidden="true"><span></span></div>
+    <div class="mobile-overlay" data-nav-close hidden></div>
+    <aside class="site-sidebar" id="site-navigation" aria-label="Documentation navigation">
+      <div class="sidebar-header">
+        <a class="brand" href="index.html" aria-label="ScribeAI documentation home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>ScribeAI</strong><small>Developer docs</small></span>
+        </a>
+        <button type="button" class="icon-button sidebar-close" data-nav-close aria-label="Close navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+      </div>
+      <div class="sidebar-search">
+        <button type="button" class="search-trigger" data-search-open aria-label="Search documentation">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search docs</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="sidebar-scroll"><section class="nav-group"><h2>Get oriented</h2><nav aria-label="Get oriented"><a class="nav-link" href="index.html">
+            <span class="nav-link__number">00</span>
+            <span>Overview</span>
+          </a><a class="nav-link" href="getting-started.html">
+            <span class="nav-link__number">01</span>
+            <span>Getting started</span>
+          </a><a class="nav-link" href="architecture.html">
+            <span class="nav-link__number">02</span>
+            <span>Architecture</span>
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link is-active" href="editor-and-suggestions.html" aria-current="page">
+            <span class="nav-link__number">03</span>
+            <span>Editor & suggestions</span>
+          </a><a class="nav-link" href="ui-and-accessibility.html">
+            <span class="nav-link__number">04</span>
+            <span>UI & accessibility</span>
+          </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
+            <span class="nav-link__number">05</span>
+            <span>Testing & quality</span>
+          </a><a class="nav-link" href="extension-guide.html">
+            <span class="nav-link__number">06</span>
+            <span>Extension guide</span>
+          </a></nav></section></div>
+      <div class="sidebar-footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span><strong>Current snapshot</strong><small>Client-only prototype</small></span>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <button type="button" class="icon-button" data-nav-open aria-controls="site-navigation" aria-expanded="false" aria-label="Open navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+      <a class="mobile-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>ScribeAI docs</strong></a>
+      <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+    </header>
+
+    <div class="search-dialog" data-search-dialog role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
+      <div class="search-backdrop" data-search-close></div>
+      <div class="search-panel">
+        <div class="search-input-wrap">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg>
+          <label class="sr-only" id="search-title" for="site-search">Search documentation</label>
+          <input id="site-search" type="search" placeholder="Search architecture, previews, testing…" autocomplete="off" data-search-input />
+          <button type="button" class="search-close" data-search-close aria-label="Close search"><kbd>Esc</kbd></button>
+        </div>
+        <div class="search-results" data-search-results>
+          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search across all seven guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
+        </div>
+      </div>
+    </div>
+
+    <main class="site-main" id="main-content">
+      <div class="desktop-toolbar">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Developer docs</a><span>/</span><span>Build internals</span></nav>
+        <div class="toolbar-actions">
+          <button type="button" class="toolbar-search" data-search-open><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search</span><kbd>⌘ K</kbd></button>
+          <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="page-shell">
+        <div class="content-column">
+          <header class="page-hero page-hero--amber">
+            <div class="page-hero__meta"><span>Guide 03</span><span>7 min read</span></div>
+            <h1>Editor and suggestion system</h1>
+            <p>Trace agent context, feed events, inbox transitions, editable previews, and workspace pins end to end.</p>
+            <div class="page-hero__footer">
+              <span><i class="status-dot" aria-hidden="true"></i> Reflects the current codebase</span>
+              <a href="../editor-and-suggestions.md">View Markdown <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg></a>
+            </div>
+            <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+          </header>
+
+          <article class="prose"><p>This is the core interaction model: the editor supplies accepted document context, the feed emits events, the inbox reducer turns those events and user actions into state, and text suggestions can temporarily enter the document as editable previews.</p>
+<h2 id="domain-model">Domain model<a class="heading-anchor" href="#domain-model" aria-label="Link to Domain model">#</a></h2><p>The shared contracts are in <a href="../../src/suggestions/types.ts"><code>src/suggestions/types.ts</code></a>.</p>
+<h3 id="suggestion-kinds">Suggestion kinds<a class="heading-anchor" href="#suggestion-kinds" aria-label="Link to Suggestion kinds">#</a></h3><table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Type</th>
+<th>Extra data</th>
+<th>Can preview into document?</th>
+<th>Visual treatment</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>snippet</code></td>
+<td><code>TextSuggestion</code></td>
+<td><code>insertText</code></td>
+<td>Yes</td>
+<td>Text detail</td>
+</tr>
+<tr>
+<td><code>fact</code></td>
+<td><code>TextSuggestion</code></td>
+<td><code>insertText</code></td>
+<td>Yes</td>
+<td>Text detail</td>
+</tr>
+<tr>
+<td><code>term</code></td>
+<td><code>TextSuggestion</code></td>
+<td><code>insertText</code></td>
+<td>Yes</td>
+<td>Text detail</td>
+</tr>
+<tr>
+<td><code>outline</code></td>
+<td><code>StructureSuggestion</code></td>
+<td>recursive <code>nodes</code></td>
+<td>No</td>
+<td>Nested structure cards</td>
+</tr>
+<tr>
+<td><code>layout</code></td>
+<td><code>StructureSuggestion</code></td>
+<td>recursive <code>nodes</code></td>
+<td>No</td>
+<td>Nested structure cards</td>
+</tr>
+<tr>
+<td><code>mindMap</code></td>
+<td><code>MindMapSuggestion</code></td>
+<td>Mermaid source and accessible description</td>
+<td>No</td>
+<td>Lazy-rendered Mermaid diagram</td>
+</tr>
+</tbody></table>
+<p>Every suggestion also carries:</p>
+<ul>
+<li><code>id</code>: identity for updates, retractions, selection, and actions;</li>
+<li><code>dedupeKey</code>: session-level duplicate prevention for additions;</li>
+<li><code>title</code>, <code>summary</code>, and <code>body</code>: progressively more detailed presentation text;</li>
+<li><code>sourceLabels</code>: display-only attribution labels;</li>
+<li><code>createdAt</code>: ordering and queue-eviction input.</li>
+</ul>
+<p>An update uses <code>id</code> to replace an existing live item. An addition uses <code>dedupeKey</code> to decide whether the session has already seen equivalent content. These fields are related but not interchangeable.</p>
+<h2 id="agent-context">Agent context<a class="heading-anchor" href="#agent-context" aria-label="Link to Agent context">#</a></h2><p><a href="../../src/suggestions/contextSource.ts"><code>createAgentContextSource</code></a> owns two inputs:</p>
+<ul>
+<li>the latest <code>DocumentSnapshot</code>;</li>
+<li>immutable artifact references supplied at construction.</li>
+</ul>
+<p>A document snapshot is a revision plus a flat array of <code>{ id, type, text }</code> blocks. <code>updateDocument</code> JSON-fingerprints the array and publishes only when the flattened content changes. The revision begins at 0 and increments for every unique snapshot.</p>
+<p><a href="../../src/editor/documentContext.ts"><code>getAcceptedDocumentBlocks</code></a> builds the array from BlockNote:</p>
+<ol>
+<li>walk all blocks depth-first;</li>
+<li>omit any block whose type is <code>suggestionPreview</code>;</li>
+<li>reduce inline rich content to plain text;</li>
+<li>continue through child blocks;</li>
+<li>preserve each accepted block&#39;s ID and type.</li>
+</ol>
+<p>Formatting marks and non-text structure are not represented beyond the block type. A production model needing rich structure, selection context, comments, or source anchors will require a versioned context contract rather than expanding this implicit shape ad hoc.</p>
+<p><code>App</code> publishes context on initial mount and on every editor change. Duplicate calls are harmless because the context source suppresses unchanged snapshots.</p>
+<h2 id="feed-contract">Feed contract<a class="heading-anchor" href="#feed-contract" aria-label="Link to Feed contract">#</a></h2><p><code>SuggestionFeed</code> has three operations:</p>
+<div class="code-block" data-language="ts"><div class="code-block__bar"><span>ts</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-ts">interface SuggestionFeed {
+  subscribe(listener: (event: SuggestionEvent) =&gt; void): () =&gt; void;
+  sendSteering(prompt: string): Promise&lt;void&gt;;
+  retry(): Promise&lt;void&gt;;
+}</code></pre></div><p>The event channel supports:</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>suggestion.added</code></td>
+<td>Introduce a suggestion if its <code>dedupeKey</code> has not been seen.</td>
+</tr>
+<tr>
+<td><code>suggestion.updated</code></td>
+<td>Replace a live suggestion with the same <code>id</code>.</td>
+</tr>
+<tr>
+<td><code>suggestion.retracted</code></td>
+<td>Remove a live suggestion, unless user state protects it.</td>
+</tr>
+<tr>
+<td><code>agent.status</code></td>
+<td>Set <code>idle</code>, <code>working</code>, or <code>offline</code> and clear the current error.</td>
+</tr>
+<tr>
+<td><code>agent.error</code></td>
+<td>Set a displayable error and whether Retry is available.</td>
+</tr>
+</tbody></table>
+<p>The current mock implementation in <a href="../../src/suggestions/mockSuggestionFeed.ts"><code>mockSuggestionFeed.ts</code></a>:</p>
+<ul>
+<li>opens a <code>BroadcastChannel</code> receiver when its first listener subscribes;</li>
+<li>forwards valid <code>suggestion.added</code> events sent by the temporary <code>/mock-suggestions</code> controller;</li>
+<li>emits no initial, timed, document-derived, status, error, or offline events;</li>
+<li>leaves <code>sendSteering()</code> and <code>retry()</code> as resolved no-ops in manual mode;</li>
+<li>closes the channel receiver after its last listener leaves.</li>
+</ul>
+<p>The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs. The controller and channel code are isolated under <a href="../../src/dev/mockSuggestions"><code>src/dev/mockSuggestions</code></a> so they can be removed with the path switch and the feed subscription when a real transport replaces the mock.</p>
+<h2 id="inbox-state-machine">Inbox state machine<a class="heading-anchor" href="#inbox-state-machine" aria-label="Link to Inbox state machine">#</a></h2><p><a href="../../src/suggestions/inbox.ts"><code>inboxReducer</code></a> owns:</p>
+<div class="code-block" data-language="text"><div class="code-block__bar"><span>text</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-text">entries             live inbox suggestions
+pinnedEntries       frozen references in the Pins section
+workspacePins       frozen references placed over the editor
+seenKeys            dedupe keys accepted during this page session
+selectedId          item shown in detail view
+activePreviewId     the one suggestion currently previewed in BlockNote
+nextZIndex          monotonic stacking counter for workspace cards
+status / error      agent presentation state</code></pre></div><h3 id="feed-event-behavior">Feed-event behavior<a class="heading-anchor" href="#feed-event-behavior" aria-label="Link to Feed-event behavior">#</a></h3><table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Reducer behavior</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Add with a new <code>dedupeKey</code></td>
+<td>Append an unread live entry, then enforce the 30-entry limit.</td>
+</tr>
+<tr>
+<td>Add with a seen <code>dedupeKey</code></td>
+<td>Ignore it, even if the earlier entry was dismissed or evicted.</td>
+</tr>
+<tr>
+<td>Update a normal live item</td>
+<td>Replace the item.</td>
+</tr>
+<tr>
+<td>Update the active preview&#39;s live item</td>
+<td>Replace the inbox item and mark it stale; the editor preview is untouched.</td>
+</tr>
+<tr>
+<td>Update a pinned or workspace item</td>
+<td>No change to that frozen copy.</td>
+</tr>
+<tr>
+<td>Retract a normal live item</td>
+<td>Remove it.</td>
+</tr>
+<tr>
+<td>Retract a selected or previewed live item</td>
+<td>Keep it and mark it withdrawn and stale.</td>
+</tr>
+<tr>
+<td>Retract a pinned or workspace item</td>
+<td>Ignore the retraction.</td>
+</tr>
+<tr>
+<td>Agent status</td>
+<td>Set status and clear error.</td>
+</tr>
+<tr>
+<td>Agent error</td>
+<td>Store the error and return status to idle.</td>
+</tr>
+</tbody></table>
+<h3 id="queue-limit">Queue limit<a class="heading-anchor" href="#queue-limit" aria-label="Link to Queue limit">#</a></h3><p>The live queue is limited to 30. Pins and workspace cards do not count. If eviction is necessary:</p>
+<ol>
+<li>the selected item and active preview are protected;</li>
+<li>viewed items are evicted before unread items;</li>
+<li>within that group, the oldest <code>createdAt</code> value is evicted first.</li>
+</ol>
+<p>The UI sorts the remaining live entries differently for display: unread first, then newest first. Pinned entries display most recently pinned first.</p>
+<h3 id="user-action-behavior">User-action behavior<a class="heading-anchor" href="#user-action-behavior" aria-label="Link to User-action behavior">#</a></h3><ul>
+<li>Selecting marks the item viewed and opens detail.</li>
+<li>Back clears detail and removes withdrawn entries unless one still owns the active preview.</li>
+<li>Dismiss removes an inbox or pinned item and closes its detail view. Dismiss is disabled while that item has the active preview.</li>
+<li>Pin removes a live item and stores a deep copy with <code>pinnedAt</code>. This freezes the content.</li>
+<li>Unpin moves the frozen item back to the live queue and reapplies the queue limit.</li>
+<li>Place on workspace moves a pinned item to the canvas, unless it owns the active preview.</li>
+<li>Return to Pins removes the workspace card and creates a viewed pinned entry.</li>
+<li>Raising a card assigns a new monotonic z-index only if it is not already highest.</li>
+</ul>
+<p>The deep copy currently uses JSON serialization. Suggestion data must therefore remain JSON-safe unless <code>copySuggestion</code> is replaced with a different immutable-copy strategy.</p>
+<h2 id="editable-preview-lifecycle">Editable preview lifecycle<a class="heading-anchor" href="#editable-preview-lifecycle" aria-label="Link to Editable preview lifecycle">#</a></h2><p>Only <code>snippet</code>, <code>fact</code>, and <code>term</code> suggestions expose “Preview in document.” The orchestration is split between <code>App</code>, the custom BlockNote block, and the inbox reducer.</p>
+<figure class="diagram diagram--timeline" aria-labelledby="preview-timeline-title">
+    <figcaption id="preview-timeline-title"><span class="diagram__eyebrow">Interaction sequence</span><strong>Editable preview lifecycle</strong></figcaption>
+    <ol class="timeline-steps">
+      <li><span class="timeline-number">01</span><div><strong>Request</strong><p>A text suggestion asks App to preview in the document.</p></div></li><li><span class="timeline-number">02</span><div><strong>Place</strong><p>App inserts a custom preview after the last active accepted block.</p></div></li><li><span class="timeline-number">03</span><div><strong>Own</strong><p>The inbox records the one active preview; the user can edit it freely.</p></div></li><li><span class="timeline-number">04</span><div><strong>Resolve</strong><p>Accept replaces it with a paragraph; Cancel removes it.</p></div></li><li><span class="timeline-number">05</span><div><strong>Reconcile</strong><p>The preview event bridge resolves the suggestion in the reducer.</p></div></li>
+    </ol>
+    <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>sequenceDiagram
+    participant User
+    participant Dock as SuggestionDock
+    participant App
+    participant Inbox as inboxReducer
+    participant Editor as BlockNote preview block
+    participant Bridge as previewEvents
+
+    User-&gt;&gt;Dock: Preview in document
+    Dock-&gt;&gt;App: onPreview(item)
+    App-&gt;&gt;App: choose last active accepted block
+    App-&gt;&gt;Editor: insert suggestionPreview after target
+    App-&gt;&gt;Inbox: preview.started(id)
+    App-&gt;&gt;Editor: focus and scroll preview
+    User-&gt;&gt;Editor: edit preview content
+    alt Accept
+        Editor-&gt;&gt;Editor: replace preview with paragraph
+        Editor-&gt;&gt;Bridge: accepted(id)
+        Bridge-&gt;&gt;App: resolution event
+        App-&gt;&gt;Inbox: preview.resolved(accepted)
+        Inbox-&gt;&gt;Inbox: remove suggestion
+    else Cancel
+        Editor-&gt;&gt;Editor: remove preview and restore cursor
+        Editor-&gt;&gt;Bridge: cancelled(id)
+        Bridge-&gt;&gt;App: resolution event
+        App-&gt;&gt;Inbox: preview.resolved(cancelled)
+        Inbox-&gt;&gt;Inbox: keep suggestion unless withdrawn
+    end</code></pre></details>
+  </figure><h3 id="preview-insertion">Preview insertion<a class="heading-anchor" href="#preview-insertion" aria-label="Link to Preview insertion">#</a></h3><p><code>App.handlePreview</code> rejects the request when:</p>
+<ul>
+<li>another preview is active;</li>
+<li>the suggestion is not a text suggestion;</li>
+<li>there is no accepted reference block.</li>
+</ul>
+<p>It finds the most recently selected text block among accepted blocks. If that block no longer exists, it falls back to the final accepted top-level block. The preview is inserted immediately after that block with:</p>
+<ul>
+<li><code>suggestionId</code>, for resolving inbox state;</li>
+<li><code>targetBlockId</code>, for cursor restoration on cancellation;</li>
+<li>editable inline content initialized from <code>insertText</code>.</li>
+</ul>
+<p>The inserted block receives focus and is scrolled toward the center of the viewport.</p>
+<h3 id="preview-rendering-and-resolution">Preview rendering and resolution<a class="heading-anchor" href="#preview-rendering-and-resolution" aria-label="Link to Preview rendering and resolution">#</a></h3><p><a href="../../src/editor/schema.tsx"><code>schema.tsx</code></a> registers <code>suggestionPreview</code> alongside BlockNote&#39;s default blocks. Its React renderer owns the buttons:</p>
+<ul>
+<li>Accept is disabled if recursive content inspection finds no visible text.</li>
+<li>Accept replaces the custom block with a normal paragraph carrying the edited inline content.</li>
+<li>Cancel removes the block and tries to return the cursor to <code>targetBlockId</code>, falling back to the final document block.</li>
+<li>Both outcomes emit an in-process resolution event.</li>
+</ul>
+<p>The preview&#39;s <code>toExternalHTML</code> returns an empty span, so preview content is not intended for exported HTML. There is no export implementation yet, but this protects future default serialization from treating a temporary proposal as accepted text.</p>
+<h3 id="concurrent-feed-changes">Concurrent feed changes<a class="heading-anchor" href="#concurrent-feed-changes" aria-label="Link to Concurrent feed changes">#</a></h3><p>The preview is a snapshot. If the feed updates the source suggestion, the detail view reports that the item was refined, but the user&#39;s editable block is never rewritten. If the feed retracts it, the detail view reports withdrawal and the preview remains resolvable. Cancelling a withdrawn preview removes the suggestion; accepting any preview removes it.</p>
+<h2 id="pins-and-workspace-cards">Pins and workspace cards<a class="heading-anchor" href="#pins-and-workspace-cards" aria-label="Link to Pins and workspace cards">#</a></h2><p>Pins are a separate lifecycle from previews:</p>
+<figure class="diagram diagram--states" aria-labelledby="pin-lifecycle-title">
+    <figcaption id="pin-lifecycle-title"><span class="diagram__eyebrow">State model</span><strong>A suggestion moves between three explicit homes</strong></figcaption>
+    <div class="state-flow">
+      <div class="state-node"><small>Live</small><strong>Inbox</strong><span>Agent-owned stream</span></div>
+      <div class="state-actions"><span>Pin →</span><span>← Unpin</span></div>
+      <div class="state-node state-node--active"><small>Frozen</small><strong>Pins</strong><span>User-owned snapshot</span></div>
+      <div class="state-actions"><span>Place →</span><span>← Return</span></div>
+      <div class="state-node"><small>Desktop</small><strong>Workspace</strong><span>Positioned reference</span></div>
+    </div>
+    <p class="state-exit"><span aria-hidden="true">×</span> Inbox and Pins can exit through dismiss or an accepted preview; normal live items can also be retracted.</p>
+    <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>stateDiagram-v2
+    [*] --&gt; Inbox: suggestion.added
+    Inbox --&gt; Pins: Pin
+    Pins --&gt; Inbox: Unpin
+    Pins --&gt; Workspace: Place on workspace (desktop)
+    Workspace --&gt; Pins: Return to Pins
+    Inbox --&gt; [*]: Dismiss / accepted preview / retraction
+    Pins --&gt; [*]: Dismiss / accepted preview</code></pre></details>
+  </figure><p>When a card is placed, the reducer marks it <code>pendingInitialPlacement</code>. On the next animation frame, <a href="../../src/components/DocumentEditor.tsx"><code>DocumentEditor</code></a> calculates a visible position based on:</p>
+<ul>
+<li>suggestion-kind default size;</li>
+<li>current canvas width and height;</li>
+<li>current scroll viewport;</li>
+<li>a five-position, 24 px cascade.</li>
+</ul>
+<p>It then commits the geometry, clearing the pending flag. <a href="../../src/components/WorkspacePins.tsx"><code>WorkspacePins</code></a> renders only committed cards and clamps them whenever the canvas changes size.</p>
+<p>Initial sizes are:</p>
+<table>
+<thead>
+<tr>
+<th>Content</th>
+<th align="right">Width</th>
+<th align="right">Height</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Text suggestion</td>
+<td align="right">320 px</td>
+<td align="right">240 px</td>
+</tr>
+<tr>
+<td>Outline or layout</td>
+<td align="right">380 px</td>
+<td align="right">300 px</td>
+</tr>
+<tr>
+<td>Mind map</td>
+<td align="right">460 px</td>
+<td align="right">340 px</td>
+</tr>
+</tbody></table>
+<p>Cards cannot be smaller than 280 × 180 px and keep 16 px of edge padding. Geometry and z-order are in-memory and reset on reload.</p>
+<h2 id="mermaid-rendering">Mermaid rendering<a class="heading-anchor" href="#mermaid-rendering" aria-label="Link to Mermaid rendering">#</a></h2><p>Mind maps use <a href="../../src/components/MermaidDiagram.tsx"><code>MermaidDiagram</code></a>:</p>
+<ul>
+<li>the <code>mermaid</code> package is imported once, lazily;</li>
+<li>the singleton is initialized with <code>securityLevel: &quot;strict&quot;</code> and <code>startOnLoad: false</code>;</li>
+<li>React IDs are sanitized into per-render Mermaid IDs;</li>
+<li>the rendered SVG is injected into a <code>role=&quot;img&quot;</code> container with a combined title and accessible description;</li>
+<li>errors render the description as a visible fallback;</li>
+<li>the effect ignores late async results after unmount.</li>
+</ul>
+<p>Because SVG injection is deliberate, keep Mermaid in strict mode and treat source strings as untrusted when replacing the mock feed.</p>
+</article>
+          <nav class="page-pagination" aria-label="Documentation pages">
+    <a class="page-pagination__link page-pagination__link--previous" href="architecture.html"><span>Previous</span><strong>← Architecture</strong></a>
+    <a class="page-pagination__link page-pagination__link--next" href="ui-and-accessibility.html"><span>Next</span><strong>UI & accessibility →</strong></a>
+  </nav>
+          <footer class="content-footer"><p>ScribeAI developer documentation</p><p>Generated from <a href="../editor-and-suggestions.md">editor-and-suggestions.md</a>.</p></footer>
+        </div>
+
+        <aside class="page-toc" aria-label="On this page">
+          <div class="page-toc__inner">
+            <h2>On this page</h2>
+            <nav><a class="toc-link toc-link--2" href="#domain-model">Domain model</a><a class="toc-link toc-link--3" href="#suggestion-kinds">Suggestion kinds</a><a class="toc-link toc-link--2" href="#agent-context">Agent context</a><a class="toc-link toc-link--2" href="#feed-contract">Feed contract</a><a class="toc-link toc-link--2" href="#inbox-state-machine">Inbox state machine</a><a class="toc-link toc-link--3" href="#feed-event-behavior">Feed-event behavior</a><a class="toc-link toc-link--3" href="#queue-limit">Queue limit</a><a class="toc-link toc-link--3" href="#user-action-behavior">User-action behavior</a><a class="toc-link toc-link--2" href="#editable-preview-lifecycle">Editable preview lifecycle</a><a class="toc-link toc-link--3" href="#preview-insertion">Preview insertion</a><a class="toc-link toc-link--3" href="#preview-rendering-and-resolution">Preview rendering and resolution</a><a class="toc-link toc-link--3" href="#concurrent-feed-changes">Concurrent feed changes</a><a class="toc-link toc-link--2" href="#pins-and-workspace-cards">Pins and workspace cards</a><a class="toc-link toc-link--2" href="#mermaid-rendering">Mermaid rendering</a></nav>
+            <a class="toc-source" href="../editor-and-suggestions.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <noscript><div class="noscript">JavaScript is only used for search, navigation controls, and theme switching. All documentation content remains available.</div></noscript>
+  </body>
+</html>

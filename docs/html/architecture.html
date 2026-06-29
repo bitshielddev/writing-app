@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Understand the browser-only system boundary, state ownership, data direction, and module responsibilities." />
+    <meta name="theme-color" content="#f7f8fc" />
+    <title>Architecture · ScribeAI docs</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script>try{const t=localStorage.getItem("scribe-docs-theme");if(t){document.documentElement.dataset.theme=t}else if(matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.dataset.theme="dark"}}catch{}</script>
+    <script src="assets/search-index.js" defer></script>
+    <script src="assets/site.js" defer></script>
+  </head>
+  <body data-page="architecture.html">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="reading-progress" aria-hidden="true"><span></span></div>
+    <div class="mobile-overlay" data-nav-close hidden></div>
+    <aside class="site-sidebar" id="site-navigation" aria-label="Documentation navigation">
+      <div class="sidebar-header">
+        <a class="brand" href="index.html" aria-label="ScribeAI documentation home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>ScribeAI</strong><small>Developer docs</small></span>
+        </a>
+        <button type="button" class="icon-button sidebar-close" data-nav-close aria-label="Close navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+      </div>
+      <div class="sidebar-search">
+        <button type="button" class="search-trigger" data-search-open aria-label="Search documentation">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search docs</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="sidebar-scroll"><section class="nav-group"><h2>Get oriented</h2><nav aria-label="Get oriented"><a class="nav-link" href="index.html">
+            <span class="nav-link__number">00</span>
+            <span>Overview</span>
+          </a><a class="nav-link" href="getting-started.html">
+            <span class="nav-link__number">01</span>
+            <span>Getting started</span>
+          </a><a class="nav-link is-active" href="architecture.html" aria-current="page">
+            <span class="nav-link__number">02</span>
+            <span>Architecture</span>
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">03</span>
+            <span>Editor & suggestions</span>
+          </a><a class="nav-link" href="ui-and-accessibility.html">
+            <span class="nav-link__number">04</span>
+            <span>UI & accessibility</span>
+          </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
+            <span class="nav-link__number">05</span>
+            <span>Testing & quality</span>
+          </a><a class="nav-link" href="extension-guide.html">
+            <span class="nav-link__number">06</span>
+            <span>Extension guide</span>
+          </a></nav></section></div>
+      <div class="sidebar-footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span><strong>Current snapshot</strong><small>Client-only prototype</small></span>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <button type="button" class="icon-button" data-nav-open aria-controls="site-navigation" aria-expanded="false" aria-label="Open navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+      <a class="mobile-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>ScribeAI docs</strong></a>
+      <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+    </header>
+
+    <div class="search-dialog" data-search-dialog role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
+      <div class="search-backdrop" data-search-close></div>
+      <div class="search-panel">
+        <div class="search-input-wrap">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg>
+          <label class="sr-only" id="search-title" for="site-search">Search documentation</label>
+          <input id="site-search" type="search" placeholder="Search architecture, previews, testing…" autocomplete="off" data-search-input />
+          <button type="button" class="search-close" data-search-close aria-label="Close search"><kbd>Esc</kbd></button>
+        </div>
+        <div class="search-results" data-search-results>
+          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search across all seven guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
+        </div>
+      </div>
+    </div>
+
+    <main class="site-main" id="main-content">
+      <div class="desktop-toolbar">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Developer docs</a><span>/</span><span>Get oriented</span></nav>
+        <div class="toolbar-actions">
+          <button type="button" class="toolbar-search" data-search-open><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search</span><kbd>⌘ K</kbd></button>
+          <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="page-shell">
+        <div class="content-column">
+          <header class="page-hero page-hero--cyan">
+            <div class="page-hero__meta"><span>Guide 02</span><span>5 min read</span></div>
+            <h1>Architecture</h1>
+            <p>Understand the browser-only system boundary, state ownership, data direction, and module responsibilities.</p>
+            <div class="page-hero__footer">
+              <span><i class="status-dot" aria-hidden="true"></i> Reflects the current codebase</span>
+              <a href="../architecture.md">View Markdown <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg></a>
+            </div>
+            <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+          </header>
+
+          <article class="prose"><h2 id="system-boundary">System boundary<a class="heading-anchor" href="#system-boundary" aria-label="Link to System boundary">#</a></h2><p>The application is browser-only React. The entry point has one temporary pathname switch for <code>/mock-suggestions</code>; there is no routing library or server boundary in the current repository.</p>
+<figure class="diagram diagram--architecture" aria-labelledby="architecture-map-title">
+    <figcaption id="architecture-map-title">
+      <span class="diagram__eyebrow">System map</span>
+      <strong>State moves in one direction through explicit owners</strong>
+    </figcaption>
+    <div class="architecture-flow">
+      <div class="diagram-node diagram-node--person"><span>User</span></div>
+      <span class="diagram-arrow" aria-hidden="true">↓</span>
+      <div class="diagram-node diagram-node--primary"><small>Composition root</small><span>App</span></div>
+      <div class="diagram-branches" aria-label="App connections">
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Document</small><span>BlockNote editor</span></div></div>
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Context</small><span>Accepted snapshot</span></div></div>
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Preference</small><span>Column widths</span></div></div>
+      </div>
+      <div class="diagram-pipeline" aria-label="Suggestion event pipeline">
+        <div class="diagram-node"><span>Agent context</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
+        <div class="diagram-node"><span>Suggestion feed</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
+        <div class="diagram-node diagram-node--primary"><span>Inbox reducer</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
+        <div class="diagram-node"><span>Dock & cards</span></div>
+      </div>
+    </div>
+    <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>flowchart LR
+    User[User]
+    Shell[App composition root]
+    Editor[BlockNote editor]
+    Context[Mutable agent context]
+    Feed[Suggestion feed adapter]
+    Inbox[Suggestion inbox reducer]
+    Dock[Writing partner UI]
+    Pins[Workspace cards]
+    Storage[(localStorage widths)]
+    Controller[Temporary suggestion controller]
+    Channel[BroadcastChannel]
+
+    User --&gt; Shell
+    Shell --&gt; Editor
+    Editor --&gt;|accepted block snapshot| Context
+    Feed --&gt;|SuggestionEvent| Inbox
+    Inbox --&gt; Dock
+    Inbox --&gt; Pins
+    Dock --&gt;|select, pin, dismiss, steer, preview| Shell
+    Editor --&gt;|preview accepted/cancelled| Inbox
+    Shell &lt;--&gt; Storage
+    Controller --&gt; Channel
+    Channel --&gt; Feed</code></pre></details>
+  </figure><p>The service-shaped interfaces exist, but their current implementations are in-memory. This separation is the main seam for adding a real agent or persistence later.</p>
+<h2 id="composition-root">Composition root<a class="heading-anchor" href="#composition-root" aria-label="Link to Composition root">#</a></h2><p><a href="../../src/App.tsx"><code>App.tsx</code></a> creates and connects long-lived objects:</p>
+<ol>
+<li><code>useCreateBlockNote</code> creates the editor from <code>writingSchema</code> and seeded content.</li>
+<li><code>createAgentContextSource</code> creates the mutable document/artifact context and is memoized for the component lifetime.</li>
+<li><code>createMockSuggestionFeed</code> creates the feed with the existing context-shaped constructor seam and is also memoized.</li>
+<li><code>useSuggestionInbox</code> subscribes to the feed and owns the suggestion lifecycle reducer.</li>
+<li><code>App</code> bridges editor changes into agent context, creates editor preview blocks, translates preview resolution events back into inbox actions, and controls responsive panels.</li>
+</ol>
+<p>Keeping feed and context creation stable is important. Recreating either during a render would reset context revisions, reopen the manual channel, and resubscribe the inbox.</p>
+<h2 id="state-ownership">State ownership<a class="heading-anchor" href="#state-ownership" aria-label="Link to State ownership">#</a></h2><table>
+<thead>
+<tr>
+<th>State</th>
+<th>Owner</th>
+<th>Lifetime / persistence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Editor blocks and selection</td>
+<td>BlockNote editor created in <code>App</code></td>
+<td>Current page only</td>
+</tr>
+<tr>
+<td>Accepted document snapshot and revision</td>
+<td><code>createAgentContextSource</code> closure</td>
+<td>Current page only</td>
+</tr>
+<tr>
+<td>Feed subscribers and injected-event channel</td>
+<td><code>createMockSuggestionFeed</code> closure</td>
+<td>While at least one feed subscriber exists</td>
+</tr>
+<tr>
+<td>Inbox, pins, preview id, agent status, errors</td>
+<td><code>useSuggestionInbox</code> / <code>inboxReducer</code></td>
+<td>Current page only</td>
+</tr>
+<tr>
+<td>Workspace pin geometry and z-order</td>
+<td>Inbox reducer</td>
+<td>Current page only</td>
+</tr>
+<tr>
+<td>Desktop panel open/closed state</td>
+<td><code>App</code> React state</td>
+<td>Current page only</td>
+</tr>
+<tr>
+<td>Mobile drawer open/closed state</td>
+<td><code>App</code> React state</td>
+<td>Current page only</td>
+</tr>
+<tr>
+<td>Last editor block with a text cursor</td>
+<td><code>App</code> React state</td>
+<td>Current page only</td>
+</tr>
+<tr>
+<td>Desktop column widths</td>
+<td><code>App</code> React state</td>
+<td><code>localStorage</code> when available</td>
+</tr>
+<tr>
+<td>Draft title, tab, source, and navigation data</td>
+<td>Component constants</td>
+<td>Static</td>
+</tr>
+</tbody></table>
+<p>There is intentionally one owner for each lifecycle. Components such as <code>SuggestionDock</code>, <code>WorkspacePins</code>, and <code>DocumentHeader</code> receive values and callbacks; they do not own duplicate application state.</p>
+<h2 id="module-boundaries">Module boundaries<a class="heading-anchor" href="#module-boundaries" aria-label="Link to Module boundaries">#</a></h2><h3 id="src-editor"><code>src/editor</code><a class="heading-anchor" href="#src-editor" aria-label="Link to src/editor">#</a></h3><ul>
+<li><a href="../../src/editor/schema.tsx"><code>schema.tsx</code></a> extends BlockNote with the <code>suggestionPreview</code> block and implements accept/cancel behavior.</li>
+<li><a href="../../src/editor/documentContext.ts"><code>documentContext.ts</code></a> flattens editor blocks into the agent-facing text snapshot and removes preview blocks.</li>
+<li><a href="../../src/editor/previewEvents.ts"><code>previewEvents.ts</code></a> is a small in-process event bridge from the custom block renderer back to <code>App</code>.</li>
+</ul>
+<p>The editor layer knows suggestion IDs, but it does not import or mutate inbox state.</p>
+<h3 id="src-suggestions"><code>src/suggestions</code><a class="heading-anchor" href="#src-suggestions" aria-label="Link to src/suggestions">#</a></h3><ul>
+<li><a href="../../src/suggestions/types.ts"><code>types.ts</code></a> defines suggestion data and the feed/context interfaces.</li>
+<li><a href="../../src/suggestions/contextSource.ts"><code>contextSource.ts</code></a> stores revisioned document context and artifact references.</li>
+<li><a href="../../src/suggestions/mockSuggestionFeed.ts"><code>mockSuggestionFeed.ts</code></a> implements the feed contract over the temporary injected-event channel.</li>
+<li><a href="../../src/suggestions/inbox.ts"><code>inbox.ts</code></a> implements all suggestion, pin, preview, and workspace transitions.</li>
+<li><a href="../../src/suggestions/workspacePinLayout.ts"><code>workspacePinLayout.ts</code></a> supplies type-specific initial card sizes.</li>
+</ul>
+<p>This layer is React-independent except for the <code>useSuggestionInbox</code> hook at the bottom of <code>inbox.ts</code>. The reducer itself is a pure function and is the most important unit-test boundary.</p>
+<h3 id="src-components"><code>src/components</code><a class="heading-anchor" href="#src-components" aria-label="Link to src/components">#</a></h3><ul>
+<li><a href="../../src/components/EditorWorkspace.tsx"><code>EditorWorkspace.tsx</code></a> joins the document header and editor surface.</li>
+<li><a href="../../src/components/DocumentEditor.tsx"><code>DocumentEditor.tsx</code></a> renders BlockNote and calculates initial workspace-card placement.</li>
+<li><a href="../../src/components/SuggestionDock.tsx"><code>SuggestionDock.tsx</code></a> renders the inbox, pinned section, detail view, steering form, and errors.</li>
+<li><a href="../../src/components/WorkspacePins.tsx"><code>WorkspacePins.tsx</code></a> renders desktop cards and handles bounded pointer/keyboard geometry.</li>
+<li><a href="../../src/components/DocumentHeader.tsx"><code>DocumentHeader.tsx</code></a> exposes responsive panel controls and document action placeholders.</li>
+<li><a href="../../src/components/ResponsiveDrawer.tsx"><code>ResponsiveDrawer.tsx</code></a> provides the below-desktop modal panel behavior.</li>
+<li><a href="../../src/components/ColumnResizeHandle.tsx"><code>ColumnResizeHandle.tsx</code></a> provides pointer and keyboard column resizing.</li>
+<li><a href="../../src/components/SuggestionPresentation.tsx"><code>SuggestionPresentation.tsx</code></a> renders kind badges and structured suggestion visuals.</li>
+<li><a href="../../src/components/MermaidDiagram.tsx"><code>MermaidDiagram.tsx</code></a> lazy-loads Mermaid and renders an accessible fallback on failure.</li>
+<li><a href="../../src/components/Sidebar.tsx"><code>Sidebar.tsx</code></a> is the static project navigation shell.</li>
+</ul>
+<p>Components rely on their props for application actions. When adding behavior, prefer moving data and transitions into the relevant owner rather than making a display component stateful.</p>
+<h2 id="bootstrap-and-runtime-sequence">Bootstrap and runtime sequence<a class="heading-anchor" href="#bootstrap-and-runtime-sequence" aria-label="Link to Bootstrap and runtime sequence">#</a></h2><figure class="diagram diagram--timeline" aria-labelledby="bootstrap-timeline-title">
+    <figcaption id="bootstrap-timeline-title"><span class="diagram__eyebrow">Runtime sequence</span><strong>Application bootstrap</strong></figcaption>
+    <ol class="timeline-steps">
+      <li><span class="timeline-number">01</span><div><strong>Render</strong><p>main.tsx mounts App inside StrictMode.</p></div></li><li><span class="timeline-number">02</span><div><strong>Create</strong><p>App creates the schema-backed editor and stable context source.</p></div></li><li><span class="timeline-number">03</span><div><strong>Connect</strong><p>The mock feed is created over context; the inbox subscribes.</p></div></li><li><span class="timeline-number">04</span><div><strong>Publish</strong><p>Accepted editor blocks become the first document snapshot.</p></div></li><li><span class="timeline-number">05</span><div><strong>Emit</strong><p>The feed sends status and initial suggestion events.</p></div></li><li><span class="timeline-number">06</span><div><strong>Observe</strong><p>Later editor changes publish unique revisioned snapshots.</p></div></li><li><span class="timeline-number">07</span><div><strong>Reduce</strong><p>Document-derived events enter the same inbox state machine.</p></div></li>
+    </ol>
+    <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>sequenceDiagram
+    participant Main as main.tsx
+    participant App
+    participant Editor as BlockNote
+    participant Context as AgentContextSource
+    participant Controller as Mock controller tab
+    participant Feed as SuggestionFeed
+    participant Inbox as useSuggestionInbox
+
+    Main-&gt;&gt;App: render inside StrictMode
+    App-&gt;&gt;Editor: create schema-backed editor
+    App-&gt;&gt;Context: create with artifact references
+    App-&gt;&gt;Feed: create over context source
+    Inbox-&gt;&gt;Feed: subscribe
+    App-&gt;&gt;Context: publish initial accepted blocks
+    Controller-&gt;&gt;Feed: broadcasts suggestion.added
+    Feed--&gt;&gt;Inbox: suggestion.added
+    Editor--&gt;&gt;App: onChange
+    App-&gt;&gt;Context: publish changed accepted blocks</code></pre></details>
+  </figure><p>Document snapshot publication happens once in an effect after setup and again through the editor <code>onChange</code> callback. The context source fingerprints the flattened block array, so a duplicate publication does not increment the revision or notify listeners.</p>
+<h2 id="data-direction-and-dependency-rules">Data direction and dependency rules<a class="heading-anchor" href="#data-direction-and-dependency-rules" aria-label="Link to Data direction and dependency rules">#</a></h2><p>The intended dependency direction is:</p>
+<div class="code-block" data-language="text"><div class="code-block__bar"><span>text</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-text">types/contracts
+    ↑
+editor utilities     suggestion implementations
+    ↑                         ↑
+components  ← props/callbacks → App composition root</code></pre></div><p>Practical rules:</p>
+<ul>
+<li>Domain contracts belong in <code>suggestions/types.ts</code>, not in UI components.</li>
+<li>Suggestion lifecycle changes belong in the reducer and should have reducer tests.</li>
+<li>Transport or model SDK code should sit behind <code>SuggestionFeed</code>.</li>
+<li>Editor serialization/context filtering belongs in <code>editor/documentContext.ts</code>.</li>
+<li>Cross-feature orchestration is acceptable in <code>App.tsx</code>; lower-level components should not import the composition root or one another&#39;s state.</li>
+<li>CSS layout variables are set by <code>App</code> but interpreted by <code>index.css</code>.</li>
+</ul>
+<h2 id="styling-architecture">Styling architecture<a class="heading-anchor" href="#styling-architecture" aria-label="Link to Styling architecture">#</a></h2><p>Tailwind CSS 4 is loaded through the Vite plugin and <code>@import &quot;tailwindcss&quot;</code> in <a href="../../src/index.css"><code>index.css</code></a>. Most component styling is inline utility classes. The global stylesheet is reserved for:</p>
+<ul>
+<li>theme tokens and brand colors;</li>
+<li>base focus and typography rules;</li>
+<li>the responsive three-column grid;</li>
+<li>BlockNote variable and content overrides;</li>
+<li>the custom suggestion-preview block;</li>
+<li>Mermaid SVG sizing.</li>
+</ul>
+<p>BlockNote&#39;s shadcn stylesheet is imported by <code>DocumentEditor.tsx</code>. Its utility classes are made visible to Tailwind&#39;s scanner with <code>@source &quot;../node_modules/@blocknote/shadcn&quot;</code>.</p>
+<h2 id="build-and-runtime-assumptions">Build and runtime assumptions<a class="heading-anchor" href="#build-and-runtime-assumptions" aria-label="Link to Build and runtime assumptions">#</a></h2><ul>
+<li>TypeScript is strict and emits no files during type-checking.</li>
+<li>Vite targets a browser application; there is no server-side rendering guard around browser globals.</li>
+<li>Mermaid is a dynamic chunk because <code>MermaidDiagram</code> imports it lazily.</li>
+<li>Google Fonts are external runtime requests. Font failure degrades to local fallbacks.</li>
+<li><code>dist/</code> is generated and ignored by ESLint; source code lives under <code>src/</code>.</li>
+<li>Files in <code>artifacts/</code> are not imported and have no runtime effect.</li>
+</ul>
+<h2 id="architectural-invariants">Architectural invariants<a class="heading-anchor" href="#architectural-invariants" aria-label="Link to Architectural invariants">#</a></h2><p>Changes should preserve these unless the design is deliberately revised and documented:</p>
+<ol>
+<li>Only one editable suggestion preview can exist at a time.</li>
+<li>Preview content is user-owned once inserted; feed updates never overwrite it.</li>
+<li>Agent context contains accepted content only, never preview blocks.</li>
+<li>Pinned suggestions are frozen snapshots and ignore later feed updates or retractions.</li>
+<li>The live inbox holds at most 30 entries; pinned and workspace entries do not count toward that limit.</li>
+<li>Selected and previewed entries are protected from queue eviction.</li>
+<li>Desktop panel state and mobile drawer state are separate.</li>
+<li>Workspace geometry is clamped to the current editor canvas.</li>
+</ol>
+</article>
+          <nav class="page-pagination" aria-label="Documentation pages">
+    <a class="page-pagination__link page-pagination__link--previous" href="getting-started.html"><span>Previous</span><strong>← Getting started</strong></a>
+    <a class="page-pagination__link page-pagination__link--next" href="editor-and-suggestions.html"><span>Next</span><strong>Editor & suggestions →</strong></a>
+  </nav>
+          <footer class="content-footer"><p>ScribeAI developer documentation</p><p>Generated from <a href="../architecture.md">architecture.md</a>.</p></footer>
+        </div>
+
+        <aside class="page-toc" aria-label="On this page">
+          <div class="page-toc__inner">
+            <h2>On this page</h2>
+            <nav><a class="toc-link toc-link--2" href="#system-boundary">System boundary</a><a class="toc-link toc-link--2" href="#composition-root">Composition root</a><a class="toc-link toc-link--2" href="#state-ownership">State ownership</a><a class="toc-link toc-link--2" href="#module-boundaries">Module boundaries</a><a class="toc-link toc-link--3" href="#src-editor">src/editor</a><a class="toc-link toc-link--3" href="#src-suggestions">src/suggestions</a><a class="toc-link toc-link--3" href="#src-components">src/components</a><a class="toc-link toc-link--2" href="#bootstrap-and-runtime-sequence">Bootstrap and runtime sequence</a><a class="toc-link toc-link--2" href="#data-direction-and-dependency-rules">Data direction and dependency rules</a><a class="toc-link toc-link--2" href="#styling-architecture">Styling architecture</a><a class="toc-link toc-link--2" href="#build-and-runtime-assumptions">Build and runtime assumptions</a><a class="toc-link toc-link--2" href="#architectural-invariants">Architectural invariants</a></nav>
+            <a class="toc-source" href="../architecture.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <noscript><div class="noscript">JavaScript is only used for search, navigation controls, and theme switching. All documentation content remains available.</div></noscript>
+  </body>
+</html>

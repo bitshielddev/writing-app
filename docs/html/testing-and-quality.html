@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Know what the automated suite protects, where browser checks are required, and what to run before handoff." />
+    <meta name="theme-color" content="#f7f8fc" />
+    <title>Testing and quality · ScribeAI docs</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script>try{const t=localStorage.getItem("scribe-docs-theme");if(t){document.documentElement.dataset.theme=t}else if(matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.dataset.theme="dark"}}catch{}</script>
+    <script src="assets/search-index.js" defer></script>
+    <script src="assets/site.js" defer></script>
+  </head>
+  <body data-page="testing-and-quality.html">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="reading-progress" aria-hidden="true"><span></span></div>
+    <div class="mobile-overlay" data-nav-close hidden></div>
+    <aside class="site-sidebar" id="site-navigation" aria-label="Documentation navigation">
+      <div class="sidebar-header">
+        <a class="brand" href="index.html" aria-label="ScribeAI documentation home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>ScribeAI</strong><small>Developer docs</small></span>
+        </a>
+        <button type="button" class="icon-button sidebar-close" data-nav-close aria-label="Close navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+      </div>
+      <div class="sidebar-search">
+        <button type="button" class="search-trigger" data-search-open aria-label="Search documentation">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search docs</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="sidebar-scroll"><section class="nav-group"><h2>Get oriented</h2><nav aria-label="Get oriented"><a class="nav-link" href="index.html">
+            <span class="nav-link__number">00</span>
+            <span>Overview</span>
+          </a><a class="nav-link" href="getting-started.html">
+            <span class="nav-link__number">01</span>
+            <span>Getting started</span>
+          </a><a class="nav-link" href="architecture.html">
+            <span class="nav-link__number">02</span>
+            <span>Architecture</span>
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">03</span>
+            <span>Editor & suggestions</span>
+          </a><a class="nav-link" href="ui-and-accessibility.html">
+            <span class="nav-link__number">04</span>
+            <span>UI & accessibility</span>
+          </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link is-active" href="testing-and-quality.html" aria-current="page">
+            <span class="nav-link__number">05</span>
+            <span>Testing & quality</span>
+          </a><a class="nav-link" href="extension-guide.html">
+            <span class="nav-link__number">06</span>
+            <span>Extension guide</span>
+          </a></nav></section></div>
+      <div class="sidebar-footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span><strong>Current snapshot</strong><small>Client-only prototype</small></span>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <button type="button" class="icon-button" data-nav-open aria-controls="site-navigation" aria-expanded="false" aria-label="Open navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+      <a class="mobile-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>ScribeAI docs</strong></a>
+      <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+    </header>
+
+    <div class="search-dialog" data-search-dialog role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
+      <div class="search-backdrop" data-search-close></div>
+      <div class="search-panel">
+        <div class="search-input-wrap">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg>
+          <label class="sr-only" id="search-title" for="site-search">Search documentation</label>
+          <input id="site-search" type="search" placeholder="Search architecture, previews, testing…" autocomplete="off" data-search-input />
+          <button type="button" class="search-close" data-search-close aria-label="Close search"><kbd>Esc</kbd></button>
+        </div>
+        <div class="search-results" data-search-results>
+          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search across all seven guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
+        </div>
+      </div>
+    </div>
+
+    <main class="site-main" id="main-content">
+      <div class="desktop-toolbar">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Developer docs</a><span>/</span><span>Ship safely</span></nav>
+        <div class="toolbar-actions">
+          <button type="button" class="toolbar-search" data-search-open><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search</span><kbd>⌘ K</kbd></button>
+          <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="page-shell">
+        <div class="content-column">
+          <header class="page-hero page-hero--green">
+            <div class="page-hero__meta"><span>Guide 05</span><span>5 min read</span></div>
+            <h1>Testing and quality</h1>
+            <p>Know what the automated suite protects, where browser checks are required, and what to run before handoff.</p>
+            <div class="page-hero__footer">
+              <span><i class="status-dot" aria-hidden="true"></i> Reflects the current codebase</span>
+              <a href="../testing-and-quality.md">View Markdown <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg></a>
+            </div>
+            <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+          </header>
+
+          <article class="prose"><h2 id="test-stack">Test stack<a class="heading-anchor" href="#test-stack" aria-label="Link to Test stack">#</a></h2><ul>
+<li>Vitest 4 runs the test suite.</li>
+<li>jsdom supplies the browser-like environment configured in <a href="../../vite.config.ts"><code>vite.config.ts</code></a>.</li>
+<li>Testing Library renders React components and queries their accessible output.</li>
+<li><code>@testing-library/user-event</code> drives user-style interactions.</li>
+<li><a href="../../src/test/setup.ts"><code>src/test/setup.ts</code></a> cleans up rendered React trees after every test.</li>
+</ul>
+<p>Tests are colocated with source files and use <code>*.test.ts</code> or <code>*.test.tsx</code>.</p>
+<h2 id="commands">Commands<a class="heading-anchor" href="#commands" aria-label="Link to Commands">#</a></h2><div class="code-block" data-language="bash"><div class="code-block__bar"><span>bash</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-bash">npm test
+npm run test:watch
+npm run lint
+npm run build</code></pre></div><p><code>npm run build</code> is also the authoritative type check because it runs <code>tsc -b</code> before Vite. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.</p>
+<h2 id="current-automated-coverage">Current automated coverage<a class="heading-anchor" href="#current-automated-coverage" aria-label="Link to Current automated coverage">#</a></h2><p>The suite currently contains 29 tests across nine files.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What it protects</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="../../src/suggestions/inbox.test.ts"><code>suggestions/inbox.test.ts</code></a></td>
+<td>Dedupe, 30-item eviction, stale/withdrawn previews, frozen pins, workspace transitions, preview resolution, and z-order.</td>
+</tr>
+<tr>
+<td><a href="../../src/suggestions/mockSuggestionFeed.test.ts"><code>suggestions/mockSuggestionFeed.test.ts</code></a></td>
+<td>Manual channel delivery, malformed-message rejection, no-op generation paths, and unsubscribe cleanup.</td>
+</tr>
+<tr>
+<td><a href="../../src/dev/mockSuggestions/mockSuggestionDraft.test.ts"><code>dev/mockSuggestions/mockSuggestionDraft.test.ts</code></a></td>
+<td>Common metadata, every kind-specific payload, recursive node JSON, and validation failures.</td>
+</tr>
+<tr>
+<td><a href="../../src/dev/mockSuggestions/MockSuggestionController.test.tsx"><code>dev/mockSuggestions/MockSuggestionController.test.tsx</code></a></td>
+<td>Dynamic fields, form submission/reset, channel publication, and unsupported-browser behavior.</td>
+</tr>
+<tr>
+<td><a href="../../src/suggestions/contextSource.test.ts"><code>suggestions/contextSource.test.ts</code></a></td>
+<td>Changed-document publication, revisioning, and artifact access.</td>
+</tr>
+<tr>
+<td><a href="../../src/components/SuggestionDock.test.tsx"><code>components/SuggestionDock.test.tsx</code></a></td>
+<td>Unified stream, text preview action, pin presentation, and workspace placement callback.</td>
+</tr>
+<tr>
+<td><a href="../../src/components/WorkspacePins.test.tsx"><code>components/WorkspacePins.test.tsx</code></a></td>
+<td>Card content, return action, keyboard geometry, and pointer drag commit.</td>
+</tr>
+<tr>
+<td><a href="../../src/components/DocumentHeader.test.tsx"><code>components/DocumentHeader.test.tsx</code></a></td>
+<td>Desktop panel semantics, hidden-partner unread count, and independent mobile controls.</td>
+</tr>
+<tr>
+<td><a href="../../src/components/ResponsiveDrawer.test.tsx"><code>components/ResponsiveDrawer.test.tsx</code></a></td>
+<td>Escape/close behavior and focus restoration.</td>
+</tr>
+</tbody></table>
+<h3 id="why-reducer-tests-matter-most">Why reducer tests matter most<a class="heading-anchor" href="#why-reducer-tests-matter-most" aria-label="Link to Why reducer tests matter most">#</a></h3><p>The inbox reducer contains the application&#39;s lifecycle invariants and is pure. Any change to dedupe, updates, retractions, selection, previewing, pins, workspace geometry, queue limits, or unread behavior should begin with a reducer case. Component tests should then verify that the correct intent is exposed to users.</p>
+<h3 id="feed-lifecycle-tests">Feed lifecycle tests<a class="heading-anchor" href="#feed-lifecycle-tests" aria-label="Link to Feed lifecycle tests">#</a></h3><p>The mock feed owns a browser channel while it has subscribers. Always unsubscribe and verify no new events arrive; feed cleanup is required for React <code>StrictMode</code> and future reconnection logic.</p>
+<h3 id="geometry-tests">Geometry tests<a class="heading-anchor" href="#geometry-tests" aria-label="Link to Geometry tests">#</a></h3><p>jsdom does not perform layout. Workspace tests mock <code>clientWidth</code> and <code>clientHeight</code>, and pointer-capture methods are stubbed where needed. A passing geometry unit test does not replace browser testing for actual scroll, resizing, and pointer behavior.</p>
+<h2 id="what-is-not-covered-automatically">What is not covered automatically<a class="heading-anchor" href="#what-is-not-covered-automatically" aria-label="Link to What is not covered automatically">#</a></h2><p>The current suite does not render the full <code>App</code> or BlockNote editor. It therefore does not directly verify:</p>
+<ul>
+<li>preview block insertion, editing, accepting, or cancellation;</li>
+<li>accepted-document extraction from a real BlockNote document;</li>
+<li>panel drag resizing and <code>localStorage</code> restoration;</li>
+<li>breakpoint transitions and drawer/desktop handoff;</li>
+<li>initial workspace-card placement in the real scrolling canvas;</li>
+<li>canvas clamping through a real <code>ResizeObserver</code>;</li>
+<li>Mermaid SVG rendering and failure handling;</li>
+<li>production bundle execution;</li>
+<li>visual layout, overflow, font fallback, or contrast.</li>
+</ul>
+<p>Changes in these areas require targeted tests where practical and the manual checks below.</p>
+<h2 id="manual-regression-checklist">Manual regression checklist<a class="heading-anchor" href="#manual-regression-checklist" aria-label="Link to Manual regression checklist">#</a></h2><h3 id="editor-and-context">Editor and context<a class="heading-anchor" href="#editor-and-context" aria-label="Link to Editor and context">#</a></h3><ul>
+<li>The seeded document renders and remains editable.</li>
+<li>Editing accepted text does not create a suggestion in manual mock mode.</li>
+<li>Editing a temporary preview does not itself enter accepted agent context.</li>
+<li>Block formatting, selection, slash menu, and normal BlockNote editing still work.</li>
+</ul>
+<h3 id="suggestion-lifecycle">Suggestion lifecycle<a class="heading-anchor" href="#suggestion-lifecycle" aria-label="Link to Suggestion lifecycle">#</a></h3><ul>
+<li>The inbox remains empty until a controller event is sent.</li>
+<li>Each of the six controller kinds appears with its entered content and visual treatment.</li>
+<li>Sending a direction clears the form but produces no suggestion in manual mock mode.</li>
+<li>Selecting marks an item read; Back returns to the correct queue.</li>
+<li>Pin and unpin preserve a frozen copy and correct ordering.</li>
+<li>An empty steering direction shows an error.</li>
+</ul>
+<h3 id="preview-lifecycle">Preview lifecycle<a class="heading-anchor" href="#preview-lifecycle" aria-label="Link to Preview lifecycle">#</a></h3><ul>
+<li>Only text kinds offer Preview.</li>
+<li>The preview appears after the last active accepted block and receives focus.</li>
+<li>Only one preview can be active.</li>
+<li>The preview is editable; empty content disables Accept.</li>
+<li>Cancel removes the block and keeps a normal source suggestion.</li>
+<li>Accept converts it to a normal paragraph and removes the suggestion.</li>
+<li>Feed update/retraction does not overwrite an existing preview.</li>
+</ul>
+<h3 id="desktop-layout-80rem">Desktop layout (<code>&gt;=80rem</code>)<a class="heading-anchor" href="#desktop-layout-80rem" aria-label="Link to Desktop layout ( =80rem)">#</a></h3><ul>
+<li>Both side columns can collapse independently.</li>
+<li>Pointer and keyboard resizing respect the editor&#39;s minimum space.</li>
+<li>Reload restores sizes; double-click resets them.</li>
+<li>A pinned detail can be placed on the workspace.</li>
+<li>Cards move, resize, stack, clamp, scroll internally, and return to Pins.</li>
+<li>Selecting suggestion detail does not make the center editor unusably narrow.</li>
+</ul>
+<h3 id="below-desktop-80rem">Below desktop (<code>&lt;80rem</code>)<a class="heading-anchor" href="#below-desktop-80rem" aria-label="Link to Below desktop (&lt;80rem)">#</a></h3><ul>
+<li>Navigation and writing partner open as the correct side drawers.</li>
+<li>Escape, backdrop, and close button dismiss a drawer.</li>
+<li>Focus enters the drawer, wraps, and returns to the trigger.</li>
+<li>Workspace placement is unavailable and no workspace card is shown.</li>
+<li>Header controls and status tabs remain reachable without horizontal page overflow.</li>
+</ul>
+<h3 id="accessibility">Accessibility<a class="heading-anchor" href="#accessibility" aria-label="Link to Accessibility">#</a></h3><ul>
+<li>Complete core flows with keyboard only.</li>
+<li>Inspect button/dialog/region names with browser accessibility tools.</li>
+<li>Confirm visible focus on all interactive elements.</li>
+<li>Confirm unread counts and errors are announced as text, not color alone.</li>
+<li>Force invalid Mermaid source and confirm the description remains available.</li>
+</ul>
+<h2 id="adding-tests">Adding tests<a class="heading-anchor" href="#adding-tests" aria-label="Link to Adding tests">#</a></h2><p>Match the test boundary to the behavior:</p>
+<ul>
+<li>pure state transition: add to <code>inbox.test.ts</code>;</li>
+<li>feed adapter lifecycle: test through <code>SuggestionFeed</code> events with fake time or a controlled transport;</li>
+<li>document serialization: add focused tests for <code>getAcceptedDocumentBlocks</code>;</li>
+<li>component semantics/callback: render the component with explicit props and query by accessible role/name;</li>
+<li>full editor integration: use a browser-level test rather than relying on jsdom layout and <code>contenteditable</code> emulation.</li>
+</ul>
+<p>Prefer public behavior over implementation details. Tests should query accessible names and roles, assert emitted events or callback arguments, and avoid snapshotting large Tailwind class strings.</p>
+<h2 id="pre-handoff-standard">Pre-handoff standard<a class="heading-anchor" href="#pre-handoff-standard" aria-label="Link to Pre-handoff standard">#</a></h2><p>Before handing off a change:</p>
+<ol>
+<li>run lint;</li>
+<li>run all unit/component tests;</li>
+<li>run the production build;</li>
+<li>manually exercise each changed flow at the relevant breakpoints;</li>
+<li>update <code>/docs</code> if a contract, invariant, command, breakpoint, persistence rule, or static/functional boundary changed.</li>
+</ol>
+</article>
+          <nav class="page-pagination" aria-label="Documentation pages">
+    <a class="page-pagination__link page-pagination__link--previous" href="ui-and-accessibility.html"><span>Previous</span><strong>← UI & accessibility</strong></a>
+    <a class="page-pagination__link page-pagination__link--next" href="extension-guide.html"><span>Next</span><strong>Extension guide →</strong></a>
+  </nav>
+          <footer class="content-footer"><p>ScribeAI developer documentation</p><p>Generated from <a href="../testing-and-quality.md">testing-and-quality.md</a>.</p></footer>
+        </div>
+
+        <aside class="page-toc" aria-label="On this page">
+          <div class="page-toc__inner">
+            <h2>On this page</h2>
+            <nav><a class="toc-link toc-link--2" href="#test-stack">Test stack</a><a class="toc-link toc-link--2" href="#commands">Commands</a><a class="toc-link toc-link--2" href="#current-automated-coverage">Current automated coverage</a><a class="toc-link toc-link--3" href="#why-reducer-tests-matter-most">Why reducer tests matter most</a><a class="toc-link toc-link--3" href="#feed-lifecycle-tests">Feed lifecycle tests</a><a class="toc-link toc-link--3" href="#geometry-tests">Geometry tests</a><a class="toc-link toc-link--2" href="#what-is-not-covered-automatically">What is not covered automatically</a><a class="toc-link toc-link--2" href="#manual-regression-checklist">Manual regression checklist</a><a class="toc-link toc-link--3" href="#editor-and-context">Editor and context</a><a class="toc-link toc-link--3" href="#suggestion-lifecycle">Suggestion lifecycle</a><a class="toc-link toc-link--3" href="#preview-lifecycle">Preview lifecycle</a><a class="toc-link toc-link--3" href="#desktop-layout-80rem">Desktop layout ( =80rem)</a><a class="toc-link toc-link--3" href="#below-desktop-80rem">Below desktop (&lt;80rem)</a><a class="toc-link toc-link--3" href="#accessibility">Accessibility</a><a class="toc-link toc-link--2" href="#adding-tests">Adding tests</a><a class="toc-link toc-link--2" href="#pre-handoff-standard">Pre-handoff standard</a></nav>
+            <a class="toc-source" href="../testing-and-quality.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <noscript><div class="noscript">JavaScript is only used for search, navigation controls, and theme switching. All documentation content remains available.</div></noscript>
+  </body>
+</html>

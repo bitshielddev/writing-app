@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Use the existing seams to add a real agent, persistence, suggestion kinds, editor blocks, and application actions." />
+    <meta name="theme-color" content="#f7f8fc" />
+    <title>Extension guide · ScribeAI docs</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script>try{const t=localStorage.getItem("scribe-docs-theme");if(t){document.documentElement.dataset.theme=t}else if(matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.dataset.theme="dark"}}catch{}</script>
+    <script src="assets/search-index.js" defer></script>
+    <script src="assets/site.js" defer></script>
+  </head>
+  <body data-page="extension-guide.html">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="reading-progress" aria-hidden="true"><span></span></div>
+    <div class="mobile-overlay" data-nav-close hidden></div>
+    <aside class="site-sidebar" id="site-navigation" aria-label="Documentation navigation">
+      <div class="sidebar-header">
+        <a class="brand" href="index.html" aria-label="ScribeAI documentation home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>ScribeAI</strong><small>Developer docs</small></span>
+        </a>
+        <button type="button" class="icon-button sidebar-close" data-nav-close aria-label="Close navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+      </div>
+      <div class="sidebar-search">
+        <button type="button" class="search-trigger" data-search-open aria-label="Search documentation">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search docs</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="sidebar-scroll"><section class="nav-group"><h2>Get oriented</h2><nav aria-label="Get oriented"><a class="nav-link" href="index.html">
+            <span class="nav-link__number">00</span>
+            <span>Overview</span>
+          </a><a class="nav-link" href="getting-started.html">
+            <span class="nav-link__number">01</span>
+            <span>Getting started</span>
+          </a><a class="nav-link" href="architecture.html">
+            <span class="nav-link__number">02</span>
+            <span>Architecture</span>
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">03</span>
+            <span>Editor & suggestions</span>
+          </a><a class="nav-link" href="ui-and-accessibility.html">
+            <span class="nav-link__number">04</span>
+            <span>UI & accessibility</span>
+          </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
+            <span class="nav-link__number">05</span>
+            <span>Testing & quality</span>
+          </a><a class="nav-link is-active" href="extension-guide.html" aria-current="page">
+            <span class="nav-link__number">06</span>
+            <span>Extension guide</span>
+          </a></nav></section></div>
+      <div class="sidebar-footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span><strong>Current snapshot</strong><small>Client-only prototype</small></span>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <button type="button" class="icon-button" data-nav-open aria-controls="site-navigation" aria-expanded="false" aria-label="Open navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+      <a class="mobile-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>ScribeAI docs</strong></a>
+      <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+    </header>
+
+    <div class="search-dialog" data-search-dialog role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
+      <div class="search-backdrop" data-search-close></div>
+      <div class="search-panel">
+        <div class="search-input-wrap">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg>
+          <label class="sr-only" id="search-title" for="site-search">Search documentation</label>
+          <input id="site-search" type="search" placeholder="Search architecture, previews, testing…" autocomplete="off" data-search-input />
+          <button type="button" class="search-close" data-search-close aria-label="Close search"><kbd>Esc</kbd></button>
+        </div>
+        <div class="search-results" data-search-results>
+          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search across all seven guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
+        </div>
+      </div>
+    </div>
+
+    <main class="site-main" id="main-content">
+      <div class="desktop-toolbar">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Developer docs</a><span>/</span><span>Ship safely</span></nav>
+        <div class="toolbar-actions">
+          <button type="button" class="toolbar-search" data-search-open><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search</span><kbd>⌘ K</kbd></button>
+          <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="page-shell">
+        <div class="content-column">
+          <header class="page-hero page-hero--violet">
+            <div class="page-hero__meta"><span>Guide 06</span><span>6 min read</span></div>
+            <h1>Extension guide</h1>
+            <p>Use the existing seams to add a real agent, persistence, suggestion kinds, editor blocks, and application actions.</p>
+            <div class="page-hero__footer">
+              <span><i class="status-dot" aria-hidden="true"></i> Reflects the current codebase</span>
+              <a href="../extension-guide.md">View Markdown <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg></a>
+            </div>
+            <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+          </header>
+
+          <article class="prose"><p>This guide identifies the existing seams for likely next steps. It does not prescribe a backend or product architecture that is not present in the repository.</p>
+<h2 id="replace-the-mock-writing-partner">Replace the mock writing partner<a class="heading-anchor" href="#replace-the-mock-writing-partner" aria-label="Link to Replace the mock writing partner">#</a></h2><p>Implement the existing <a href="../../src/suggestions/types.ts"><code>SuggestionFeed</code></a> contract and keep transport details behind it.</p>
+<p>A production adapter must define:</p>
+<ul>
+<li>how it starts and stops when subscribers come and go;</li>
+<li>how server messages map to every <code>SuggestionEvent</code> variant;</li>
+<li>stable <code>id</code> and <code>dedupeKey</code> rules;</li>
+<li>reconnection and replay semantics;</li>
+<li>ordering of status, suggestion, and error events;</li>
+<li>cancellation or ownership of in-flight steering calls;</li>
+<li>what <code>retry()</code> retries;</li>
+<li>cleanup under React <code>StrictMode</code>.</li>
+</ul>
+<p>Then replace <code>createMockSuggestionFeed(contextSource)</code> in <a href="../../src/App.tsx"><code>App.tsx</code></a> with the new adapter. Preserve stable construction with <code>useMemo</code> or move service creation above React if it is intentionally process-wide.</p>
+<p>Do not call an HTTP or model SDK directly from <code>SuggestionDock</code>. That would couple view lifecycle to transport lifecycle, make replay/dedupe inconsistent, and bypass reducer tests.</p>
+<h3 id="context-sent-to-a-real-service">Context sent to a real service<a class="heading-anchor" href="#context-sent-to-a-real-service" aria-label="Link to Context sent to a real service">#</a></h3><p>The existing <code>DocumentSnapshot</code> is deliberately small. Before making it a network payload, decide and document:</p>
+<ul>
+<li>whether block IDs are stable across saved sessions;</li>
+<li>whether formatting, hierarchy, current selection, title, and metadata are required;</li>
+<li>whether revisions are client-local counters or server-visible concurrency tokens;</li>
+<li>whether whole snapshots or deltas are sent;</li>
+<li>source/artifact identifiers and authorization;</li>
+<li>maximum document size and redaction rules;</li>
+<li>how temporary previews and other non-accepted content are excluded.</li>
+</ul>
+<p>Version the payload if a server will persist or process it independently.</p>
+<h2 id="add-persistence">Add persistence<a class="heading-anchor" href="#add-persistence" aria-label="Link to Add persistence">#</a></h2><p>There are three distinct data classes; do not persist the entire React/reducer state as one opaque blob.</p>
+<h3 id="document-data">Document data<a class="heading-anchor" href="#document-data" aria-label="Link to Document data">#</a></h3><p>Persist BlockNote&#39;s serializable document model and document metadata. Decide when autosave occurs and how loading replaces the initial seeded content. Handle schema versions because the custom block set may evolve.</p>
+<p>Temporary <code>suggestionPreview</code> blocks need an explicit product decision on reload. The safest default is to exclude them from saved accepted content or persist them as recoverable drafts with clearly separate semantics.</p>
+<h3 id="suggestion-data">Suggestion data<a class="heading-anchor" href="#suggestion-data" aria-label="Link to Suggestion data">#</a></h3><p>Decide whether the live inbox is a session stream, durable server inbox, or client cache. The current <code>seenKeys</code> behavior means a dismissed item cannot be re-added during the page session; durable dedupe will need a deliberate retention policy.</p>
+<p>Pinned entries are user-owned frozen snapshots. Preserve that distinction if live suggestions are server-backed: server updates should not mutate a saved pin.</p>
+<h3 id="workspace-preferences">Workspace preferences<a class="heading-anchor" href="#workspace-preferences" aria-label="Link to Workspace preferences">#</a></h3><p>Column widths can remain local preferences. Workspace-card geometry could be stored per document and viewport class, but restore through the same clamp path because available canvas dimensions change.</p>
+<p>Add persistence through a repository/storage boundary. Hydrate owners at application startup and keep serialization out of display components.</p>
+<h2 id="add-a-suggestion-kind">Add a suggestion kind<a class="heading-anchor" href="#add-a-suggestion-kind" aria-label="Link to Add a suggestion kind">#</a></h2><p>Adding a kind affects the discriminated union and every exhaustive presentation or behavior decision.</p>
+<ol>
+<li>Add the literal to <code>SuggestionKind</code> and a new union member in <a href="../../src/suggestions/types.ts"><code>types.ts</code></a>.</li>
+<li>Decide whether it is text-insertable, structural/reference-only, or requires a new action.</li>
+<li>Add badge label/icon/tone and visual rendering in <a href="../../src/components/SuggestionPresentation.tsx"><code>SuggestionPresentation.tsx</code></a>.</li>
+<li>Update <code>isTextSuggestion</code> in <a href="../../src/App.tsx"><code>App.tsx</code></a> if it can preview.</li>
+<li>Update detail/workspace visual conditions in <a href="../../src/components/SuggestionDock.tsx"><code>SuggestionDock.tsx</code></a> and <a href="../../src/components/WorkspacePins.tsx"><code>WorkspacePins.tsx</code></a>.</li>
+<li>Add an initial size in <a href="../../src/suggestions/workspacePinLayout.ts"><code>workspacePinLayout.ts</code></a> if the default is unsuitable.</li>
+<li>Ensure external data validation rejects malformed payloads before they reach the reducer.</li>
+<li>Add reducer and component tests, plus Mermaid-like failure handling if rendering is asynchronous.</li>
+<li>Update the kind table in <a href="editor-and-suggestions.html">Editor and suggestion system</a>.</li>
+</ol>
+<p>The current app uses manual kind checks in several places. If kinds grow substantially, centralize behavior metadata instead of adding more scattered conditionals.</p>
+<h2 id="add-a-custom-editor-block">Add a custom editor block<a class="heading-anchor" href="#add-a-custom-editor-block" aria-label="Link to Add a custom editor block">#</a></h2><p>Register the block in <a href="../../src/editor/schema.tsx"><code>writingSchema</code></a>, then address all serialization boundaries:</p>
+<ul>
+<li>accepted-document plain-text extraction;</li>
+<li>external HTML behavior;</li>
+<li>save/load schema compatibility;</li>
+<li>focus and selection behavior;</li>
+<li>agent-context inclusion or exclusion;</li>
+<li>copy/paste and export;</li>
+<li>read-only rendering, if added later.</li>
+</ul>
+<p>Use the schema-derived <code>WritingEditor</code>, <code>WritingBlock</code>, and <code>WritingPartialBlock</code> types rather than importing generic BlockNote types throughout the application.</p>
+<p>If the block needs to notify application state, prefer an explicit callback/plugin boundary. The current preview block uses <a href="../../src/editor/previewEvents.ts"><code>previewEvents.ts</code></a> because its renderer is registered at schema construction and is not passed <code>App</code> callbacks.</p>
+<h2 id="implement-navigation-and-document-actions">Implement navigation and document actions<a class="heading-anchor" href="#implement-navigation-and-document-actions" aria-label="Link to Implement navigation and document actions">#</a></h2><p>The following are static today:</p>
+<ul>
+<li>New Document;</li>
+<li>Library, Recent, Templates, Collections, Settings, Help, Archive;</li>
+<li>displayed source files and Upload Sources;</li>
+<li>Drafts, Review, Published;</li>
+<li>history, export, share, and overflow actions.</li>
+</ul>
+<p>Before wiring buttons individually, introduce the missing domain/state boundary:</p>
+<ul>
+<li>a router for URL-addressable destinations;</li>
+<li>a document repository and current-document identity;</li>
+<li>an artifact/source repository;</li>
+<li>command handlers for export/share/history;</li>
+<li>authentication and authorization if those actions become remote.</li>
+</ul>
+<p><code>Sidebar</code> and <code>DocumentHeader</code> should remain presentation components receiving current state and callbacks. Avoid placing fetches or persistence logic directly in them.</p>
+<h2 id="add-artifact-upload-or-source-retrieval">Add artifact upload or source retrieval<a class="heading-anchor" href="#add-artifact-upload-or-source-retrieval" aria-label="Link to Add artifact upload or source retrieval">#</a></h2><p>The sidebar source list and <code>App</code> artifact references are currently independent mock constants. Replace them with one shared artifact owner.</p>
+<p>That owner should distinguish:</p>
+<ul>
+<li>upload state and errors;</li>
+<li>stable artifact identity;</li>
+<li>display metadata;</li>
+<li>processing/indexing state;</li>
+<li>content availability to the agent;</li>
+<li>deletion and access-control behavior.</li>
+</ul>
+<p>The agent context exposes <code>getArtifactReferences()</code> only at present. A real feed can use those references to ask a backend for indexed content; raw file content should not be pushed into React component props.</p>
+<h2 id="evolve-the-inbox-reducer-safely">Evolve the inbox reducer safely<a class="heading-anchor" href="#evolve-the-inbox-reducer-safely" aria-label="Link to Evolve the inbox reducer safely">#</a></h2><p>Use a new reducer action for a new user intent. Avoid mutating arrays in components or exposing raw <code>dispatch</code> outside the hook.</p>
+<p>For every transition, consider:</p>
+<ul>
+<li>live, pinned, and workspace copies;</li>
+<li>selected detail;</li>
+<li>active preview;</li>
+<li>viewed/unread counts;</li>
+<li>stale and withdrawn flags;</li>
+<li>30-item eviction;</li>
+<li>dedupe history;</li>
+<li>z-order and geometry where relevant.</li>
+</ul>
+<p>Add a pure reducer test before changing component wiring. This makes subtle cross-state behavior visible without needing BlockNote or layout.</p>
+<h2 id="validate-external-suggestion-data">Validate external suggestion data<a class="heading-anchor" href="#validate-external-suggestion-data" aria-label="Link to Validate external suggestion data">#</a></h2><p>TypeScript types do not validate network input. A production feed should parse runtime payloads before emitting them. Validation should cover:</p>
+<ul>
+<li>known event and suggestion kinds;</li>
+<li>non-empty identity/dedupe fields;</li>
+<li>timestamps and source-label arrays;</li>
+<li>kind-specific fields (<code>insertText</code>, <code>nodes</code>, Mermaid source, description);</li>
+<li>recursive node depth and total payload size;</li>
+<li>Mermaid/source text safety constraints.</li>
+</ul>
+<p>Malformed events should become a controlled <code>agent.error</code> or telemetry event, not an exception during React rendering.</p>
+<h2 id="introduce-routing-or-server-rendering">Introduce routing or server rendering<a class="heading-anchor" href="#introduce-routing-or-server-rendering" aria-label="Link to Introduce routing or server rendering">#</a></h2><p>The current code reads browser globals during state initialization and event handling. Server rendering would require guards or client-only boundaries for:</p>
+<ul>
+<li><code>window.localStorage</code> and <code>window.matchMedia</code> in <code>App</code>;</li>
+<li><code>document</code> queries and animation frames;</li>
+<li>BlockNote and Mermaid browser behavior;</li>
+<li><code>ResizeObserver</code> and pointer APIs.</li>
+</ul>
+<p>Routing is simpler but still needs document identity and cleanup rules. Confirm that switching documents disposes the old feed subscription, resets or restores inbox state, loads the correct editor content, and scopes saved workspace geometry.</p>
+<h2 id="performance-watch-points">Performance watch points<a class="heading-anchor" href="#performance-watch-points" aria-label="Link to Performance watch points">#</a></h2><p>The current data volume is intentionally small. Revisit these choices as it grows:</p>
+<ul>
+<li>document fingerprinting serializes the full flattened snapshot on every editor change;</li>
+<li>the context update itself is not debounced, although the mock feed&#39;s observation is;</li>
+<li>suggestion deep copy uses JSON serialization;</li>
+<li>workspace geometry commits update the whole reducer state;</li>
+<li>large Mermaid diagrams render client-side and inject full SVG;</li>
+<li>every suggestion entry is rendered; there is no list virtualization beyond the 30-item cap.</li>
+</ul>
+<p>Measure before optimizing, but keep service and reducer boundaries intact so improvements remain local.</p>
+<h2 id="documentation-update-triggers">Documentation update triggers<a class="heading-anchor" href="#documentation-update-triggers" aria-label="Link to Documentation update triggers">#</a></h2><p>Update this section when a change affects any of the following:</p>
+<ul>
+<li>setup, Node support, scripts, or environment variables;</li>
+<li>service or data contracts;</li>
+<li>state ownership or persistence;</li>
+<li>suggestion lifecycle invariants;</li>
+<li>editor schema and accepted-context rules;</li>
+<li>responsive breakpoints or input behavior;</li>
+<li>functional versus presentation-only controls;</li>
+<li>testing commands or coverage boundaries.</li>
+</ul>
+</article>
+          <nav class="page-pagination" aria-label="Documentation pages">
+    <a class="page-pagination__link page-pagination__link--previous" href="testing-and-quality.html"><span>Previous</span><strong>← Testing & quality</strong></a>
+    <span class="page-pagination__spacer"></span>
+  </nav>
+          <footer class="content-footer"><p>ScribeAI developer documentation</p><p>Generated from <a href="../extension-guide.md">extension-guide.md</a>.</p></footer>
+        </div>
+
+        <aside class="page-toc" aria-label="On this page">
+          <div class="page-toc__inner">
+            <h2>On this page</h2>
+            <nav><a class="toc-link toc-link--2" href="#replace-the-mock-writing-partner">Replace the mock writing partner</a><a class="toc-link toc-link--3" href="#context-sent-to-a-real-service">Context sent to a real service</a><a class="toc-link toc-link--2" href="#add-persistence">Add persistence</a><a class="toc-link toc-link--3" href="#document-data">Document data</a><a class="toc-link toc-link--3" href="#suggestion-data">Suggestion data</a><a class="toc-link toc-link--3" href="#workspace-preferences">Workspace preferences</a><a class="toc-link toc-link--2" href="#add-a-suggestion-kind">Add a suggestion kind</a><a class="toc-link toc-link--2" href="#add-a-custom-editor-block">Add a custom editor block</a><a class="toc-link toc-link--2" href="#implement-navigation-and-document-actions">Implement navigation and document actions</a><a class="toc-link toc-link--2" href="#add-artifact-upload-or-source-retrieval">Add artifact upload or source retrieval</a><a class="toc-link toc-link--2" href="#evolve-the-inbox-reducer-safely">Evolve the inbox reducer safely</a><a class="toc-link toc-link--2" href="#validate-external-suggestion-data">Validate external suggestion data</a><a class="toc-link toc-link--2" href="#introduce-routing-or-server-rendering">Introduce routing or server rendering</a><a class="toc-link toc-link--2" href="#performance-watch-points">Performance watch points</a><a class="toc-link toc-link--2" href="#documentation-update-triggers">Documentation update triggers</a></nav>
+            <a class="toc-source" href="../extension-guide.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <noscript><div class="noscript">JavaScript is only used for search, navigation controls, and theme switching. All documentation content remains available.</div></noscript>
+  </body>
+</html>
