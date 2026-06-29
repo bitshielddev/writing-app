@@ -17,7 +17,6 @@ function renderHeader(
     onOpenNavigationDrawer: vi.fn(),
     onToggleContextPanel: vi.fn(),
     onToggleNavigationPanel: vi.fn(),
-    onGenerateIdeas: vi.fn(),
     ...overrides,
   };
 

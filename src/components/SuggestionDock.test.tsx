@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
-import type { SuggestionFeed, TextSuggestion } from "../suggestions/types";
+import type { TextSuggestion } from "../suggestions/types";
 import { SuggestionDock } from "./SuggestionDock";
 
 const item: TextSuggestion = {
@@ -31,22 +31,14 @@ const pinnedEntry: PinnedInboxEntry = {
   pinnedAt: 2,
 };
 
-const feed: SuggestionFeed = {
-  subscribe: () => () => undefined,
-  sendSteering: vi.fn(async () => undefined),
-  retry: vi.fn(async () => undefined),
-};
-
 function renderDock(
   overrides: Partial<React.ComponentProps<typeof SuggestionDock>> = {},
 ) {
   const props: React.ComponentProps<typeof SuggestionDock> = {
-    feed,
     entries: [entry],
     pinnedEntries: [],
     unreadCount: 1,
     status: "idle",
-    focusRequest: 0,
     onSelect: vi.fn(),
     onBack: vi.fn(),
     onDismiss: vi.fn(),
@@ -61,6 +53,13 @@ function renderDock(
 }
 
 describe("SuggestionDock", () => {
+  it("has no legacy steering controls", () => {
+    renderDock({ entries: [], unreadCount: 0 });
+
+    expect(screen.queryByLabelText("Give the agent a direction")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send direction" })).toBeNull();
+  });
+
   it("renders one unified stream without type navigation", async () => {
     const props = renderDock();
     expect(screen.queryByRole("tablist")).toBeNull();

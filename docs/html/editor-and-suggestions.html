@@ -89,7 +89,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--amber">
-            <div class="page-hero__meta"><span>Guide 03</span><span>7 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 03</span><span>6 min read</span></div>
             <h1>Editor and suggestion system</h1>
             <p>Trace agent context, feed events, inbox transitions, editable previews, and workspace pins end to end.</p>
             <div class="page-hero__footer">
@@ -99,7 +99,7 @@
             <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
           </header>
 
-          <article class="prose"><p>This is the core interaction model: the editor supplies accepted document context, the feed emits events, the inbox reducer turns those events and user actions into state, and text suggestions can temporarily enter the document as editable previews.</p>
+          <article class="prose"><p>This is the core interaction model: the injected feed emits events, the inbox reducer turns those events and user actions into state, and text suggestions can temporarily enter the document as editable previews.</p>
 <h2 id="domain-model">Domain model<a class="heading-anchor" href="#domain-model" aria-label="Link to Domain model">#</a></h2><p>The shared contracts are in <a href="../../src/suggestions/types.ts"><code>src/suggestions/types.ts</code></a>.</p>
 <h3 id="suggestion-kinds">Suggestion kinds<a class="heading-anchor" href="#suggestion-kinds" aria-label="Link to Suggestion kinds">#</a></h3><table>
 <thead>
@@ -163,27 +163,9 @@
 <li><code>createdAt</code>: ordering and queue-eviction input.</li>
 </ul>
 <p>An update uses <code>id</code> to replace an existing live item. An addition uses <code>dedupeKey</code> to decide whether the session has already seen equivalent content. These fields are related but not interchangeable.</p>
-<h2 id="agent-context">Agent context<a class="heading-anchor" href="#agent-context" aria-label="Link to Agent context">#</a></h2><p><a href="../../src/suggestions/contextSource.ts"><code>createAgentContextSource</code></a> owns two inputs:</p>
-<ul>
-<li>the latest <code>DocumentSnapshot</code>;</li>
-<li>immutable artifact references supplied at construction.</li>
-</ul>
-<p>A document snapshot is a revision plus a flat array of <code>{ id, type, text }</code> blocks. <code>updateDocument</code> JSON-fingerprints the array and publishes only when the flattened content changes. The revision begins at 0 and increments for every unique snapshot.</p>
-<p><a href="../../src/editor/documentContext.ts"><code>getAcceptedDocumentBlocks</code></a> builds the array from BlockNote:</p>
-<ol>
-<li>walk all blocks depth-first;</li>
-<li>omit any block whose type is <code>suggestionPreview</code>;</li>
-<li>reduce inline rich content to plain text;</li>
-<li>continue through child blocks;</li>
-<li>preserve each accepted block&#39;s ID and type.</li>
-</ol>
-<p>Formatting marks and non-text structure are not represented beyond the block type. A production model needing rich structure, selection context, comments, or source anchors will require a versioned context contract rather than expanding this implicit shape ad hoc.</p>
-<p><code>App</code> publishes context on initial mount and on every editor change. Duplicate calls are harmless because the context source suppresses unchanged snapshots.</p>
-<h2 id="feed-contract">Feed contract<a class="heading-anchor" href="#feed-contract" aria-label="Link to Feed contract">#</a></h2><p><code>SuggestionFeed</code> has three operations:</p>
+<h2 id="feed-contract">Feed contract<a class="heading-anchor" href="#feed-contract" aria-label="Link to Feed contract">#</a></h2><p><code>SuggestionFeed</code> is subscription-only:</p>
 <div class="code-block" data-language="ts"><div class="code-block__bar"><span>ts</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-ts">interface SuggestionFeed {
   subscribe(listener: (event: SuggestionEvent) =&gt; void): () =&gt; void;
-  sendSteering(prompt: string): Promise&lt;void&gt;;
-  retry(): Promise&lt;void&gt;;
 }</code></pre></div><p>The event channel supports:</p>
 <table>
 <thead>
@@ -210,18 +192,16 @@
 </tr>
 <tr>
 <td><code>agent.error</code></td>
-<td>Set a displayable error and whether Retry is available.</td>
+<td>Set a displayable error and its recoverability metadata.</td>
 </tr>
 </tbody></table>
-<p>The current mock implementation in <a href="../../src/suggestions/mockSuggestionFeed.ts"><code>mockSuggestionFeed.ts</code></a>:</p>
+<p>The current implementation in <a href="../../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts"><code>createInjectedSuggestionFeed.ts</code></a>:</p>
 <ul>
 <li>opens a <code>BroadcastChannel</code> receiver when its first listener subscribes;</li>
 <li>forwards valid <code>suggestion.added</code> events sent by the temporary <code>/mock-suggestions</code> controller;</li>
-<li>emits no initial, timed, document-derived, status, error, or offline events;</li>
-<li>leaves <code>sendSteering()</code> and <code>retry()</code> as resolved no-ops in manual mode;</li>
 <li>closes the channel receiver after its last listener leaves.</li>
 </ul>
-<p>The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs. The controller and channel code are isolated under <a href="../../src/dev/mockSuggestions"><code>src/dev/mockSuggestions</code></a> so they can be removed with the path switch and the feed subscription when a real transport replaces the mock.</p>
+<p>The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs. This directory is the sole mock ingress: there are no seeded events, document observations, steering methods, retries, or secondary feed adapters.</p>
 <h2 id="inbox-state-machine">Inbox state machine<a class="heading-anchor" href="#inbox-state-machine" aria-label="Link to Inbox state machine">#</a></h2><p><a href="../../src/suggestions/inbox.ts"><code>inboxReducer</code></a> owns:</p>
 <div class="code-block" data-language="text"><div class="code-block__bar"><span>text</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-text">entries             live inbox suggestions
 pinnedEntries       frozen references in the Pins section
@@ -414,7 +394,7 @@ status / error      agent presentation state</code></pre></div><h3 id="feed-even
 <li>errors render the description as a visible fallback;</li>
 <li>the effect ignores late async results after unmount.</li>
 </ul>
-<p>Because SVG injection is deliberate, keep Mermaid in strict mode and treat source strings as untrusted when replacing the mock feed.</p>
+<p>Because SVG injection is deliberate, keep Mermaid in strict mode and treat source strings as untrusted when replacing the injected feed.</p>
 </article>
           <nav class="page-pagination" aria-label="Documentation pages">
     <a class="page-pagination__link page-pagination__link--previous" href="architecture.html"><span>Previous</span><strong>← Architecture</strong></a>
@@ -426,7 +406,7 @@ status / error      agent presentation state</code></pre></div><h3 id="feed-even
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#domain-model">Domain model</a><a class="toc-link toc-link--3" href="#suggestion-kinds">Suggestion kinds</a><a class="toc-link toc-link--2" href="#agent-context">Agent context</a><a class="toc-link toc-link--2" href="#feed-contract">Feed contract</a><a class="toc-link toc-link--2" href="#inbox-state-machine">Inbox state machine</a><a class="toc-link toc-link--3" href="#feed-event-behavior">Feed-event behavior</a><a class="toc-link toc-link--3" href="#queue-limit">Queue limit</a><a class="toc-link toc-link--3" href="#user-action-behavior">User-action behavior</a><a class="toc-link toc-link--2" href="#editable-preview-lifecycle">Editable preview lifecycle</a><a class="toc-link toc-link--3" href="#preview-insertion">Preview insertion</a><a class="toc-link toc-link--3" href="#preview-rendering-and-resolution">Preview rendering and resolution</a><a class="toc-link toc-link--3" href="#concurrent-feed-changes">Concurrent feed changes</a><a class="toc-link toc-link--2" href="#pins-and-workspace-cards">Pins and workspace cards</a><a class="toc-link toc-link--2" href="#mermaid-rendering">Mermaid rendering</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#domain-model">Domain model</a><a class="toc-link toc-link--3" href="#suggestion-kinds">Suggestion kinds</a><a class="toc-link toc-link--2" href="#feed-contract">Feed contract</a><a class="toc-link toc-link--2" href="#inbox-state-machine">Inbox state machine</a><a class="toc-link toc-link--3" href="#feed-event-behavior">Feed-event behavior</a><a class="toc-link toc-link--3" href="#queue-limit">Queue limit</a><a class="toc-link toc-link--3" href="#user-action-behavior">User-action behavior</a><a class="toc-link toc-link--2" href="#editable-preview-lifecycle">Editable preview lifecycle</a><a class="toc-link toc-link--3" href="#preview-insertion">Preview insertion</a><a class="toc-link toc-link--3" href="#preview-rendering-and-resolution">Preview rendering and resolution</a><a class="toc-link toc-link--3" href="#concurrent-feed-changes">Concurrent feed changes</a><a class="toc-link toc-link--2" href="#pins-and-workspace-cards">Pins and workspace cards</a><a class="toc-link toc-link--2" href="#mermaid-rendering">Mermaid rendering</a></nav>
             <a class="toc-source" href="../editor-and-suggestions.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>

@@ -13,21 +13,15 @@ import { EditorWorkspace } from "./components/EditorWorkspace";
 import { ResponsiveDrawer } from "./components/ResponsiveDrawer";
 import { Sidebar } from "./components/Sidebar";
 import { SuggestionDock } from "./components/SuggestionDock";
-import { getAcceptedDocumentBlocks } from "./editor/documentContext";
+import { createInjectedSuggestionFeed } from "./dev/mockSuggestions/createInjectedSuggestionFeed";
 import { subscribeToPreviewResolutions } from "./editor/previewEvents";
 import {
   writingSchema,
   type WritingPartialBlock,
 } from "./editor/schema";
-import { createAgentContextSource } from "./suggestions/contextSource";
 import { useSuggestionInbox } from "./suggestions/inbox";
-import { createMockSuggestionFeed } from "./suggestions/mockSuggestionFeed";
 import { getInitialWorkspacePinSize } from "./suggestions/workspacePinLayout";
-import type {
-  ArtifactReference,
-  SuggestionItem,
-  TextSuggestion,
-} from "./suggestions/types";
+import type { SuggestionItem, TextSuggestion } from "./suggestions/types";
 
 const initialContent: WritingPartialBlock[] = [
   {
@@ -46,15 +40,6 @@ const initialContent: WritingPartialBlock[] = [
       "Unlike early tools that acted as opaque oracles, the next generation of AI interfaces is designed for cognitive partnership. They exist in the gutters of our digital canvas, offering contextual relevance without disrupting the user's flow state.",
   },
   { type: "paragraph" },
-];
-
-const artifacts: ArtifactReference[] = [
-  { id: "market-trends", title: "Market_Trends_2024.pdf", kind: "pdf" },
-  {
-    id: "product-vision",
-    title: "Internal_Product_Vision.docx",
-    kind: "document",
-  },
 ];
 
 const MIN_NAVIGATION_WIDTH = 220;
@@ -114,13 +99,8 @@ export default function App() {
         MAX_CONTEXT_WIDTH,
       ),
   );
-  const [steeringFocusRequest, setSteeringFocusRequest] = useState(0);
   const editor = useCreateBlockNote({ schema: writingSchema, initialContent });
-  const contextSource = useMemo(() => createAgentContextSource(artifacts), []);
-  const feed = useMemo(
-    () => createMockSuggestionFeed(contextSource),
-    [contextSource],
-  );
+  const feed = useMemo(() => createInjectedSuggestionFeed(), []);
   const inbox = useSuggestionInbox(feed);
   const resolvePreview = inbox.previewResolved;
   const [lastActiveBlockId, setLastActiveBlockId] = useState(
@@ -226,10 +206,6 @@ export default function App() {
     return () => desktopQuery.removeEventListener("change", closeDrawersAtDesktop);
   }, []);
 
-  useEffect(() => {
-    contextSource.updateDocument(getAcceptedDocumentBlocks(editor));
-  }, [contextSource, editor]);
-
   useEffect(
     () =>
       subscribeToPreviewResolutions(({ suggestionId, outcome }) => {
@@ -238,26 +214,12 @@ export default function App() {
     [resolvePreview],
   );
 
-  const openSteering = () => {
-    inbox.back();
-    if (window.matchMedia("(min-width: 1280px)").matches) {
-      setContextPanelOpen(true);
-    } else {
-      setContextDrawerOpen(true);
-    }
-    setSteeringFocusRequest((request) => request + 1);
-  };
-
   const handleEditorSelectionChange = () => {
     try {
       setLastActiveBlockId(editor.getTextCursorPosition().block.id);
     } catch {
       // The editor can briefly have no text cursor during block selection.
     }
-  };
-
-  const handleEditorChange = () => {
-    contextSource.updateDocument(getAcceptedDocumentBlocks(editor));
   };
 
   const handlePreview = (item: SuggestionItem) => {
@@ -313,7 +275,6 @@ export default function App() {
 
   const dock = (
     <SuggestionDock
-      feed={feed}
       entries={inbox.entries}
       pinnedEntries={inbox.pinnedEntries}
       selectedEntry={inbox.selectedEntry}
@@ -321,7 +282,6 @@ export default function App() {
       unreadCount={inbox.unreadCount}
       status={inbox.status}
       error={inbox.error}
-      focusRequest={steeringFocusRequest}
       onSelect={inbox.select}
       onBack={inbox.back}
       onDismiss={inbox.dismiss}
@@ -391,8 +351,6 @@ export default function App() {
             setNavigationPanelOpen((open) => !open)
           }
           onToggleContextPanel={() => setContextPanelOpen((open) => !open)}
-          onGenerateIdeas={openSteering}
-          onEditorChange={handleEditorChange}
           onEditorSelectionChange={handleEditorSelectionChange}
           onWorkspacePinGeometryChange={inbox.updateWorkspaceGeometry}
           onRaiseWorkspacePin={inbox.raiseWorkspacePin}

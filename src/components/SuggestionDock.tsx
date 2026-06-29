@@ -8,22 +8,19 @@ import {
   PanelsTopLeft,
   Pin,
   PinOff,
-  Send,
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { FormEvent, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type {
   AgentStatus,
-  SuggestionFeed,
   SuggestionItem,
 } from "../suggestions/types";
 import { KindBadge, SuggestionVisual } from "./SuggestionPresentation";
 
 type SuggestionDockProps = {
-  feed: SuggestionFeed;
   entries: InboxEntry[];
   pinnedEntries: PinnedInboxEntry[];
   selectedEntry?: InboxEntry;
@@ -31,7 +28,6 @@ type SuggestionDockProps = {
   unreadCount: number;
   status: AgentStatus;
   error?: { message: string; recoverable: boolean };
-  focusRequest: number;
   onSelect: (id: string) => void;
   onBack: () => void;
   onDismiss: (id: string) => void;
@@ -258,7 +254,6 @@ function DetailView({
 }
 
 export function SuggestionDock({
-  feed,
   entries,
   pinnedEntries,
   selectedEntry,
@@ -266,7 +261,6 @@ export function SuggestionDock({
   unreadCount,
   status,
   error,
-  focusRequest,
   onSelect,
   onBack,
   onDismiss,
@@ -275,51 +269,13 @@ export function SuggestionDock({
   onPlaceOnWorkspace,
   onPreview,
 }: SuggestionDockProps) {
-  const [prompt, setPrompt] = useState("");
-  const [promptError, setPromptError] = useState<string>();
-  const inputRef = useRef<HTMLInputElement>(null);
   const dockRef = useRef<HTMLElement>(null);
-  const promptId = useId();
-
-  useEffect(() => {
-    if (focusRequest > 0) {
-      let innerFrame = 0;
-      const outerFrame = window.requestAnimationFrame(() => {
-        innerFrame = window.requestAnimationFrame(() => inputRef.current?.focus());
-      });
-      return () => {
-        window.cancelAnimationFrame(outerFrame);
-        window.cancelAnimationFrame(innerFrame);
-      };
-    }
-    return undefined;
-  }, [focusRequest]);
 
   useEffect(() => {
     if (typeof dockRef.current?.scrollTo === "function") {
       dockRef.current.scrollTo({ top: 0 });
     }
   }, [selectedEntry?.item.id]);
-
-  const submitPrompt = async (event: FormEvent) => {
-    event.preventDefault();
-    const cleanPrompt = prompt.trim();
-    if (!cleanPrompt) {
-      setPromptError("Add a direction first.");
-      return;
-    }
-    try {
-      await feed.sendSteering(cleanPrompt);
-      setPrompt("");
-      setPromptError(undefined);
-    } catch (submissionError) {
-      setPromptError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "The direction could not be sent.",
-      );
-    }
-  };
 
   return (
     <aside
@@ -372,47 +328,9 @@ export function SuggestionDock({
             ) : null}
           </header>
 
-          <form className="mt-6" onSubmit={submitPrompt}>
-            <label htmlFor={promptId} className="text-xs font-bold text-[#5d5b6d]">
-              Give the agent a direction
-            </label>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                ref={inputRef}
-                id={promptId}
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder="e.g. sharpen the argument"
-                className="min-h-11 min-w-0 flex-1 rounded-md border border-[#d7d4e8] bg-white/70 px-3.5 text-sm text-[#1a1b22] placeholder:text-[#9a96a8] focus:border-brand-400"
-              />
-              <button
-                type="submit"
-                aria-label="Send direction"
-                className="grid size-11 shrink-0 place-items-center rounded-md bg-brand-600 text-white hover:bg-brand-700 disabled:bg-[#aaa6bd]"
-                disabled={status === "offline"}
-              >
-                <Send className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-            {promptError ? (
-              <p className="mt-2 text-xs font-medium text-red-700" role="alert">
-                {promptError}
-              </p>
-            ) : null}
-          </form>
-
           {error ? (
             <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
               <p>{error.message}</p>
-              {error.recoverable ? (
-                <button
-                  type="button"
-                  className="mt-2 font-bold underline underline-offset-2"
-                  onClick={() => void feed.retry()}
-                >
-                  Retry
-                </button>
-              ) : null}
             </div>
           ) : null}
 
@@ -477,7 +395,7 @@ export function SuggestionDock({
                     <p className="mt-3 text-sm font-semibold text-[#5d5b6d]">
                       {status === "working"
                         ? "The agent is considering your draft"
-                        : "Suggestions will appear here as the agent works"}
+                        : "Suggestions will appear here when they arrive"}
                     </p>
                   </div>
                 </div>

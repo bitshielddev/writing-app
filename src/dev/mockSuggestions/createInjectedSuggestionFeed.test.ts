@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { SuggestionEvent, TextSuggestion } from "../../suggestions/types";
+import { createInjectedSuggestionFeed } from "./createInjectedSuggestionFeed";
 import {
   createMockSuggestionPublisher,
   type MockSuggestionPublisher,
-} from "../dev/mockSuggestions/mockSuggestionChannel";
-import { createAgentContextSource } from "./contextSource";
-import { createMockSuggestionFeed } from "./mockSuggestionFeed";
-import type { SuggestionEvent, TextSuggestion } from "./types";
+} from "./mockSuggestionChannel";
 
 class FakeBroadcastChannel {
   static instances = new Set<FakeBroadcastChannel>();
@@ -61,13 +60,13 @@ const item: TextSuggestion = {
   kind: "snippet",
   title: "Manually injected",
   summary: "A suggestion from the controller tab.",
-  body: "This suggestion should pass through the mock feed unchanged.",
+  body: "This suggestion should pass through the injected feed unchanged.",
   insertText: "Injected preview text.",
   sourceLabels: ["Controller"],
   createdAt: 10,
 };
 
-describe("mock suggestion feed", () => {
+describe("injected suggestion feed", () => {
   let publisher: MockSuggestionPublisher;
 
   beforeEach(() => {
@@ -85,18 +84,10 @@ describe("mock suggestion feed", () => {
     vi.unstubAllGlobals();
   });
 
-  it("emits manually injected suggestions without generating other events", async () => {
-    const context = createAgentContextSource([
-      { id: "source", title: "Source.pdf", kind: "pdf" },
-    ]);
-    const feed = createMockSuggestionFeed(context);
+  it("forwards channel-injected suggestions and stops after unsubscribe", () => {
+    const feed = createInjectedSuggestionFeed();
     const events: SuggestionEvent[] = [];
     const unsubscribe = feed.subscribe((event) => events.push(event));
-
-    context.updateDocument([{ id: "p", type: "paragraph", text: "New text" }]);
-    await feed.sendSteering("Emphasise trust");
-    await feed.retry();
-    expect(events).toEqual([]);
 
     publisher.publish(item);
     expect(events).toEqual([{ type: "suggestion.added", item }]);
@@ -107,8 +98,7 @@ describe("mock suggestion feed", () => {
   });
 
   it("ignores malformed channel messages", () => {
-    const context = createAgentContextSource([]);
-    const feed = createMockSuggestionFeed(context);
+    const feed = createInjectedSuggestionFeed();
     const events: SuggestionEvent[] = [];
     const unsubscribe = feed.subscribe((event) => events.push(event));
     const rogueChannel = new FakeBroadcastChannel(

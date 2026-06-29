@@ -6,7 +6,6 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,7 +19,6 @@ type DocumentHeaderProps = {
   onOpenNavigationDrawer: () => void;
   onToggleContextPanel: () => void;
   onToggleNavigationPanel: () => void;
-  onGenerateIdeas: () => void;
 };
 
 type IconButtonProps = {
@@ -83,7 +81,6 @@ export function DocumentHeader({
   onOpenNavigationDrawer,
   onToggleContextPanel,
   onToggleNavigationPanel,
-  onGenerateIdeas,
 }: DocumentHeaderProps) {
   return (
     <header className="flex min-h-20 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#e8e5f2] bg-[#fbf8ff] px-4 py-3 lg:px-7 2xl:flex-nowrap 2xl:gap-x-6 2xl:py-0">
@@ -136,7 +133,6 @@ export function DocumentHeader({
 
       <div aria-label="Document actions" className="ml-auto flex items-center gap-1.5">
         <IconButton icon={History} label="View history" />
-        <IconButton icon={Sparkles} label="Generate ideas" onClick={onGenerateIdeas} />
         <button
           type="button"
           className="hidden min-h-10 items-center rounded-md border border-brand-600 px-3 text-sm font-semibold text-brand-600 hover:bg-brand-50 lg:inline-flex"

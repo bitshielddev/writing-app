@@ -191,8 +191,7 @@
 <li>open/close navigation drawer;</li>
 <li>show/hide navigation desktop panel;</li>
 <li>open/close writing-partner drawer;</li>
-<li>show/hide writing-partner desktop panel;</li>
-<li>Generate ideas, which opens the writing partner, returns to the queue, and focuses steering.</li>
+<li>show/hide writing-partner desktop panel.</li>
 </ul>
 <p>Current presentation-only controls:</p>
 <ul>
@@ -217,7 +216,7 @@
 <p>On small screens the editor&#39;s inline padding is reduced. The editor remains the primary page scroll container at all sizes.</p>
 <h2 id="suggestion-dock-interaction">Suggestion dock interaction<a class="heading-anchor" href="#suggestion-dock-interaction" aria-label="Link to Suggestion dock interaction">#</a></h2><p>The writing partner has two mutually exclusive views:</p>
 <ul>
-<li>queue view: steering form, error, Pins, and live inbox;</li>
+<li>queue view: error, Pins, and live inbox;</li>
 <li>detail view: full suggestion, sources, visual content, and actions.</li>
 </ul>
 <p>Selecting an item marks it viewed and scrolls the dock to the top. Unread live and pinned entries contribute to the count. Workspace cards do not.</p>
@@ -227,8 +226,7 @@
 <li>only text kinds can preview;</li>
 <li>any active preview disables starting another;</li>
 <li>the active preview&#39;s source item cannot be dismissed or placed on the workspace;</li>
-<li>workspace placement appears only for pinned detail on desktop;</li>
-<li>sending steering is disabled only while the agent is offline, not while it is working.</li>
+<li>workspace placement appears only for pinned detail on desktop.</li>
 </ul>
 <h2 id="workspace-card-input-and-bounds">Workspace card input and bounds<a class="heading-anchor" href="#workspace-card-input-and-bounds" aria-label="Link to Workspace card input and bounds">#</a></h2><p>Workspace cards are desktop reference surfaces, not editor content. <a href="../../src/components/WorkspacePins.tsx"><code>WorkspacePins</code></a> supports:</p>
 <ul>
@@ -252,7 +250,7 @@
 <li>panel controls expose the controlled element and expanded state;</li>
 <li>drawers are named modal dialogs and restore focus;</li>
 <li>unread state is not color-only (<code>Unread</code> is exposed to assistive technology on queue rows);</li>
-<li>agent/form errors use readable text, and steering validation uses <code>role=&quot;alert&quot;</code>;</li>
+<li>agent errors use readable text;</li>
 <li>a mind map has an accessible description even if rendering fails;</li>
 <li>workspace cards are named regions with named move, resize, and return controls;</li>
 <li>custom focus outlines are visible on buttons, links, and inputs;</li>

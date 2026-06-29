@@ -4,7 +4,7 @@
 
 - Node.js `^20.19.0` or `>=22.12.0`. This is the engine range required by the installed Vite 8 release.
 - npm, using the committed `package-lock.json`.
-- A modern browser with ES2022, dynamic imports, media queries, pointer events, and `ResizeObserver` support.
+- A modern browser with ES2022, `BroadcastChannel`, dynamic imports, media queries, pointer events, and `ResizeObserver` support.
 
 No environment variables, service credentials, database, or local backend are required.
 
@@ -30,7 +30,7 @@ The root URL opens the writing workspace with seeded document content and an emp
 3. Choose one of the six suggestion kinds, complete its common and kind-specific fields, and send it.
 4. The suggestion appears immediately in the writing workspace inbox.
 
-Delivery uses `BroadcastChannel`: both tabs must be open concurrently on the same origin. Events are not stored or replayed, and reloading the writing workspace clears its inbox. The existing Generate Ideas and direction controls remain interactive, but the manual mock deliberately emits no steering response.
+Delivery uses `BroadcastChannel`: both tabs must be open concurrently on the same origin. Events are not stored or replayed, and reloading the writing workspace clears its inbox. This controller/channel path is the only mock event source; the workspace has no separate generation or steering controls.
 
 React runs in `StrictMode`. During development, effects are mounted, cleaned up, and mounted again to expose unsafe effect code. The mock feed opens its channel receiver for the first subscriber and closes it after the final subscriber leaves, preventing duplicate streams.
 
@@ -63,12 +63,9 @@ The production build currently completes with Vite's warning that some minified 
 The application has no `.env` contract. Its current runtime inputs are hard-coded at the composition boundary:
 
 - initial editor content: [`initialContent`](../src/App.tsx);
-- research artifacts: [`artifacts`](../src/App.tsx);
 - temporary suggestion controller and channel: [`src/dev/mockSuggestions`](../src/dev/mockSuggestions);
-- manual-only mock feed adapter: [`mockSuggestionFeed.ts`](../src/suggestions/mockSuggestionFeed.ts);
+- injected feed adapter: [`createInjectedSuggestionFeed.ts`](../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts);
 - navigation labels and displayed research sources: [`Sidebar.tsx`](../src/components/Sidebar.tsx).
-
-The artifact list passed to the agent context and the source list displayed by the sidebar are separate hard-coded values. Keep them synchronized if changing the current prototype, or replace both with shared application data when wiring a real source model.
 
 ## Browser storage
 
@@ -121,7 +118,7 @@ Workspace cards render only at the desktop `xl` breakpoint (`80rem` and above). 
 
 ### Suggestion behavior seems duplicated in development
 
-Check that a new feed or context source is not being created on every render. [`App.tsx`](../src/App.tsx) memoizes both. Also ensure every `SuggestionFeed.subscribe` implementation fully cleans up when the last subscriber leaves; React `StrictMode` will exercise that path.
+Check that a new feed is not being created on every render. [`App.tsx`](../src/App.tsx) memoizes it. Also ensure every `SuggestionFeed.subscribe` implementation fully cleans up when the last subscriber leaves; React `StrictMode` will exercise that path.
 
 ### A manually sent suggestion does not appear
 

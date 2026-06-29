@@ -23,16 +23,15 @@ npm run build
 
 ## Current automated coverage
 
-The suite currently contains 29 tests across nine files.
+The suite currently contains 29 tests across eight files.
 
 | File | What it protects |
 | --- | --- |
 | [`suggestions/inbox.test.ts`](../src/suggestions/inbox.test.ts) | Dedupe, 30-item eviction, stale/withdrawn previews, frozen pins, workspace transitions, preview resolution, and z-order. |
-| [`suggestions/mockSuggestionFeed.test.ts`](../src/suggestions/mockSuggestionFeed.test.ts) | Manual channel delivery, malformed-message rejection, no-op generation paths, and unsubscribe cleanup. |
+| [`dev/mockSuggestions/createInjectedSuggestionFeed.test.ts`](../src/dev/mockSuggestions/createInjectedSuggestionFeed.test.ts) | Channel delivery, malformed-message rejection, and unsubscribe cleanup. |
 | [`dev/mockSuggestions/mockSuggestionDraft.test.ts`](../src/dev/mockSuggestions/mockSuggestionDraft.test.ts) | Common metadata, every kind-specific payload, recursive node JSON, and validation failures. |
 | [`dev/mockSuggestions/MockSuggestionController.test.tsx`](../src/dev/mockSuggestions/MockSuggestionController.test.tsx) | Dynamic fields, form submission/reset, channel publication, and unsupported-browser behavior. |
-| [`suggestions/contextSource.test.ts`](../src/suggestions/contextSource.test.ts) | Changed-document publication, revisioning, and artifact access. |
-| [`components/SuggestionDock.test.tsx`](../src/components/SuggestionDock.test.tsx) | Unified stream, text preview action, pin presentation, and workspace placement callback. |
+| [`components/SuggestionDock.test.tsx`](../src/components/SuggestionDock.test.tsx) | Absence of legacy steering controls, unified stream, text preview action, pin presentation, and workspace placement callback. |
 | [`components/WorkspacePins.test.tsx`](../src/components/WorkspacePins.test.tsx) | Card content, return action, keyboard geometry, and pointer drag commit. |
 | [`components/DocumentHeader.test.tsx`](../src/components/DocumentHeader.test.tsx) | Desktop panel semantics, hidden-partner unread count, and independent mobile controls. |
 | [`components/ResponsiveDrawer.test.tsx`](../src/components/ResponsiveDrawer.test.tsx) | Escape/close behavior and focus restoration. |
@@ -54,7 +53,6 @@ jsdom does not perform layout. Workspace tests mock `clientWidth` and `clientHei
 The current suite does not render the full `App` or BlockNote editor. It therefore does not directly verify:
 
 - preview block insertion, editing, accepting, or cancellation;
-- accepted-document extraction from a real BlockNote document;
 - panel drag resizing and `localStorage` restoration;
 - breakpoint transitions and drawer/desktop handoff;
 - initial workspace-card placement in the real scrolling canvas;
@@ -67,21 +65,19 @@ Changes in these areas require targeted tests where practical and the manual che
 
 ## Manual regression checklist
 
-### Editor and context
+### Editor
 
 - The seeded document renders and remains editable.
-- Editing accepted text does not create a suggestion in manual mock mode.
-- Editing a temporary preview does not itself enter accepted agent context.
+- Editing document text does not create suggestions.
 - Block formatting, selection, slash menu, and normal BlockNote editing still work.
 
 ### Suggestion lifecycle
 
 - The inbox remains empty until a controller event is sent.
 - Each of the six controller kinds appears with its entered content and visual treatment.
-- Sending a direction clears the form but produces no suggestion in manual mock mode.
+- The workspace exposes no Generate Ideas, steering, or retry controls.
 - Selecting marks an item read; Back returns to the correct queue.
 - Pin and unpin preserve a frozen copy and correct ordering.
-- An empty steering direction shows an error.
 
 ### Preview lifecycle
 
@@ -124,7 +120,6 @@ Match the test boundary to the behavior:
 
 - pure state transition: add to `inbox.test.ts`;
 - feed adapter lifecycle: test through `SuggestionFeed` events with fake time or a controlled transport;
-- document serialization: add focused tests for `getAcceptedDocumentBlocks`;
 - component semantics/callback: render the component with explicit props and query by accessible role/name;
 - full editor integration: use a browser-level test rather than relying on jsdom layout and `contenteditable` emulation.
 

@@ -89,7 +89,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--cyan">
-            <div class="page-hero__meta"><span>Guide 02</span><span>5 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 02</span><span>4 min read</span></div>
             <h1>Architecture</h1>
             <p>Understand the browser-only system boundary, state ownership, data direction, and module responsibilities.</p>
             <div class="page-hero__footer">
@@ -125,7 +125,6 @@
     User[User]
     Shell[App composition root]
     Editor[BlockNote editor]
-    Context[Mutable agent context]
     Feed[Suggestion feed adapter]
     Inbox[Suggestion inbox reducer]
     Dock[Writing partner UI]
@@ -136,11 +135,10 @@
 
     User --&gt; Shell
     Shell --&gt; Editor
-    Editor --&gt;|accepted block snapshot| Context
     Feed --&gt;|SuggestionEvent| Inbox
     Inbox --&gt; Dock
     Inbox --&gt; Pins
-    Dock --&gt;|select, pin, dismiss, steer, preview| Shell
+    Dock --&gt;|select, pin, dismiss, preview| Shell
     Editor --&gt;|preview accepted/cancelled| Inbox
     Shell &lt;--&gt; Storage
     Controller --&gt; Channel
@@ -149,12 +147,11 @@
 <h2 id="composition-root">Composition root<a class="heading-anchor" href="#composition-root" aria-label="Link to Composition root">#</a></h2><p><a href="../../src/App.tsx"><code>App.tsx</code></a> creates and connects long-lived objects:</p>
 <ol>
 <li><code>useCreateBlockNote</code> creates the editor from <code>writingSchema</code> and seeded content.</li>
-<li><code>createAgentContextSource</code> creates the mutable document/artifact context and is memoized for the component lifetime.</li>
-<li><code>createMockSuggestionFeed</code> creates the feed with the existing context-shaped constructor seam and is also memoized.</li>
+<li><code>createInjectedSuggestionFeed</code> creates the channel-backed feed and is memoized for the component lifetime.</li>
 <li><code>useSuggestionInbox</code> subscribes to the feed and owns the suggestion lifecycle reducer.</li>
-<li><code>App</code> bridges editor changes into agent context, creates editor preview blocks, translates preview resolution events back into inbox actions, and controls responsive panels.</li>
+<li><code>App</code> creates editor preview blocks, translates preview resolution events back into inbox actions, and controls responsive panels.</li>
 </ol>
-<p>Keeping feed and context creation stable is important. Recreating either during a render would reset context revisions, reopen the manual channel, and resubscribe the inbox.</p>
+<p>Keeping feed creation stable is important. Recreating it during a render would reopen the manual channel and resubscribe the inbox.</p>
 <h2 id="state-ownership">State ownership<a class="heading-anchor" href="#state-ownership" aria-label="Link to State ownership">#</a></h2><table>
 <thead>
 <tr>
@@ -169,13 +166,8 @@
 <td>Current page only</td>
 </tr>
 <tr>
-<td>Accepted document snapshot and revision</td>
-<td><code>createAgentContextSource</code> closure</td>
-<td>Current page only</td>
-</tr>
-<tr>
 <td>Feed subscribers and injected-event channel</td>
-<td><code>createMockSuggestionFeed</code> closure</td>
+<td><code>createInjectedSuggestionFeed</code> closure</td>
 <td>While at least one feed subscriber exists</td>
 </tr>
 <tr>
@@ -217,22 +209,20 @@
 <p>There is intentionally one owner for each lifecycle. Components such as <code>SuggestionDock</code>, <code>WorkspacePins</code>, and <code>DocumentHeader</code> receive values and callbacks; they do not own duplicate application state.</p>
 <h2 id="module-boundaries">Module boundaries<a class="heading-anchor" href="#module-boundaries" aria-label="Link to Module boundaries">#</a></h2><h3 id="src-editor"><code>src/editor</code><a class="heading-anchor" href="#src-editor" aria-label="Link to src/editor">#</a></h3><ul>
 <li><a href="../../src/editor/schema.tsx"><code>schema.tsx</code></a> extends BlockNote with the <code>suggestionPreview</code> block and implements accept/cancel behavior.</li>
-<li><a href="../../src/editor/documentContext.ts"><code>documentContext.ts</code></a> flattens editor blocks into the agent-facing text snapshot and removes preview blocks.</li>
 <li><a href="../../src/editor/previewEvents.ts"><code>previewEvents.ts</code></a> is a small in-process event bridge from the custom block renderer back to <code>App</code>.</li>
 </ul>
 <p>The editor layer knows suggestion IDs, but it does not import or mutate inbox state.</p>
 <h3 id="src-suggestions"><code>src/suggestions</code><a class="heading-anchor" href="#src-suggestions" aria-label="Link to src/suggestions">#</a></h3><ul>
-<li><a href="../../src/suggestions/types.ts"><code>types.ts</code></a> defines suggestion data and the feed/context interfaces.</li>
-<li><a href="../../src/suggestions/contextSource.ts"><code>contextSource.ts</code></a> stores revisioned document context and artifact references.</li>
-<li><a href="../../src/suggestions/mockSuggestionFeed.ts"><code>mockSuggestionFeed.ts</code></a> implements the feed contract over the temporary injected-event channel.</li>
+<li><a href="../../src/suggestions/types.ts"><code>types.ts</code></a> defines suggestion data and the feed interface.</li>
 <li><a href="../../src/suggestions/inbox.ts"><code>inbox.ts</code></a> implements all suggestion, pin, preview, and workspace transitions.</li>
 <li><a href="../../src/suggestions/workspacePinLayout.ts"><code>workspacePinLayout.ts</code></a> supplies type-specific initial card sizes.</li>
 </ul>
+<h3 id="src-dev-mocksuggestions"><code>src/dev/mockSuggestions</code><a class="heading-anchor" href="#src-dev-mocksuggestions" aria-label="Link to src/dev/mockSuggestions">#</a></h3><p>This temporary directory owns the controller view, payload builder and validation, <code>BroadcastChannel</code> transport, and <code>createInjectedSuggestionFeed</code>. It is the only mock event ingress and can be removed as one unit when a real feed is introduced.</p>
 <p>This layer is React-independent except for the <code>useSuggestionInbox</code> hook at the bottom of <code>inbox.ts</code>. The reducer itself is a pure function and is the most important unit-test boundary.</p>
 <h3 id="src-components"><code>src/components</code><a class="heading-anchor" href="#src-components" aria-label="Link to src/components">#</a></h3><ul>
 <li><a href="../../src/components/EditorWorkspace.tsx"><code>EditorWorkspace.tsx</code></a> joins the document header and editor surface.</li>
 <li><a href="../../src/components/DocumentEditor.tsx"><code>DocumentEditor.tsx</code></a> renders BlockNote and calculates initial workspace-card placement.</li>
-<li><a href="../../src/components/SuggestionDock.tsx"><code>SuggestionDock.tsx</code></a> renders the inbox, pinned section, detail view, steering form, and errors.</li>
+<li><a href="../../src/components/SuggestionDock.tsx"><code>SuggestionDock.tsx</code></a> renders the inbox, pinned section, detail view, and errors.</li>
 <li><a href="../../src/components/WorkspacePins.tsx"><code>WorkspacePins.tsx</code></a> renders desktop cards and handles bounded pointer/keyboard geometry.</li>
 <li><a href="../../src/components/DocumentHeader.tsx"><code>DocumentHeader.tsx</code></a> exposes responsive panel controls and document action placeholders.</li>
 <li><a href="../../src/components/ResponsiveDrawer.tsx"><code>ResponsiveDrawer.tsx</code></a> provides the below-desktop modal panel behavior.</li>
@@ -251,23 +241,17 @@
     participant Main as main.tsx
     participant App
     participant Editor as BlockNote
-    participant Context as AgentContextSource
     participant Controller as Mock controller tab
     participant Feed as SuggestionFeed
     participant Inbox as useSuggestionInbox
 
     Main-&gt;&gt;App: render inside StrictMode
     App-&gt;&gt;Editor: create schema-backed editor
-    App-&gt;&gt;Context: create with artifact references
-    App-&gt;&gt;Feed: create over context source
+    App-&gt;&gt;Feed: create injected-event feed
     Inbox-&gt;&gt;Feed: subscribe
-    App-&gt;&gt;Context: publish initial accepted blocks
     Controller-&gt;&gt;Feed: broadcasts suggestion.added
-    Feed--&gt;&gt;Inbox: suggestion.added
-    Editor--&gt;&gt;App: onChange
-    App-&gt;&gt;Context: publish changed accepted blocks</code></pre></details>
-  </figure><p>Document snapshot publication happens once in an effect after setup and again through the editor <code>onChange</code> callback. The context source fingerprints the flattened block array, so a duplicate publication does not increment the revision or notify listeners.</p>
-<h2 id="data-direction-and-dependency-rules">Data direction and dependency rules<a class="heading-anchor" href="#data-direction-and-dependency-rules" aria-label="Link to Data direction and dependency rules">#</a></h2><p>The intended dependency direction is:</p>
+    Feed--&gt;&gt;Inbox: suggestion.added</code></pre></details>
+  </figure><h2 id="data-direction-and-dependency-rules">Data direction and dependency rules<a class="heading-anchor" href="#data-direction-and-dependency-rules" aria-label="Link to Data direction and dependency rules">#</a></h2><p>The intended dependency direction is:</p>
 <div class="code-block" data-language="text"><div class="code-block__bar"><span>text</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-text">types/contracts
     ↑
 editor utilities     suggestion implementations
@@ -277,7 +261,6 @@ components  ← props/callbacks → App composition root</code></pre></div><p>Pr
 <li>Domain contracts belong in <code>suggestions/types.ts</code>, not in UI components.</li>
 <li>Suggestion lifecycle changes belong in the reducer and should have reducer tests.</li>
 <li>Transport or model SDK code should sit behind <code>SuggestionFeed</code>.</li>
-<li>Editor serialization/context filtering belongs in <code>editor/documentContext.ts</code>.</li>
 <li>Cross-feature orchestration is acceptable in <code>App.tsx</code>; lower-level components should not import the composition root or one another&#39;s state.</li>
 <li>CSS layout variables are set by <code>App</code> but interpreted by <code>index.css</code>.</li>
 </ul>
@@ -303,7 +286,6 @@ components  ← props/callbacks → App composition root</code></pre></div><p>Pr
 <ol>
 <li>Only one editable suggestion preview can exist at a time.</li>
 <li>Preview content is user-owned once inserted; feed updates never overwrite it.</li>
-<li>Agent context contains accepted content only, never preview blocks.</li>
 <li>Pinned suggestions are frozen snapshots and ignore later feed updates or retractions.</li>
 <li>The live inbox holds at most 30 entries; pinned and workspace entries do not count toward that limit.</li>
 <li>Selected and previewed entries are protected from queue eviction.</li>
@@ -321,7 +303,7 @@ components  ← props/callbacks → App composition root</code></pre></div><p>Pr
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#system-boundary">System boundary</a><a class="toc-link toc-link--2" href="#composition-root">Composition root</a><a class="toc-link toc-link--2" href="#state-ownership">State ownership</a><a class="toc-link toc-link--2" href="#module-boundaries">Module boundaries</a><a class="toc-link toc-link--3" href="#src-editor">src/editor</a><a class="toc-link toc-link--3" href="#src-suggestions">src/suggestions</a><a class="toc-link toc-link--3" href="#src-components">src/components</a><a class="toc-link toc-link--2" href="#bootstrap-and-runtime-sequence">Bootstrap and runtime sequence</a><a class="toc-link toc-link--2" href="#data-direction-and-dependency-rules">Data direction and dependency rules</a><a class="toc-link toc-link--2" href="#styling-architecture">Styling architecture</a><a class="toc-link toc-link--2" href="#build-and-runtime-assumptions">Build and runtime assumptions</a><a class="toc-link toc-link--2" href="#architectural-invariants">Architectural invariants</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#system-boundary">System boundary</a><a class="toc-link toc-link--2" href="#composition-root">Composition root</a><a class="toc-link toc-link--2" href="#state-ownership">State ownership</a><a class="toc-link toc-link--2" href="#module-boundaries">Module boundaries</a><a class="toc-link toc-link--3" href="#src-editor">src/editor</a><a class="toc-link toc-link--3" href="#src-suggestions">src/suggestions</a><a class="toc-link toc-link--3" href="#src-dev-mocksuggestions">src/dev/mockSuggestions</a><a class="toc-link toc-link--3" href="#src-components">src/components</a><a class="toc-link toc-link--2" href="#bootstrap-and-runtime-sequence">Bootstrap and runtime sequence</a><a class="toc-link toc-link--2" href="#data-direction-and-dependency-rules">Data direction and dependency rules</a><a class="toc-link toc-link--2" href="#styling-architecture">Styling architecture</a><a class="toc-link toc-link--2" href="#build-and-runtime-assumptions">Build and runtime assumptions</a><a class="toc-link toc-link--2" href="#architectural-invariants">Architectural invariants</a></nav>
             <a class="toc-source" href="../architecture.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>

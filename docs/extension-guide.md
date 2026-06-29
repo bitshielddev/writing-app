@@ -13,17 +13,15 @@ A production adapter must define:
 - stable `id` and `dedupeKey` rules;
 - reconnection and replay semantics;
 - ordering of status, suggestion, and error events;
-- cancellation or ownership of in-flight steering calls;
-- what `retry()` retries;
 - cleanup under React `StrictMode`.
 
-Then replace `createMockSuggestionFeed(contextSource)` in [`App.tsx`](../src/App.tsx) with the new adapter. Preserve stable construction with `useMemo` or move service creation above React if it is intentionally process-wide.
+Then replace `createInjectedSuggestionFeed()` in [`App.tsx`](../src/App.tsx) with the new adapter. Preserve stable construction with `useMemo` or move service creation above React if it is intentionally process-wide.
 
 Do not call an HTTP or model SDK directly from `SuggestionDock`. That would couple view lifecycle to transport lifecycle, make replay/dedupe inconsistent, and bypass reducer tests.
 
-### Context sent to a real service
+### Introduce context for a real service
 
-The existing `DocumentSnapshot` is deliberately small. Before making it a network payload, decide and document:
+The current application does not publish editor or artifact context to the feed. Before introducing a network payload, decide and document:
 
 - whether block IDs are stable across saved sessions;
 - whether formatting, hierarchy, current selection, title, and metadata are required;
@@ -111,7 +109,7 @@ Before wiring buttons individually, introduce the missing domain/state boundary:
 
 ## Add artifact upload or source retrieval
 
-The sidebar source list and `App` artifact references are currently independent mock constants. Replace them with one shared artifact owner.
+The sidebar source list is currently a static presentation constant. Replace it with a shared artifact owner.
 
 That owner should distinguish:
 
@@ -122,7 +120,7 @@ That owner should distinguish:
 - content availability to the agent;
 - deletion and access-control behavior.
 
-The agent context exposes `getArtifactReferences()` only at present. A real feed can use those references to ask a backend for indexed content; raw file content should not be pushed into React component props.
+A real feed can use stable artifact references to ask a backend for indexed content; raw file content should not be pushed into React component props.
 
 ## Evolve the inbox reducer safely
 
@@ -169,8 +167,6 @@ Routing is simpler but still needs document identity and cleanup rules. Confirm 
 
 The current data volume is intentionally small. Revisit these choices as it grows:
 
-- document fingerprinting serializes the full flattened snapshot on every editor change;
-- the context update itself is not debounced, although the mock feed's observation is;
 - suggestion deep copy uses JSON serialization;
 - workspace geometry commits update the whole reducer state;
 - large Mermaid diagrams render client-side and inject full SVG;
@@ -186,8 +182,7 @@ Update this section when a change affects any of the following:
 - service or data contracts;
 - state ownership or persistence;
 - suggestion lifecycle invariants;
-- editor schema and accepted-context rules;
+- editor schema and preview rules;
 - responsive breakpoints or input behavior;
 - functional versus presentation-only controls;
 - testing commands or coverage boundaries.
-

@@ -89,7 +89,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--green">
-            <div class="page-hero__meta"><span>Guide 05</span><span>5 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 05</span><span>4 min read</span></div>
             <h1>Testing and quality</h1>
             <p>Know what the automated suite protects, where browser checks are required, and what to run before handoff.</p>
             <div class="page-hero__footer">
@@ -111,7 +111,7 @@
 npm run test:watch
 npm run lint
 npm run build</code></pre></div><p><code>npm run build</code> is also the authoritative type check because it runs <code>tsc -b</code> before Vite. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.</p>
-<h2 id="current-automated-coverage">Current automated coverage<a class="heading-anchor" href="#current-automated-coverage" aria-label="Link to Current automated coverage">#</a></h2><p>The suite currently contains 29 tests across nine files.</p>
+<h2 id="current-automated-coverage">Current automated coverage<a class="heading-anchor" href="#current-automated-coverage" aria-label="Link to Current automated coverage">#</a></h2><p>The suite currently contains 29 tests across eight files.</p>
 <table>
 <thead>
 <tr>
@@ -124,8 +124,8 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <td>Dedupe, 30-item eviction, stale/withdrawn previews, frozen pins, workspace transitions, preview resolution, and z-order.</td>
 </tr>
 <tr>
-<td><a href="../../src/suggestions/mockSuggestionFeed.test.ts"><code>suggestions/mockSuggestionFeed.test.ts</code></a></td>
-<td>Manual channel delivery, malformed-message rejection, no-op generation paths, and unsubscribe cleanup.</td>
+<td><a href="../../src/dev/mockSuggestions/createInjectedSuggestionFeed.test.ts"><code>dev/mockSuggestions/createInjectedSuggestionFeed.test.ts</code></a></td>
+<td>Channel delivery, malformed-message rejection, and unsubscribe cleanup.</td>
 </tr>
 <tr>
 <td><a href="../../src/dev/mockSuggestions/mockSuggestionDraft.test.ts"><code>dev/mockSuggestions/mockSuggestionDraft.test.ts</code></a></td>
@@ -136,12 +136,8 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <td>Dynamic fields, form submission/reset, channel publication, and unsupported-browser behavior.</td>
 </tr>
 <tr>
-<td><a href="../../src/suggestions/contextSource.test.ts"><code>suggestions/contextSource.test.ts</code></a></td>
-<td>Changed-document publication, revisioning, and artifact access.</td>
-</tr>
-<tr>
 <td><a href="../../src/components/SuggestionDock.test.tsx"><code>components/SuggestionDock.test.tsx</code></a></td>
-<td>Unified stream, text preview action, pin presentation, and workspace placement callback.</td>
+<td>Absence of legacy steering controls, unified stream, text preview action, pin presentation, and workspace placement callback.</td>
 </tr>
 <tr>
 <td><a href="../../src/components/WorkspacePins.test.tsx"><code>components/WorkspacePins.test.tsx</code></a></td>
@@ -162,7 +158,6 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <h2 id="what-is-not-covered-automatically">What is not covered automatically<a class="heading-anchor" href="#what-is-not-covered-automatically" aria-label="Link to What is not covered automatically">#</a></h2><p>The current suite does not render the full <code>App</code> or BlockNote editor. It therefore does not directly verify:</p>
 <ul>
 <li>preview block insertion, editing, accepting, or cancellation;</li>
-<li>accepted-document extraction from a real BlockNote document;</li>
 <li>panel drag resizing and <code>localStorage</code> restoration;</li>
 <li>breakpoint transitions and drawer/desktop handoff;</li>
 <li>initial workspace-card placement in the real scrolling canvas;</li>
@@ -172,19 +167,17 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <li>visual layout, overflow, font fallback, or contrast.</li>
 </ul>
 <p>Changes in these areas require targeted tests where practical and the manual checks below.</p>
-<h2 id="manual-regression-checklist">Manual regression checklist<a class="heading-anchor" href="#manual-regression-checklist" aria-label="Link to Manual regression checklist">#</a></h2><h3 id="editor-and-context">Editor and context<a class="heading-anchor" href="#editor-and-context" aria-label="Link to Editor and context">#</a></h3><ul>
+<h2 id="manual-regression-checklist">Manual regression checklist<a class="heading-anchor" href="#manual-regression-checklist" aria-label="Link to Manual regression checklist">#</a></h2><h3 id="editor">Editor<a class="heading-anchor" href="#editor" aria-label="Link to Editor">#</a></h3><ul>
 <li>The seeded document renders and remains editable.</li>
-<li>Editing accepted text does not create a suggestion in manual mock mode.</li>
-<li>Editing a temporary preview does not itself enter accepted agent context.</li>
+<li>Editing document text does not create suggestions.</li>
 <li>Block formatting, selection, slash menu, and normal BlockNote editing still work.</li>
 </ul>
 <h3 id="suggestion-lifecycle">Suggestion lifecycle<a class="heading-anchor" href="#suggestion-lifecycle" aria-label="Link to Suggestion lifecycle">#</a></h3><ul>
 <li>The inbox remains empty until a controller event is sent.</li>
 <li>Each of the six controller kinds appears with its entered content and visual treatment.</li>
-<li>Sending a direction clears the form but produces no suggestion in manual mock mode.</li>
+<li>The workspace exposes no Generate Ideas, steering, or retry controls.</li>
 <li>Selecting marks an item read; Back returns to the correct queue.</li>
 <li>Pin and unpin preserve a frozen copy and correct ordering.</li>
-<li>An empty steering direction shows an error.</li>
 </ul>
 <h3 id="preview-lifecycle">Preview lifecycle<a class="heading-anchor" href="#preview-lifecycle" aria-label="Link to Preview lifecycle">#</a></h3><ul>
 <li>Only text kinds offer Preview.</li>
@@ -221,7 +214,6 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <ul>
 <li>pure state transition: add to <code>inbox.test.ts</code>;</li>
 <li>feed adapter lifecycle: test through <code>SuggestionFeed</code> events with fake time or a controlled transport;</li>
-<li>document serialization: add focused tests for <code>getAcceptedDocumentBlocks</code>;</li>
 <li>component semantics/callback: render the component with explicit props and query by accessible role/name;</li>
 <li>full editor integration: use a browser-level test rather than relying on jsdom layout and <code>contenteditable</code> emulation.</li>
 </ul>
@@ -245,7 +237,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#test-stack">Test stack</a><a class="toc-link toc-link--2" href="#commands">Commands</a><a class="toc-link toc-link--2" href="#current-automated-coverage">Current automated coverage</a><a class="toc-link toc-link--3" href="#why-reducer-tests-matter-most">Why reducer tests matter most</a><a class="toc-link toc-link--3" href="#feed-lifecycle-tests">Feed lifecycle tests</a><a class="toc-link toc-link--3" href="#geometry-tests">Geometry tests</a><a class="toc-link toc-link--2" href="#what-is-not-covered-automatically">What is not covered automatically</a><a class="toc-link toc-link--2" href="#manual-regression-checklist">Manual regression checklist</a><a class="toc-link toc-link--3" href="#editor-and-context">Editor and context</a><a class="toc-link toc-link--3" href="#suggestion-lifecycle">Suggestion lifecycle</a><a class="toc-link toc-link--3" href="#preview-lifecycle">Preview lifecycle</a><a class="toc-link toc-link--3" href="#desktop-layout-80rem">Desktop layout ( =80rem)</a><a class="toc-link toc-link--3" href="#below-desktop-80rem">Below desktop (&lt;80rem)</a><a class="toc-link toc-link--3" href="#accessibility">Accessibility</a><a class="toc-link toc-link--2" href="#adding-tests">Adding tests</a><a class="toc-link toc-link--2" href="#pre-handoff-standard">Pre-handoff standard</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#test-stack">Test stack</a><a class="toc-link toc-link--2" href="#commands">Commands</a><a class="toc-link toc-link--2" href="#current-automated-coverage">Current automated coverage</a><a class="toc-link toc-link--3" href="#why-reducer-tests-matter-most">Why reducer tests matter most</a><a class="toc-link toc-link--3" href="#feed-lifecycle-tests">Feed lifecycle tests</a><a class="toc-link toc-link--3" href="#geometry-tests">Geometry tests</a><a class="toc-link toc-link--2" href="#what-is-not-covered-automatically">What is not covered automatically</a><a class="toc-link toc-link--2" href="#manual-regression-checklist">Manual regression checklist</a><a class="toc-link toc-link--3" href="#editor">Editor</a><a class="toc-link toc-link--3" href="#suggestion-lifecycle">Suggestion lifecycle</a><a class="toc-link toc-link--3" href="#preview-lifecycle">Preview lifecycle</a><a class="toc-link toc-link--3" href="#desktop-layout-80rem">Desktop layout ( =80rem)</a><a class="toc-link toc-link--3" href="#below-desktop-80rem">Below desktop (&lt;80rem)</a><a class="toc-link toc-link--3" href="#accessibility">Accessibility</a><a class="toc-link toc-link--2" href="#adding-tests">Adding tests</a><a class="toc-link toc-link--2" href="#pre-handoff-standard">Pre-handoff standard</a></nav>
             <a class="toc-source" href="../testing-and-quality.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>

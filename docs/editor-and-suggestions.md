@@ -1,6 +1,6 @@
 # Editor and suggestion system
 
-This is the core interaction model: the editor supplies accepted document context, the feed emits events, the inbox reducer turns those events and user actions into state, and text suggestions can temporarily enter the document as editable previews.
+This is the core interaction model: the injected feed emits events, the inbox reducer turns those events and user actions into state, and text suggestions can temporarily enter the document as editable previews.
 
 ## Domain model
 
@@ -27,36 +27,13 @@ Every suggestion also carries:
 
 An update uses `id` to replace an existing live item. An addition uses `dedupeKey` to decide whether the session has already seen equivalent content. These fields are related but not interchangeable.
 
-## Agent context
-
-[`createAgentContextSource`](../src/suggestions/contextSource.ts) owns two inputs:
-
-- the latest `DocumentSnapshot`;
-- immutable artifact references supplied at construction.
-
-A document snapshot is a revision plus a flat array of `{ id, type, text }` blocks. `updateDocument` JSON-fingerprints the array and publishes only when the flattened content changes. The revision begins at 0 and increments for every unique snapshot.
-
-[`getAcceptedDocumentBlocks`](../src/editor/documentContext.ts) builds the array from BlockNote:
-
-1. walk all blocks depth-first;
-2. omit any block whose type is `suggestionPreview`;
-3. reduce inline rich content to plain text;
-4. continue through child blocks;
-5. preserve each accepted block's ID and type.
-
-Formatting marks and non-text structure are not represented beyond the block type. A production model needing rich structure, selection context, comments, or source anchors will require a versioned context contract rather than expanding this implicit shape ad hoc.
-
-`App` publishes context on initial mount and on every editor change. Duplicate calls are harmless because the context source suppresses unchanged snapshots.
-
 ## Feed contract
 
-`SuggestionFeed` has three operations:
+`SuggestionFeed` is subscription-only:
 
 ```ts
 interface SuggestionFeed {
   subscribe(listener: (event: SuggestionEvent) => void): () => void;
-  sendSteering(prompt: string): Promise<void>;
-  retry(): Promise<void>;
 }
 ```
 
@@ -68,17 +45,15 @@ The event channel supports:
 | `suggestion.updated` | Replace a live suggestion with the same `id`. |
 | `suggestion.retracted` | Remove a live suggestion, unless user state protects it. |
 | `agent.status` | Set `idle`, `working`, or `offline` and clear the current error. |
-| `agent.error` | Set a displayable error and whether Retry is available. |
+| `agent.error` | Set a displayable error and its recoverability metadata. |
 
-The current mock implementation in [`mockSuggestionFeed.ts`](../src/suggestions/mockSuggestionFeed.ts):
+The current implementation in [`createInjectedSuggestionFeed.ts`](../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts):
 
 - opens a `BroadcastChannel` receiver when its first listener subscribes;
 - forwards valid `suggestion.added` events sent by the temporary `/mock-suggestions` controller;
-- emits no initial, timed, document-derived, status, error, or offline events;
-- leaves `sendSteering()` and `retry()` as resolved no-ops in manual mode;
 - closes the channel receiver after its last listener leaves.
 
-The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs. The controller and channel code are isolated under [`src/dev/mockSuggestions`](../src/dev/mockSuggestions) so they can be removed with the path switch and the feed subscription when a real transport replaces the mock.
+The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs. This directory is the sole mock ingress: there are no seeded events, document observations, steering methods, retries, or secondary feed adapters.
 
 ## Inbox state machine
 
@@ -244,4 +219,4 @@ Mind maps use [`MermaidDiagram`](../src/components/MermaidDiagram.tsx):
 - errors render the description as a visible fallback;
 - the effect ignores late async results after unmount.
 
-Because SVG injection is deliberate, keep Mermaid in strict mode and treat source strings as untrusted when replacing the mock feed.
+Because SVG injection is deliberate, keep Mermaid in strict mode and treat source strings as untrusted when replacing the injected feed.

@@ -6,21 +6,6 @@ export type SuggestionKind =
   | "layout"
   | "mindMap";
 
-export type ArtifactReference = {
-  id: string;
-  title: string;
-  kind: "pdf" | "document" | "other";
-};
-
-export type DocumentSnapshot = {
-  revision: number;
-  blocks: Array<{
-    id: string;
-    type: string;
-    text: string;
-  }>;
-};
-
 type SuggestionBase = {
   id: string;
   dedupeKey: string;
@@ -71,18 +56,4 @@ export type SuggestionEvent =
 
 export interface SuggestionFeed {
   subscribe(listener: (event: SuggestionEvent) => void): () => void;
-  sendSteering(prompt: string): Promise<void>;
-  retry(): Promise<void>;
-}
-
-export interface AgentContextSource {
-  getDocumentSnapshot(): DocumentSnapshot;
-  subscribeToDocument(
-    listener: (snapshot: DocumentSnapshot) => void,
-  ): () => void;
-  getArtifactReferences(): readonly ArtifactReference[];
-}
-
-export interface MutableAgentContextSource extends AgentContextSource {
-  updateDocument(blocks: DocumentSnapshot["blocks"]): void;
 }

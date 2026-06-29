@@ -102,7 +102,7 @@
           <article class="prose"><h2 id="prerequisites">Prerequisites<a class="heading-anchor" href="#prerequisites" aria-label="Link to Prerequisites">#</a></h2><ul>
 <li>Node.js <code>^20.19.0</code> or <code>&gt;=22.12.0</code>. This is the engine range required by the installed Vite 8 release.</li>
 <li>npm, using the committed <code>package-lock.json</code>.</li>
-<li>A modern browser with ES2022, dynamic imports, media queries, pointer events, and <code>ResizeObserver</code> support.</li>
+<li>A modern browser with ES2022, <code>BroadcastChannel</code>, dynamic imports, media queries, pointer events, and <code>ResizeObserver</code> support.</li>
 </ul>
 <p>No environment variables, service credentials, database, or local backend are required.</p>
 <h2 id="install-and-run">Install and run<a class="heading-anchor" href="#install-and-run" aria-label="Link to Install and run">#</a></h2><p>From the repository root:</p>
@@ -116,7 +116,7 @@ npm run dev</code></pre></div><p>Open the local URL printed by Vite. Vite normal
 <li>Choose one of the six suggestion kinds, complete its common and kind-specific fields, and send it.</li>
 <li>The suggestion appears immediately in the writing workspace inbox.</li>
 </ol>
-<p>Delivery uses <code>BroadcastChannel</code>: both tabs must be open concurrently on the same origin. Events are not stored or replayed, and reloading the writing workspace clears its inbox. The existing Generate Ideas and direction controls remain interactive, but the manual mock deliberately emits no steering response.</p>
+<p>Delivery uses <code>BroadcastChannel</code>: both tabs must be open concurrently on the same origin. Events are not stored or replayed, and reloading the writing workspace clears its inbox. This controller/channel path is the only mock event source; the workspace has no separate generation or steering controls.</p>
 <p>React runs in <code>StrictMode</code>. During development, effects are mounted, cleaned up, and mounted again to expose unsafe effect code. The mock feed opens its channel receiver for the first subscriber and closes it after the final subscriber leaves, preventing duplicate streams.</p>
 <h2 id="developer-commands">Developer commands<a class="heading-anchor" href="#developer-commands" aria-label="Link to Developer commands">#</a></h2><table>
 <thead>
@@ -162,12 +162,10 @@ npm run build</code></pre></div><p>See <a href="testing-and-quality.html">Testin
 <h2 id="runtime-configuration">Runtime configuration<a class="heading-anchor" href="#runtime-configuration" aria-label="Link to Runtime configuration">#</a></h2><p>The application has no <code>.env</code> contract. Its current runtime inputs are hard-coded at the composition boundary:</p>
 <ul>
 <li>initial editor content: <a href="../../src/App.tsx"><code>initialContent</code></a>;</li>
-<li>research artifacts: <a href="../../src/App.tsx"><code>artifacts</code></a>;</li>
 <li>temporary suggestion controller and channel: <a href="../../src/dev/mockSuggestions"><code>src/dev/mockSuggestions</code></a>;</li>
-<li>manual-only mock feed adapter: <a href="../../src/suggestions/mockSuggestionFeed.ts"><code>mockSuggestionFeed.ts</code></a>;</li>
+<li>injected feed adapter: <a href="../../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts"><code>createInjectedSuggestionFeed.ts</code></a>;</li>
 <li>navigation labels and displayed research sources: <a href="../../src/components/Sidebar.tsx"><code>Sidebar.tsx</code></a>.</li>
 </ul>
-<p>The artifact list passed to the agent context and the source list displayed by the sidebar are separate hard-coded values. Keep them synchronized if changing the current prototype, or replace both with shared application data when wiring a real source model.</p>
 <h2 id="browser-storage">Browser storage<a class="heading-anchor" href="#browser-storage" aria-label="Link to Browser storage">#</a></h2><p>The app stores two optional values:</p>
 <table>
 <thead>
@@ -210,7 +208,7 @@ npm run build</code></pre></div><p>See <a href="testing-and-quality.html">Testin
 <h3 id="fonts-look-different">Fonts look different<a class="heading-anchor" href="#fonts-look-different" aria-label="Link to Fonts look different">#</a></h3><p><a href="../../index.html"><code>index.html</code></a> loads Inter and Literata from Google Fonts. If the network request is blocked, the UI falls back to system sans-serif and Georgia-style serif fonts. Functionality is unaffected.</p>
 <h3 id="a-mind-map-says-diagram-unavailable">A mind map says “Diagram unavailable”<a class="heading-anchor" href="#a-mind-map-says-diagram-unavailable" aria-label="Link to A mind map says “Diagram unavailable”">#</a></h3><p>Mermaid is loaded lazily only when a mind-map visual renders. Invalid Mermaid source or a failed module render activates the accessible text fallback. Inspect <a href="../../src/components/MermaidDiagram.tsx"><code>MermaidDiagram.tsx</code></a> and the <code>mermaidSource</code> on the suggestion.</p>
 <h3 id="a-workspace-pin-is-missing">A workspace pin is missing<a class="heading-anchor" href="#a-workspace-pin-is-missing" aria-label="Link to A workspace pin is missing">#</a></h3><p>Workspace cards render only at the desktop <code>xl</code> breakpoint (<code>80rem</code> and above). A card also remains hidden for one animation frame while its initial geometry is calculated. It must first be pinned in the writing partner before “Place on workspace” is available.</p>
-<h3 id="suggestion-behavior-seems-duplicated-in-development">Suggestion behavior seems duplicated in development<a class="heading-anchor" href="#suggestion-behavior-seems-duplicated-in-development" aria-label="Link to Suggestion behavior seems duplicated in development">#</a></h3><p>Check that a new feed or context source is not being created on every render. <a href="../../src/App.tsx"><code>App.tsx</code></a> memoizes both. Also ensure every <code>SuggestionFeed.subscribe</code> implementation fully cleans up when the last subscriber leaves; React <code>StrictMode</code> will exercise that path.</p>
+<h3 id="suggestion-behavior-seems-duplicated-in-development">Suggestion behavior seems duplicated in development<a class="heading-anchor" href="#suggestion-behavior-seems-duplicated-in-development" aria-label="Link to Suggestion behavior seems duplicated in development">#</a></h3><p>Check that a new feed is not being created on every render. <a href="../../src/App.tsx"><code>App.tsx</code></a> memoizes it. Also ensure every <code>SuggestionFeed.subscribe</code> implementation fully cleans up when the last subscriber leaves; React <code>StrictMode</code> will exercise that path.</p>
 <h3 id="a-manually-sent-suggestion-does-not-appear">A manually sent suggestion does not appear<a class="heading-anchor" href="#a-manually-sent-suggestion-does-not-appear" aria-label="Link to A manually sent suggestion does not appear">#</a></h3><p>Confirm both tabs use exactly the same scheme, host, and port, and that the writing workspace was already open when Send was pressed. <code>BroadcastChannel</code> delivery is live-only. The controller reports an explicit error if the browser does not provide the API.</p>
 </article>
           <nav class="page-pagination" aria-label="Documentation pages">

@@ -15,8 +15,6 @@ type EditorWorkspaceProps = {
   onOpenNavigationDrawer: () => void;
   onToggleContextPanel: () => void;
   onToggleNavigationPanel: () => void;
-  onGenerateIdeas: () => void;
-  onEditorChange: () => void;
   onEditorSelectionChange: () => void;
   onWorkspacePinGeometryChange: (id: string, rect: WorkspacePinRect) => void;
   onRaiseWorkspacePin: (id: string) => void;
@@ -35,8 +33,6 @@ export function EditorWorkspace({
   onOpenNavigationDrawer,
   onToggleContextPanel,
   onToggleNavigationPanel,
-  onGenerateIdeas,
-  onEditorChange,
   onEditorSelectionChange,
   onWorkspacePinGeometryChange,
   onRaiseWorkspacePin,
@@ -57,12 +53,10 @@ export function EditorWorkspace({
         onOpenNavigationDrawer={onOpenNavigationDrawer}
         onToggleContextPanel={onToggleContextPanel}
         onToggleNavigationPanel={onToggleNavigationPanel}
-        onGenerateIdeas={onGenerateIdeas}
       />
       <DocumentEditor
         editor={editor}
         workspacePins={workspacePins}
-        onChange={onEditorChange}
         onSelectionChange={onEditorSelectionChange}
         onWorkspacePinGeometryChange={onWorkspacePinGeometryChange}
         onRaiseWorkspacePin={onRaiseWorkspacePin}

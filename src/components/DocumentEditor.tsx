@@ -13,7 +13,6 @@ import { WorkspacePins } from "./WorkspacePins";
 type DocumentEditorProps = {
   editor: WritingEditor;
   workspacePins: WorkspacePin[];
-  onChange: () => void;
   onSelectionChange: () => void;
   onWorkspacePinGeometryChange: (id: string, rect: WorkspacePinRect) => void;
   onRaiseWorkspacePin: (id: string) => void;
@@ -23,7 +22,6 @@ type DocumentEditorProps = {
 export function DocumentEditor({
   editor,
   workspacePins,
-  onChange,
   onSelectionChange,
   onWorkspacePinGeometryChange,
   onRaiseWorkspacePin,
@@ -114,7 +112,6 @@ export function DocumentEditor({
             theme="light"
             aria-label="Editable draft content"
             data-editor-surface
-            onChange={onChange}
             onSelectionChange={onSelectionChange}
           />
         </div>

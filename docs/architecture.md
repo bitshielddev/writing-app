@@ -9,7 +9,6 @@ flowchart LR
     User[User]
     Shell[App composition root]
     Editor[BlockNote editor]
-    Context[Mutable agent context]
     Feed[Suggestion feed adapter]
     Inbox[Suggestion inbox reducer]
     Dock[Writing partner UI]
@@ -20,11 +19,10 @@ flowchart LR
 
     User --> Shell
     Shell --> Editor
-    Editor -->|accepted block snapshot| Context
     Feed -->|SuggestionEvent| Inbox
     Inbox --> Dock
     Inbox --> Pins
-    Dock -->|select, pin, dismiss, steer, preview| Shell
+    Dock -->|select, pin, dismiss, preview| Shell
     Editor -->|preview accepted/cancelled| Inbox
     Shell <--> Storage
     Controller --> Channel
@@ -38,20 +36,18 @@ The service-shaped interfaces exist, but their current implementations are in-me
 [`App.tsx`](../src/App.tsx) creates and connects long-lived objects:
 
 1. `useCreateBlockNote` creates the editor from `writingSchema` and seeded content.
-2. `createAgentContextSource` creates the mutable document/artifact context and is memoized for the component lifetime.
-3. `createMockSuggestionFeed` creates the feed with the existing context-shaped constructor seam and is also memoized.
-4. `useSuggestionInbox` subscribes to the feed and owns the suggestion lifecycle reducer.
-5. `App` bridges editor changes into agent context, creates editor preview blocks, translates preview resolution events back into inbox actions, and controls responsive panels.
+2. `createInjectedSuggestionFeed` creates the channel-backed feed and is memoized for the component lifetime.
+3. `useSuggestionInbox` subscribes to the feed and owns the suggestion lifecycle reducer.
+4. `App` creates editor preview blocks, translates preview resolution events back into inbox actions, and controls responsive panels.
 
-Keeping feed and context creation stable is important. Recreating either during a render would reset context revisions, reopen the manual channel, and resubscribe the inbox.
+Keeping feed creation stable is important. Recreating it during a render would reopen the manual channel and resubscribe the inbox.
 
 ## State ownership
 
 | State | Owner | Lifetime / persistence |
 | --- | --- | --- |
 | Editor blocks and selection | BlockNote editor created in `App` | Current page only |
-| Accepted document snapshot and revision | `createAgentContextSource` closure | Current page only |
-| Feed subscribers and injected-event channel | `createMockSuggestionFeed` closure | While at least one feed subscriber exists |
+| Feed subscribers and injected-event channel | `createInjectedSuggestionFeed` closure | While at least one feed subscriber exists |
 | Inbox, pins, preview id, agent status, errors | `useSuggestionInbox` / `inboxReducer` | Current page only |
 | Workspace pin geometry and z-order | Inbox reducer | Current page only |
 | Desktop panel open/closed state | `App` React state | Current page only |
@@ -67,18 +63,19 @@ There is intentionally one owner for each lifecycle. Components such as `Suggest
 ### `src/editor`
 
 - [`schema.tsx`](../src/editor/schema.tsx) extends BlockNote with the `suggestionPreview` block and implements accept/cancel behavior.
-- [`documentContext.ts`](../src/editor/documentContext.ts) flattens editor blocks into the agent-facing text snapshot and removes preview blocks.
 - [`previewEvents.ts`](../src/editor/previewEvents.ts) is a small in-process event bridge from the custom block renderer back to `App`.
 
 The editor layer knows suggestion IDs, but it does not import or mutate inbox state.
 
 ### `src/suggestions`
 
-- [`types.ts`](../src/suggestions/types.ts) defines suggestion data and the feed/context interfaces.
-- [`contextSource.ts`](../src/suggestions/contextSource.ts) stores revisioned document context and artifact references.
-- [`mockSuggestionFeed.ts`](../src/suggestions/mockSuggestionFeed.ts) implements the feed contract over the temporary injected-event channel.
+- [`types.ts`](../src/suggestions/types.ts) defines suggestion data and the feed interface.
 - [`inbox.ts`](../src/suggestions/inbox.ts) implements all suggestion, pin, preview, and workspace transitions.
 - [`workspacePinLayout.ts`](../src/suggestions/workspacePinLayout.ts) supplies type-specific initial card sizes.
+
+### `src/dev/mockSuggestions`
+
+This temporary directory owns the controller view, payload builder and validation, `BroadcastChannel` transport, and `createInjectedSuggestionFeed`. It is the only mock event ingress and can be removed as one unit when a real feed is introduced.
 
 This layer is React-independent except for the `useSuggestionInbox` hook at the bottom of `inbox.ts`. The reducer itself is a pure function and is the most important unit-test boundary.
 
@@ -86,7 +83,7 @@ This layer is React-independent except for the `useSuggestionInbox` hook at the 
 
 - [`EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) joins the document header and editor surface.
 - [`DocumentEditor.tsx`](../src/components/DocumentEditor.tsx) renders BlockNote and calculates initial workspace-card placement.
-- [`SuggestionDock.tsx`](../src/components/SuggestionDock.tsx) renders the inbox, pinned section, detail view, steering form, and errors.
+- [`SuggestionDock.tsx`](../src/components/SuggestionDock.tsx) renders the inbox, pinned section, detail view, and errors.
 - [`WorkspacePins.tsx`](../src/components/WorkspacePins.tsx) renders desktop cards and handles bounded pointer/keyboard geometry.
 - [`DocumentHeader.tsx`](../src/components/DocumentHeader.tsx) exposes responsive panel controls and document action placeholders.
 - [`ResponsiveDrawer.tsx`](../src/components/ResponsiveDrawer.tsx) provides the below-desktop modal panel behavior.
@@ -104,24 +101,17 @@ sequenceDiagram
     participant Main as main.tsx
     participant App
     participant Editor as BlockNote
-    participant Context as AgentContextSource
     participant Controller as Mock controller tab
     participant Feed as SuggestionFeed
     participant Inbox as useSuggestionInbox
 
     Main->>App: render inside StrictMode
     App->>Editor: create schema-backed editor
-    App->>Context: create with artifact references
-    App->>Feed: create over context source
+    App->>Feed: create injected-event feed
     Inbox->>Feed: subscribe
-    App->>Context: publish initial accepted blocks
     Controller->>Feed: broadcasts suggestion.added
     Feed-->>Inbox: suggestion.added
-    Editor-->>App: onChange
-    App->>Context: publish changed accepted blocks
 ```
-
-Document snapshot publication happens once in an effect after setup and again through the editor `onChange` callback. The context source fingerprints the flattened block array, so a duplicate publication does not increment the revision or notify listeners.
 
 ## Data direction and dependency rules
 
@@ -140,7 +130,6 @@ Practical rules:
 - Domain contracts belong in `suggestions/types.ts`, not in UI components.
 - Suggestion lifecycle changes belong in the reducer and should have reducer tests.
 - Transport or model SDK code should sit behind `SuggestionFeed`.
-- Editor serialization/context filtering belongs in `editor/documentContext.ts`.
 - Cross-feature orchestration is acceptable in `App.tsx`; lower-level components should not import the composition root or one another's state.
 - CSS layout variables are set by `App` but interpreted by `index.css`.
 
@@ -172,9 +161,8 @@ Changes should preserve these unless the design is deliberately revised and docu
 
 1. Only one editable suggestion preview can exist at a time.
 2. Preview content is user-owned once inserted; feed updates never overwrite it.
-3. Agent context contains accepted content only, never preview blocks.
-4. Pinned suggestions are frozen snapshots and ignore later feed updates or retractions.
-5. The live inbox holds at most 30 entries; pinned and workspace entries do not count toward that limit.
-6. Selected and previewed entries are protected from queue eviction.
-7. Desktop panel state and mobile drawer state are separate.
-8. Workspace geometry is clamped to the current editor canvas.
+3. Pinned suggestions are frozen snapshots and ignore later feed updates or retractions.
+4. The live inbox holds at most 30 entries; pinned and workspace entries do not count toward that limit.
+5. Selected and previewed entries are protected from queue eviction.
+6. Desktop panel state and mobile drawer state are separate.
+7. Workspace geometry is clamped to the current editor canvas.

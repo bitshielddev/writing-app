@@ -72,8 +72,7 @@ Current functional controls:
 - open/close navigation drawer;
 - show/hide navigation desktop panel;
 - open/close writing-partner drawer;
-- show/hide writing-partner desktop panel;
-- Generate ideas, which opens the writing partner, returns to the queue, and focuses steering.
+- show/hide writing-partner desktop panel.
 
 Current presentation-only controls:
 
@@ -103,7 +102,7 @@ On small screens the editor's inline padding is reduced. The editor remains the 
 
 The writing partner has two mutually exclusive views:
 
-- queue view: steering form, error, Pins, and live inbox;
+- queue view: error, Pins, and live inbox;
 - detail view: full suggestion, sources, visual content, and actions.
 
 Selecting an item marks it viewed and scrolls the dock to the top. Unread live and pinned entries contribute to the count. Workspace cards do not.
@@ -115,8 +114,7 @@ Action availability is constrained by lifecycle:
 - only text kinds can preview;
 - any active preview disables starting another;
 - the active preview's source item cannot be dismissed or placed on the workspace;
-- workspace placement appears only for pinned detail on desktop;
-- sending steering is disabled only while the agent is offline, not while it is working.
+- workspace placement appears only for pinned detail on desktop.
 
 ## Workspace card input and bounds
 
@@ -145,7 +143,7 @@ When changing UI behavior, retain these existing properties:
 - panel controls expose the controlled element and expanded state;
 - drawers are named modal dialogs and restore focus;
 - unread state is not color-only (`Unread` is exposed to assistive technology on queue rows);
-- agent/form errors use readable text, and steering validation uses `role="alert"`;
+- agent errors use readable text;
 - a mind map has an accessible description even if rendering fails;
 - workspace cards are named regions with named move, resize, and return controls;
 - custom focus outlines are visible on buttons, links, and inputs;
@@ -162,4 +160,3 @@ There is a `dark` custom variant declaration, but the current app forces a light
 ## Static prototype surfaces
 
 Do not infer application behavior from every button currently visible. The sidebar navigation, document-management actions, source buttons, and tabs are static. When implementing them, add an explicit state/data owner and update this documentation; avoid placing navigation or persistence side effects directly inside presentational components.
-
