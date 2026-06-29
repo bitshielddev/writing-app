@@ -2,40 +2,71 @@ import {
   EllipsisVertical,
   History,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
   PanelRightOpen,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
 type DocumentHeaderProps = {
-  onOpenContext: () => void;
-  onOpenNavigation: () => void;
+  navigationPanelOpen: boolean;
+  contextPanelOpen: boolean;
+  navigationDrawerOpen: boolean;
+  contextDrawerOpen: boolean;
+  contextUnreadCount: number;
+  onOpenContextDrawer: () => void;
+  onOpenNavigationDrawer: () => void;
+  onToggleContextPanel: () => void;
+  onToggleNavigationPanel: () => void;
   onGenerateIdeas: () => void;
 };
 
 type IconButtonProps = {
   icon: LucideIcon;
   label: string;
+  className?: string;
+  controls?: string;
+  expanded?: boolean;
+  hasPopup?: "dialog";
   onClick?: () => void;
-  responsiveOnly?: boolean;
+  unreadCount?: number;
 };
 
 function IconButton({
   icon: Icon,
   label,
+  className = "",
+  controls,
+  expanded,
+  hasPopup,
   onClick,
-  responsiveOnly = false,
+  unreadCount = 0,
 }: IconButtonProps) {
+  const accessibleLabel = unreadCount
+    ? `${label}, ${unreadCount} unread suggestion${unreadCount === 1 ? "" : "s"}`
+    : label;
+
   return (
     <button
       type="button"
-      aria-label={label}
-      className={`grid size-10 shrink-0 place-items-center rounded-md text-[#5d5b6d] transition-colors hover:bg-[#eeedf7] hover:text-brand-700 ${
-        responsiveOnly ? "xl:hidden" : ""
-      }`}
+      aria-label={accessibleLabel}
+      aria-controls={controls}
+      aria-expanded={expanded}
+      aria-haspopup={hasPopup}
+      className={`relative grid size-10 shrink-0 place-items-center rounded-md text-[#5d5b6d] transition-colors hover:bg-[#eeedf7] hover:text-brand-700 ${className}`}
       onClick={onClick}
     >
       <Icon className="size-[1.3rem]" aria-hidden="true" />
+      {unreadCount ? (
+        <span
+          aria-hidden="true"
+          className="absolute -top-0.5 -right-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[0.625rem] font-bold leading-none text-white shadow-sm ring-2 ring-[#fbf8ff]"
+        >
+          {unreadCount}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -43,8 +74,15 @@ function IconButton({
 const tabs = ["Drafts", "Review", "Published"];
 
 export function DocumentHeader({
-  onOpenContext,
-  onOpenNavigation,
+  navigationPanelOpen,
+  contextPanelOpen,
+  navigationDrawerOpen,
+  contextDrawerOpen,
+  contextUnreadCount,
+  onOpenContextDrawer,
+  onOpenNavigationDrawer,
+  onToggleContextPanel,
+  onToggleNavigationPanel,
   onGenerateIdeas,
 }: DocumentHeaderProps) {
   return (
@@ -52,8 +90,19 @@ export function DocumentHeader({
       <IconButton
         icon={Menu}
         label="Open project navigation"
-        onClick={onOpenNavigation}
-        responsiveOnly
+        className="xl:hidden"
+        controls="navigation-drawer"
+        expanded={navigationDrawerOpen}
+        hasPopup="dialog"
+        onClick={onOpenNavigationDrawer}
+      />
+      <IconButton
+        icon={navigationPanelOpen ? PanelLeftClose : PanelLeftOpen}
+        label={`${navigationPanelOpen ? "Hide" : "Show"} project navigation`}
+        className="hidden xl:grid"
+        controls="project-navigation-column"
+        expanded={navigationPanelOpen}
+        onClick={onToggleNavigationPanel}
       />
 
       <div className="flex min-w-0 items-center gap-2.5">
@@ -103,9 +152,22 @@ export function DocumentHeader({
         <IconButton icon={EllipsisVertical} label="More document options" />
         <IconButton
           icon={PanelRightOpen}
-          label="Open AI context"
-          onClick={onOpenContext}
-          responsiveOnly
+          label="Open writing partner"
+          className="xl:hidden"
+          controls="context-drawer"
+          expanded={contextDrawerOpen}
+          hasPopup="dialog"
+          unreadCount={contextUnreadCount}
+          onClick={onOpenContextDrawer}
+        />
+        <IconButton
+          icon={contextPanelOpen ? PanelRightClose : PanelRightOpen}
+          label={`${contextPanelOpen ? "Hide" : "Show"} writing partner`}
+          className="hidden xl:grid"
+          controls="writing-partner-column"
+          expanded={contextPanelOpen}
+          unreadCount={contextPanelOpen ? 0 : contextUnreadCount}
+          onClick={onToggleContextPanel}
         />
       </div>
     </header>

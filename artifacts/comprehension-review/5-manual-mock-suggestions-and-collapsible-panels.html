@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manual mock suggestions and collapsible workspace panels</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2330;
+      --muted: #62677a;
+      --soft: #f6f4ff;
+      --card: #ffffff;
+      --line: #dedbeb;
+      --brand: #6356d9;
+      --brand-soft: #ece9ff;
+      --warn: #8a5b00;
+      --warn-bg: #fff7df;
+      --code-bg: #171923;
+      --code-ink: #f3f4fa;
+      --good: #157447;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(99, 86, 217, 0.12), transparent 34rem),
+        linear-gradient(180deg, #fbfaff 0%, #f4f2fb 100%);
+      color: var(--ink);
+      font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 48px 22px 72px;
+    }
+
+    header.hero {
+      display: grid;
+      gap: 18px;
+      margin-bottom: 34px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--brand);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(2.1rem, 5vw, 4.4rem);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+
+    .lede {
+      max-width: 770px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.78);
+      padding: 0 13px;
+      color: #44485a;
+      font-size: 0.88rem;
+      font-weight: 650;
+    }
+
+    section, .panel {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255,255,255,0.88);
+      box-shadow: 0 18px 60px rgba(42, 38, 90, 0.08);
+    }
+
+    section {
+      margin-top: 22px;
+      padding: clamp(22px, 4vw, 34px);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: clamp(1.35rem, 2.6vw, 2rem);
+      line-height: 1.14;
+      letter-spacing: -0.03em;
+    }
+
+    h3 {
+      margin: 28px 0 10px;
+      font-size: 1.06rem;
+      letter-spacing: -0.01em;
+    }
+
+    p { margin: 0 0 14px; }
+    p:last-child { margin-bottom: 0; }
+    a { color: var(--brand); }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    @media (min-width: 840px) {
+      .grid.two { grid-template-columns: 1fr 1fr; }
+      .grid.three { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .mini-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      padding: 18px;
+    }
+
+    .mini-card h3 {
+      margin-top: 0;
+    }
+
+    .label {
+      display: inline-block;
+      margin-bottom: 8px;
+      color: var(--brand);
+      font-size: 0.72rem;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .flow {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .flow-step {
+      border-left: 4px solid var(--brand);
+      border-radius: 12px;
+      background: var(--soft);
+      padding: 13px 15px;
+    }
+
+    .flow-step code {
+      color: #312a96;
+      font-weight: 700;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 14px 0 18px;
+      border-radius: 18px;
+      background: var(--code-bg);
+      padding: 18px;
+      color: var(--code-ink);
+      font: 0.88rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    .inline-code {
+      border-radius: 7px;
+      background: var(--brand-soft);
+      padding: 0.1rem 0.35rem;
+      color: #342d90;
+      font-weight: 650;
+    }
+
+    .comment { color: #9aa3bd; }
+    .hi { color: #ffe08a; font-weight: 800; }
+    .green { color: #a7f3d0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 13px 14px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1effb;
+      font-size: 0.82rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .callout {
+      border-radius: 18px;
+      margin: 18px 0;
+      padding: 16px 18px;
+    }
+
+    .callout.warn {
+      border: 1px solid #f1d58b;
+      background: var(--warn-bg);
+      color: #4f3800;
+    }
+
+    .callout.good {
+      border: 1px solid #b7e3cd;
+      background: #effaf4;
+      color: #124a31;
+    }
+
+    .checklist {
+      padding-left: 1.25rem;
+      margin: 10px 0 0;
+    }
+
+    .checklist li { margin: 7px 0; }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      padding: 14px 16px;
+      margin-top: 12px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <p class="eyebrow">Comprehension review</p>
+    <h1>Manual mock suggestions now feed the app, and desktop side panels can collapse.</h1>
+    <p class="lede">
+      This diff changes two user-visible paths. The writing partner's mock data is no longer generated by timers inside the app; it is injected from a development controller tab over <code>BroadcastChannel</code>. Separately, the project navigation and writing partner are now separate desktop panels with their own open/closed state, while mobile drawers keep their dialog behavior.
+    </p>
+    <div class="meta-row">
+      <span class="pill">Tests run: npm test -- --run, 29 passed</span>
+      <span class="pill">Main route touched: src/main.tsx</span>
+      <span class="pill">Primary runtime paths: mock suggestions, workspace chrome</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Where this fits in the recent history</h2>
+    <p>
+      The surrounding commits explain why these changes land together. <code>bb071f9</code> introduced the writing partner suggestion flow and the original mock feed. <code>0b62339</code> added pinned suggestion cards in the workspace. <code>f36cc6c</code> added resizable workspace columns. This diff builds on those pieces: the side columns are no longer only resizable, they can be removed from the desktop grid; and the mock suggestion source is no longer an automatic demo script, it is a manual development input.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Earlier change</th><th>What this diff assumes from it</th><th>What changes now</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>bb071f9</code> writing partner flow</td>
+          <td><code>SuggestionFeed</code>, <code>SuggestionDock</code>, preview handling, responsive drawer.</td>
+          <td>The feed still uses the same <code>suggestion.added</code> event shape, but the source is external to the app tab.</td>
+        </tr>
+        <tr>
+          <td><code>0b62339</code> pinning feature</td>
+          <td>Unread count and workspace pins already live in <code>useSuggestionInbox</code>.</td>
+          <td>Unread count is surfaced on the hidden writing-partner control.</td>
+        </tr>
+        <tr>
+          <td><code>f36cc6c</code> resizable columns</td>
+          <td>Column widths are stored as CSS variables and constrained against editor minimum width.</td>
+          <td>Width calculations now treat a closed opposite panel as width <code>0</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>The new development route is a second front door into the app</h2>
+    <p>
+      <code>src/main.tsx</code> now chooses between the normal writing workspace and a temporary controller page by checking the pathname. This is not a nested route system; it is a boot-time switch before React renders.
+    </p>
+
+<pre><code>const normalizedPath = window.location.pathname.replace(/\/+$/, "") || "/";
+const rootView =
+  normalizedPath === MOCK_SUGGESTION_PATH ? (
+    &lt;MockSuggestionController /&gt;
+  ) : (
+    &lt;App /&gt;
+  );</code></pre>
+
+    <div class="flow">
+      <div class="flow-step"><code>/</code> renders <code>App</code>, which contains the editor, dock, inbox, drawers, and desktop panels.</div>
+      <div class="flow-step"><code>/mock-suggestions</code> renders <code>MockSuggestionController</code>, which builds and publishes one suggestion per form submit.</div>
+      <div class="flow-step">Both pages must be open on the same origin for <code>BroadcastChannel</code> messages to cross tabs.</div>
+    </div>
+
+    <div class="callout warn">
+      <strong>Assumption to keep in mind:</strong> the controller is explicitly labeled as a temporary development tool. The code does not save, queue, or replay suggestions. If the writing app tab is not subscribed when the controller publishes, this diff provides no fallback delivery path.
+    </div>
+  </section>
+
+  <section>
+    <h2>Follow one injected suggestion from the form to the inbox</h2>
+    <div class="grid two">
+      <div class="mini-card">
+        <span class="label">Publisher side</span>
+        <p>The controller validates the form into a <code>SuggestionItem</code>, then publishes a single <code>suggestion.added</code> event.</p>
+<pre><code>const suggestion = buildMockSuggestion(draft);
+publisher.publish(suggestion);
+formRef.current?.reset();
+setKind("snippet");</code></pre>
+      </div>
+      <div class="mini-card">
+        <span class="label">App side</span>
+        <p>The mock feed subscribes to the same channel and emits only valid added-suggestion events to its existing listeners.</p>
+<pre><code>const start = () =&gt; {
+  stopInjectedSuggestions = subscribeToMockSuggestions(emit);
+};</code></pre>
+      </div>
+    </div>
+
+    <h3>The channel deliberately narrows what can cross the boundary</h3>
+    <p>
+      <code>mockSuggestionChannel.ts</code> accepts only <code>suggestion.added</code> events, and only when the payload passes <code>isSuggestionItem</code>. Other event types such as <code>agent.status</code>, <code>suggestion.updated</code>, and <code>suggestion.retracted</code> are no longer produced by the mock feed.
+    </p>
+<pre><code>function isAddedSuggestionEvent(value: unknown): value is AddedSuggestionEvent {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as { type?: unknown; item?: unknown };
+  return (
+    candidate.type === "suggestion.added" &amp;&amp; <span class="hi">isSuggestionItem(candidate.item)</span>
+  );
+}</code></pre>
+
+    <p>
+      The shape check is important because <code>BroadcastChannel</code> receives untyped data. The tests exercise this directly by posting <code>{ type: "suggestion.added", item: { title: "Bad" } }</code> through a fake channel and expecting no inbox events.
+    </p>
+
+    <h3>Draft building encodes the supported suggestion families</h3>
+    <p>
+      The controller form is broad enough to create all current suggestion kinds, but the required fields differ by kind. Text suggestions require <code>insertText</code>. Structure suggestions require recursive <code>nodes</code>. Mind maps require Mermaid source plus an accessible description.
+    </p>
+<pre><code>if (draft.kind === "snippet" || draft.kind === "fact" || draft.kind === "term") {
+  return {
+    ...common,
+    kind: draft.kind,
+    <span class="hi">insertText: required(draft.insertText, "Insert text")</span>,
+  };
+}
+
+if (draft.kind === "outline" || draft.kind === "layout") {
+  let nodes: unknown;
+  try {
+    nodes = JSON.parse(required(draft.nodes, "Nodes JSON"));
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("Nodes must be valid JSON.", { cause: error });
+    }
+    throw error;
+  }
+
+  if (!isStructureNodes(nodes)) {
+    throw new Error("Nodes must be a non-empty array ...");
+  }
+
+  return { ...common, kind: draft.kind, nodes };
+}</code></pre>
+
+    <div class="callout good">
+      <strong>Maintenance note:</strong> if a future change adds a new <code>SuggestionKind</code>, update the form options, <code>buildMockSuggestion</code>, and <code>isSuggestionItem</code> together. Otherwise the controller might let the user select a kind that the channel later rejects, or the app might accept a shape the form cannot produce.
+    </div>
+  </section>
+
+  <section>
+    <h2>What the mock feed stopped doing</h2>
+    <p>
+      The old <code>createMockSuggestionFeed</code> was a small scripted simulator. It emitted status changes, generated initial suggestions, reacted to steering, watched document updates, and retracted or updated suggestions on timers. The new feed ignores the context argument and only subscribes to manual injection.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Before this diff</th><th>After this diff</th><th>Behavioral effect</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Initial suggestions arrived after 300 ms.</td>
+          <td>No suggestions arrive until the controller publishes.</td>
+          <td>The dock starts empty during normal development unless another tab injects data.</td>
+        </tr>
+        <tr>
+          <td><code>sendSteering</code> scheduled a generated snippet.</td>
+          <td><code>sendSteering</code> accepts the prompt and produces no event.</td>
+          <td>The steering UI can still call the method, but manual mock mode does not simulate a response.</td>
+        </tr>
+        <tr>
+          <td>Document changes produced delayed observation suggestions.</td>
+          <td><code>context</code> is intentionally unused with <code>void context</code>.</td>
+          <td>Editing the document does not create suggestions in mock mode.</td>
+        </tr>
+        <tr>
+          <td>Timers required cleanup.</td>
+          <td>Cleanup closes the channel subscription.</td>
+          <td>The key resource invariant becomes: every subscription owns a channel and closes it on unsubscribe.</td>
+        </tr>
+      </tbody>
+    </table>
+<pre><code>return {
+  subscribe(listener) {
+    listeners.add(listener);
+    if (listeners.size === 1) {
+      start();
+    }
+    return () =&gt; {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        stop();
+      }
+    };
+  },
+  async sendSteering(prompt) {
+    void prompt;
+    <span class="comment">// Manual mock mode deliberately produces no steering response.</span>
+  },
+  async retry() {
+    <span class="comment">// There is no remote operation to retry in manual mock mode.</span>
+  },
+};</code></pre>
+  </section>
+
+  <section>
+    <h2>The workspace has two different concepts of "open" now</h2>
+    <p>
+      <code>App</code> used to track whether the navigation and context drawers were open. The diff splits that into mobile drawer state and desktop panel state. This separation prevents a desktop panel toggle from accidentally meaning "show a modal drawer" and lets desktop users reclaim space without changing mobile behavior.
+    </p>
+<pre><code>const [navigationDrawerOpen, setNavigationDrawerOpen] = useState(false);
+const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
+const [navigationPanelOpen, setNavigationPanelOpen] = useState(true);
+const [contextPanelOpen, setContextPanelOpen] = useState(true);</code></pre>
+
+    <h3>Closing a desktop panel changes both DOM visibility and grid tracks</h3>
+    <p>
+      The side columns render as <code>hidden</code> when their panel state is false. The grid also receives modifier classes that set the corresponding track width to <code>0px</code>. Both parts matter: the DOM column is hidden, and the grid stops reserving visual space for it.
+    </p>
+<pre><code>className={`workspace-grid grid h-dvh ... ${
+  navigationPanelOpen ? "" : "workspace-grid--navigation-closed"
+} ${contextPanelOpen ? "" : "workspace-grid--context-closed"}`}</code></pre>
+<pre><code>.workspace-grid {
+  --navigation-column-width: 248px;
+  --context-column-width: 320px;
+  --navigation-track-width: var(--navigation-column-width);
+  --context-track-width: var(--context-column-width);
+
+  grid-template-columns:
+    var(--navigation-track-width)
+    minmax(0, 1fr)
+    var(--context-track-width);
+}
+
+.workspace-grid--navigation-closed { --navigation-track-width: 0px; }
+.workspace-grid--context-closed { --context-track-width: 0px; }</code></pre>
+
+    <h3>Resize limits know about closed neighbors</h3>
+    <p>
+      Resizing one panel uses the opposite panel's measured width to preserve <code>MIN_EDITOR_WIDTH</code>. This diff changes that calculation so a closed opposite panel contributes <code>0</code> rather than its minimum width.
+    </p>
+<pre><code>const contextWidth = contextPanelOpen
+  ? contextColumnRef.current?.getBoundingClientRect().width ?? MIN_CONTEXT_WIDTH
+  : 0;
+
+const navigationWidth = navigationPanelOpen
+  ? navigationColumnRef.current?.getBoundingClientRect().width ?? MIN_NAVIGATION_WIDTH
+  : 0;</code></pre>
+
+    <div class="callout warn">
+      <strong>Risk to watch:</strong> the saved width values are still preserved while a panel is closed. That is probably intended, because reopening restores the user's previous size. It also means any future layout code must distinguish "track width is 0" from "saved width is null".
+    </div>
+  </section>
+
+  <section>
+    <h2>The header is now the control surface for panels and drawers</h2>
+    <p>
+      <code>DocumentHeader</code> receives open state for both responsive layers, plus callbacks for drawer opening and panel toggling. It also adds accessibility metadata to icon buttons: <code>aria-controls</code>, <code>aria-expanded</code>, and <code>aria-haspopup="dialog"</code> for drawer buttons.
+    </p>
+<pre><code>&lt;IconButton
+  icon={navigationPanelOpen ? PanelLeftClose : PanelLeftOpen}
+  label={`${navigationPanelOpen ? "Hide" : "Show"} project navigation`}
+  className="hidden xl:grid"
+  controls="project-navigation-column"
+  expanded={navigationPanelOpen}
+  onClick={onToggleNavigationPanel}
+/&gt;</code></pre>
+
+    <p>
+      The writing partner button also carries unread state. When the desktop writing partner is hidden, the desktop toggle shows and announces the unread count. When the writing partner is open, the count is not shown on that desktop toggle because the panel itself is visible.
+    </p>
+<pre><code>&lt;IconButton
+  icon={contextPanelOpen ? PanelRightClose : PanelRightOpen}
+  label={`${contextPanelOpen ? "Hide" : "Show"} writing partner`}
+  className="hidden xl:grid"
+  controls="writing-partner-column"
+  expanded={contextPanelOpen}
+  <span class="hi">unreadCount={contextPanelOpen ? 0 : contextUnreadCount}</span>
+  onClick={onToggleContextPanel}
+/&gt;</code></pre>
+
+    <h3>The "generate ideas" path now opens the right surface for the viewport</h3>
+    <p>
+      <code>openSteering</code> still asks the inbox to leave detail view and increments a focus request. The change is where the dock is opened. On desktop, it ensures the context panel is visible. Below the desktop breakpoint, it opens the context drawer.
+    </p>
+<pre><code>const openSteering = () =&gt; {
+  inbox.back();
+  if (window.matchMedia("(min-width: 1280px)").matches) {
+    setContextPanelOpen(true);
+  } else {
+    setContextDrawerOpen(true);
+  }
+  setSteeringFocusRequest((request) =&gt; request + 1);
+};</code></pre>
+  </section>
+
+  <section>
+    <h2>Tests that now document the intended behavior</h2>
+    <div class="grid three">
+      <div class="mini-card">
+        <span class="label">Mock feed channel</span>
+        <p><code>mockSuggestionFeed.test.ts</code> replaces timer-based expectations with a fake <code>BroadcastChannel</code>. It verifies that document updates, steering, and retry produce no events in manual mode, then checks that a published item arrives unchanged.</p>
+      </div>
+      <div class="mini-card">
+        <span class="label">Controller and draft builder</span>
+        <p><code>MockSuggestionController.test.tsx</code> and <code>mockSuggestionDraft.test.ts</code> cover kind-specific fields, parsed source labels, recursive nodes, mind maps, validation failures, unavailable channel state, and publisher cleanup.</p>
+      </div>
+      <div class="mini-card">
+        <span class="label">Workspace controls</span>
+        <p><code>DocumentHeader.test.tsx</code> asserts desktop panel controls, unread badges for hidden context, and separation from mobile drawer controls. <code>ResponsiveDrawer.test.tsx</code> adds focus and Escape-key coverage for the existing drawer behavior.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Invariants future changes should preserve</h2>
+    <ul class="checklist">
+      <li><strong>Channel messages remain untrusted.</strong> Anything arriving from <code>BroadcastChannel</code> must pass a runtime shape check before becoming a <code>SuggestionEvent</code>.</li>
+      <li><strong>Only one subscription opens the feed channel.</strong> <code>createMockSuggestionFeed</code> starts on the first listener and stops when the last listener unsubscribes.</li>
+      <li><strong>Drawer state and panel state stay separate.</strong> Mobile buttons control dialogs; desktop buttons control grid panels.</li>
+      <li><strong>Closed panels count as zero width for resize constraints.</strong> Otherwise a hidden column would still reduce the editor's available resize range.</li>
+      <li><strong>Manual mock mode does not imply agent behavior.</strong> Steering and retry are no-ops here, so any test that expects generated suggestions should use a different feed or reintroduce that behavior deliberately.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Comprehension check</h2>
+    <p>Use these to verify that the main paths are clear before modifying this area.</p>
+
+    <details>
+      <summary>1. A developer opens the app at <code>/</code> and sees an empty writing partner. Is that a regression according to this diff?</summary>
+      <p>No, not by itself. The mock feed no longer emits initial timed suggestions. It only emits suggestions received from the controller over <code>BroadcastChannel</code>.</p>
+    </details>
+
+    <details>
+      <summary>2. What would break if <code>subscribeToMockSuggestions</code> forwarded every channel message without <code>isSuggestionItem</code>?</summary>
+      <p>Untyped or malformed data from another tab could enter the inbox as a suggestion event. Components downstream expect fields such as <code>id</code>, <code>kind</code>, <code>sourceLabels</code>, and kind-specific fields, so rendering or preview behavior could fail at runtime.</p>
+    </details>
+
+    <details>
+      <summary>3. Why does the resize code treat a closed opposite panel as width <code>0</code>?</summary>
+      <p>The resize maximum protects the editor's minimum width by subtracting neighboring panel widths. If a closed panel still counted as its minimum width, the visible panel would be unnecessarily constrained even though that neighbor is not occupying a grid track.</p>
+    </details>
+
+    <details>
+      <summary>4. Where would you start debugging if the controller says a suggestion was sent but the dock never updates?</summary>
+      <p>Start at the channel boundary: confirm the writing app tab is open on the same origin, <code>BroadcastChannel</code> exists, the app has a feed subscriber, and the published suggestion passes <code>isSuggestionItem</code>. The new tests show that malformed messages are intentionally ignored.</p>
+    </details>
+
+    <details>
+      <summary>5. If a new suggestion kind is added, which parts of this change likely need updates together?</summary>
+      <p>Update the controller's kind options and kind-specific fields, <code>buildMockSuggestion</code>, <code>isSuggestionItem</code>, and tests for valid and invalid payloads. The channel only forwards payloads accepted by the validator.</p>
+    </details>
+  </section>
+
+  <p class="footer-note">
+    Generated from the current working tree diff and recent git history. Claims above are limited to the code shown here; product intent beyond the temporary development-tool label is inferred from the implementation.
+  </p>
+</main>
+</body>
+</html>

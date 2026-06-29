@@ -147,11 +147,21 @@
   .workspace-grid {
     --navigation-column-width: 248px;
     --context-column-width: 320px;
+    --navigation-track-width: var(--navigation-column-width);
+    --context-track-width: var(--context-column-width);
 
     grid-template-columns:
-      var(--navigation-column-width)
+      var(--navigation-track-width)
       minmax(0, 1fr)
-      var(--context-column-width);
+      var(--context-track-width);
+  }
+
+  .workspace-grid--navigation-closed {
+    --navigation-track-width: 0px;
+  }
+
+  .workspace-grid--context-closed {
+    --context-track-width: 0px;
   }
 
   .workspace-grid--detail {

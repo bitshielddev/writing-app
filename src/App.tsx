@@ -94,8 +94,10 @@ export default function App() {
   const workspaceRef = useRef<HTMLElement>(null);
   const navigationColumnRef = useRef<HTMLDivElement>(null);
   const contextColumnRef = useRef<HTMLDivElement>(null);
-  const [navigationOpen, setNavigationOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(false);
+  const [navigationDrawerOpen, setNavigationDrawerOpen] = useState(false);
+  const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
+  const [navigationPanelOpen, setNavigationPanelOpen] = useState(true);
+  const [contextPanelOpen, setContextPanelOpen] = useState(true);
   const [navigationColumnWidth, setNavigationColumnWidth] = useState<number | null>(
     () =>
       readSavedWidth(
@@ -134,8 +136,9 @@ export default function App() {
   const getMaximumNavigationWidth = useCallback(() => {
     const workspaceWidth =
       workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
-    const contextWidth =
-      contextColumnRef.current?.getBoundingClientRect().width ?? MIN_CONTEXT_WIDTH;
+    const contextWidth = contextPanelOpen
+      ? contextColumnRef.current?.getBoundingClientRect().width ?? MIN_CONTEXT_WIDTH
+      : 0;
     return Math.max(
       MIN_NAVIGATION_WIDTH,
       Math.min(
@@ -143,14 +146,15 @@ export default function App() {
         workspaceWidth - contextWidth - MIN_EDITOR_WIDTH,
       ),
     );
-  }, []);
+  }, [contextPanelOpen]);
 
   const getMaximumContextWidth = useCallback(() => {
     const workspaceWidth =
       workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
-    const navigationWidth =
-      navigationColumnRef.current?.getBoundingClientRect().width ??
-      MIN_NAVIGATION_WIDTH;
+    const navigationWidth = navigationPanelOpen
+      ? navigationColumnRef.current?.getBoundingClientRect().width ??
+        MIN_NAVIGATION_WIDTH
+      : 0;
     return Math.max(
       MIN_CONTEXT_WIDTH,
       Math.min(
@@ -158,7 +162,7 @@ export default function App() {
         workspaceWidth - navigationWidth - MIN_EDITOR_WIDTH,
       ),
     );
-  }, []);
+  }, [navigationPanelOpen]);
 
   const resizeNavigationColumn = useCallback((width: number) => {
     setNavigationColumnWidth(width);
@@ -213,8 +217,8 @@ export default function App() {
     const desktopQuery = window.matchMedia("(min-width: 1280px)");
     const closeDrawersAtDesktop = (event: MediaQueryListEvent) => {
       if (event.matches) {
-        setNavigationOpen(false);
-        setContextOpen(false);
+        setNavigationDrawerOpen(false);
+        setContextDrawerOpen(false);
       }
     };
 
@@ -236,8 +240,10 @@ export default function App() {
 
   const openSteering = () => {
     inbox.back();
-    if (!window.matchMedia("(min-width: 1280px)").matches) {
-      setContextOpen(true);
+    if (window.matchMedia("(min-width: 1280px)").matches) {
+      setContextPanelOpen(true);
+    } else {
+      setContextDrawerOpen(true);
     }
     setSteeringFocusRequest((request) => request + 1);
   };
@@ -342,32 +348,49 @@ export default function App() {
         aria-label="ScribeAI writing workspace"
         className={`workspace-grid grid h-dvh min-h-0 overflow-hidden bg-white ${
           inbox.selectedEntry ? "workspace-grid--detail" : ""
-        }`}
+        } ${
+          navigationPanelOpen ? "" : "workspace-grid--navigation-closed"
+        } ${contextPanelOpen ? "" : "workspace-grid--context-closed"}`}
         style={workspaceColumnStyles}
       >
         <div
           ref={navigationColumnRef}
           id="project-navigation-column"
-          className="relative hidden min-h-0 xl:block"
+          className={
+            navigationPanelOpen
+              ? "relative hidden min-h-0 xl:col-start-1 xl:block"
+              : "hidden"
+          }
         >
           <Sidebar />
-          <ColumnResizeHandle
-            controls="project-navigation-column"
-            label="Resize project navigation"
-            maxWidth={getMaximumNavigationWidth}
-            minWidth={MIN_NAVIGATION_WIDTH}
-            panelRef={navigationColumnRef}
-            resizeDirection="right"
-            onReset={resetNavigationColumn}
-            onResize={resizeNavigationColumn}
-          />
+          {navigationPanelOpen ? (
+            <ColumnResizeHandle
+              controls="project-navigation-column"
+              label="Resize project navigation"
+              maxWidth={getMaximumNavigationWidth}
+              minWidth={MIN_NAVIGATION_WIDTH}
+              panelRef={navigationColumnRef}
+              resizeDirection="right"
+              onReset={resetNavigationColumn}
+              onResize={resizeNavigationColumn}
+            />
+          ) : null}
         </div>
 
         <EditorWorkspace
           editor={editor}
           workspacePins={inbox.workspacePins}
-          onOpenNavigation={() => setNavigationOpen(true)}
-          onOpenContext={() => setContextOpen(true)}
+          navigationPanelOpen={navigationPanelOpen}
+          contextPanelOpen={contextPanelOpen}
+          navigationDrawerOpen={navigationDrawerOpen}
+          contextDrawerOpen={contextDrawerOpen}
+          contextUnreadCount={inbox.unreadCount}
+          onOpenNavigationDrawer={() => setNavigationDrawerOpen(true)}
+          onOpenContextDrawer={() => setContextDrawerOpen(true)}
+          onToggleNavigationPanel={() =>
+            setNavigationPanelOpen((open) => !open)
+          }
+          onToggleContextPanel={() => setContextPanelOpen((open) => !open)}
           onGenerateIdeas={openSteering}
           onEditorChange={handleEditorChange}
           onEditorSelectionChange={handleEditorSelectionChange}
@@ -379,18 +402,24 @@ export default function App() {
         <div
           ref={contextColumnRef}
           id="writing-partner-column"
-          className="relative hidden min-h-0 xl:block"
+          className={
+            contextPanelOpen
+              ? "relative hidden min-h-0 xl:col-start-3 xl:block"
+              : "hidden"
+          }
         >
-          <ColumnResizeHandle
-            controls="writing-partner-column"
-            label="Resize writing partner"
-            maxWidth={getMaximumContextWidth}
-            minWidth={MIN_CONTEXT_WIDTH}
-            panelRef={contextColumnRef}
-            resizeDirection="left"
-            onReset={resetContextColumn}
-            onResize={resizeContextColumn}
-          />
+          {contextPanelOpen ? (
+            <ColumnResizeHandle
+              controls="writing-partner-column"
+              label="Resize writing partner"
+              maxWidth={getMaximumContextWidth}
+              minWidth={MIN_CONTEXT_WIDTH}
+              panelRef={contextColumnRef}
+              resizeDirection="left"
+              onReset={resetContextColumn}
+              onResize={resizeContextColumn}
+            />
+          ) : null}
           {dock}
         </div>
       </main>
@@ -399,8 +428,8 @@ export default function App() {
         id="navigation-drawer"
         title="Project navigation"
         side="left"
-        open={navigationOpen}
-        onClose={() => setNavigationOpen(false)}
+        open={navigationDrawerOpen}
+        onClose={() => setNavigationDrawerOpen(false)}
       >
         <Sidebar />
       </ResponsiveDrawer>
@@ -410,8 +439,8 @@ export default function App() {
         title="Writing partner"
         side="right"
         wide
-        open={contextOpen}
-        onClose={() => setContextOpen(false)}
+        open={contextDrawerOpen}
+        onClose={() => setContextDrawerOpen(false)}
       >
         {dock}
       </ResponsiveDrawer>
