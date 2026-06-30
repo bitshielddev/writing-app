@@ -37,17 +37,20 @@
           </a><a class="nav-link" href="architecture.html">
             <span class="nav-link__number">02</span>
             <span>Architecture</span>
-          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="editor-and-suggestions.html">
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="desktop-runtime.html">
             <span class="nav-link__number">03</span>
+            <span>Desktop & Pi</span>
+          </a><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">04</span>
             <span>Editor & suggestions</span>
           </a><a class="nav-link" href="ui-and-accessibility.html">
-            <span class="nav-link__number">04</span>
+            <span class="nav-link__number">05</span>
             <span>UI & accessibility</span>
           </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link is-active" href="testing-and-quality.html" aria-current="page">
-            <span class="nav-link__number">05</span>
+            <span class="nav-link__number">06</span>
             <span>Testing & quality</span>
           </a><a class="nav-link" href="extension-guide.html">
-            <span class="nav-link__number">06</span>
+            <span class="nav-link__number">07</span>
             <span>Extension guide</span>
           </a></nav></section></div>
       <div class="sidebar-footer">
@@ -89,7 +92,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--green">
-            <div class="page-hero__meta"><span>Guide 05</span><span>4 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 06</span><span>5 min read</span></div>
             <h1>Testing and quality</h1>
             <p>Know what the automated suite protects, where browser checks are required, and what to run before handoff.</p>
             <div class="page-hero__footer">
@@ -110,8 +113,8 @@
 <h2 id="commands">Commands<a class="heading-anchor" href="#commands" aria-label="Link to Commands">#</a></h2><div class="code-block" data-language="bash"><div class="code-block__bar"><span>bash</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-bash">npm test
 npm run test:watch
 npm run lint
-npm run build</code></pre></div><p><code>npm run build</code> is also the authoritative type check because it runs <code>tsc -b</code> before Vite. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.</p>
-<h2 id="current-automated-coverage">Current automated coverage<a class="heading-anchor" href="#current-automated-coverage" aria-label="Link to Current automated coverage">#</a></h2><p>The suite currently contains 29 tests across eight files.</p>
+npm run build</code></pre></div><p><code>npm run build</code> is also the authoritative type and bundle check. It runs <code>tsc -b</code>, builds the Vite renderer, then type-checks and bundles the Electron main, preload, storage, and agent entries. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.</p>
+<h2 id="current-automated-coverage">Current automated coverage<a class="heading-anchor" href="#current-automated-coverage" aria-label="Link to Current automated coverage">#</a></h2><p>The suite currently contains 34 tests across nine files.</p>
 <table>
 <thead>
 <tr>
@@ -151,6 +154,10 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <td><a href="../../src/components/ResponsiveDrawer.test.tsx"><code>components/ResponsiveDrawer.test.tsx</code></a></td>
 <td>Escape/close behavior and focus restoration.</td>
 </tr>
+<tr>
+<td><a href="../../desktop/storage.test.ts"><code>desktop/storage.test.ts</code></a></td>
+<td>SQLite bootstrap and revisioned document saves, durable agent suggestions, transcript recording, and searchable source import.</td>
+</tr>
 </tbody></table>
 <h3 id="why-reducer-tests-matter-most">Why reducer tests matter most<a class="heading-anchor" href="#why-reducer-tests-matter-most" aria-label="Link to Why reducer tests matter most">#</a></h3><p>The inbox reducer contains the application&#39;s lifecycle invariants and is pure. Any change to dedupe, updates, retractions, selection, previewing, pins, workspace geometry, queue limits, or unread behavior should begin with a reducer case. Component tests should then verify that the correct intent is exposed to users.</p>
 <h3 id="feed-lifecycle-tests">Feed lifecycle tests<a class="heading-anchor" href="#feed-lifecycle-tests" aria-label="Link to Feed lifecycle tests">#</a></h3><p>The mock feed owns a browser channel while it has subscribers. Always unsubscribe and verify no new events arrive; feed cleanup is required for React <code>StrictMode</code> and future reconnection logic.</p>
@@ -163,7 +170,8 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <li>initial workspace-card placement in the real scrolling canvas;</li>
 <li>canvas clamping through a real <code>ResizeObserver</code>;</li>
 <li>Mermaid SVG rendering and failure handling;</li>
-<li>production bundle execution;</li>
+<li>production bundle execution, Electron readiness, and <code>file://</code> asset resolution;</li>
+<li>DOCX and PDF extraction inside the Electron utility process;</li>
 <li>visual layout, overflow, font fallback, or contrast.</li>
 </ul>
 <p>Changes in these areas require targeted tests where practical and the manual checks below.</p>
@@ -210,6 +218,14 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <li>Confirm unread counts and errors are announced as text, not color alone.</li>
 <li>Force invalid Mermaid source and confirm the description remains available.</li>
 </ul>
+<h3 id="electron-runtime">Electron runtime<a class="heading-anchor" href="#electron-runtime" aria-label="Link to Electron runtime">#</a></h3><ul>
+<li>Launch the built application and confirm the renderer mounts without failed local script or stylesheet requests.</li>
+<li>Edit and restart to verify document hydration and the 650 ms autosave path.</li>
+<li>Import each supported source type; include PDF to exercise the utility-process canvas globals.</li>
+<li>Restart and confirm sources, suggestions, pins, workspace geometry, provider settings, and paused state hydrate from SQLite.</li>
+<li>Confirm an API key is retained only for the current launch and is not restored from the database.</li>
+<li>Force a storage or agent utility-process startup failure and confirm main reports the failure and exits instead of hanging without a window.</li>
+</ul>
 <h2 id="adding-tests">Adding tests<a class="heading-anchor" href="#adding-tests" aria-label="Link to Adding tests">#</a></h2><p>Match the test boundary to the behavior:</p>
 <ul>
 <li>pure state transition: add to <code>inbox.test.ts</code>;</li>
@@ -237,7 +253,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#test-stack">Test stack</a><a class="toc-link toc-link--2" href="#commands">Commands</a><a class="toc-link toc-link--2" href="#current-automated-coverage">Current automated coverage</a><a class="toc-link toc-link--3" href="#why-reducer-tests-matter-most">Why reducer tests matter most</a><a class="toc-link toc-link--3" href="#feed-lifecycle-tests">Feed lifecycle tests</a><a class="toc-link toc-link--3" href="#geometry-tests">Geometry tests</a><a class="toc-link toc-link--2" href="#what-is-not-covered-automatically">What is not covered automatically</a><a class="toc-link toc-link--2" href="#manual-regression-checklist">Manual regression checklist</a><a class="toc-link toc-link--3" href="#editor">Editor</a><a class="toc-link toc-link--3" href="#suggestion-lifecycle">Suggestion lifecycle</a><a class="toc-link toc-link--3" href="#preview-lifecycle">Preview lifecycle</a><a class="toc-link toc-link--3" href="#desktop-layout-80rem">Desktop layout ( =80rem)</a><a class="toc-link toc-link--3" href="#below-desktop-80rem">Below desktop (&lt;80rem)</a><a class="toc-link toc-link--3" href="#accessibility">Accessibility</a><a class="toc-link toc-link--2" href="#adding-tests">Adding tests</a><a class="toc-link toc-link--2" href="#pre-handoff-standard">Pre-handoff standard</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#test-stack">Test stack</a><a class="toc-link toc-link--2" href="#commands">Commands</a><a class="toc-link toc-link--2" href="#current-automated-coverage">Current automated coverage</a><a class="toc-link toc-link--3" href="#why-reducer-tests-matter-most">Why reducer tests matter most</a><a class="toc-link toc-link--3" href="#feed-lifecycle-tests">Feed lifecycle tests</a><a class="toc-link toc-link--3" href="#geometry-tests">Geometry tests</a><a class="toc-link toc-link--2" href="#what-is-not-covered-automatically">What is not covered automatically</a><a class="toc-link toc-link--2" href="#manual-regression-checklist">Manual regression checklist</a><a class="toc-link toc-link--3" href="#editor">Editor</a><a class="toc-link toc-link--3" href="#suggestion-lifecycle">Suggestion lifecycle</a><a class="toc-link toc-link--3" href="#preview-lifecycle">Preview lifecycle</a><a class="toc-link toc-link--3" href="#desktop-layout-80rem">Desktop layout ( =80rem)</a><a class="toc-link toc-link--3" href="#below-desktop-80rem">Below desktop (&lt;80rem)</a><a class="toc-link toc-link--3" href="#accessibility">Accessibility</a><a class="toc-link toc-link--3" href="#electron-runtime">Electron runtime</a><a class="toc-link toc-link--2" href="#adding-tests">Adding tests</a><a class="toc-link toc-link--2" href="#pre-handoff-standard">Pre-handoff standard</a></nav>
             <a class="toc-source" href="../testing-and-quality.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>

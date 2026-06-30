@@ -18,6 +18,26 @@ function suggestion(index: number, dedupeKey = `item-${index}`): TextSuggestion 
 }
 
 describe("suggestion inbox reducer", () => {
+  it("hydrates the durable suggestion projection without restoring previews", () => {
+    const original = suggestion(1);
+    const state = inboxReducer(initialInboxState, {
+      type: "hydrate",
+      state: {
+        entries: [
+          { item: original, viewed: true, stale: false, withdrawn: false },
+        ],
+        pinnedEntries: [],
+        workspacePins: [],
+        seenKeys: { [original.dedupeKey]: true },
+        nextZIndex: 4,
+      },
+    });
+
+    expect(state.entries[0]?.item).toEqual(original);
+    expect(state.activePreviewId).toBeUndefined();
+    expect(state.nextZIndex).toBe(4);
+  });
+
   it("deduplicates and limits the session queue", () => {
     let state = initialInboxState;
     for (let index = 0; index < 31; index += 1) {

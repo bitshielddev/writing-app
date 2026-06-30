@@ -37,17 +37,20 @@
           </a><a class="nav-link" href="architecture.html">
             <span class="nav-link__number">02</span>
             <span>Architecture</span>
-          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link is-active" href="editor-and-suggestions.html" aria-current="page">
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="desktop-runtime.html">
             <span class="nav-link__number">03</span>
+            <span>Desktop & Pi</span>
+          </a><a class="nav-link is-active" href="editor-and-suggestions.html" aria-current="page">
+            <span class="nav-link__number">04</span>
             <span>Editor & suggestions</span>
           </a><a class="nav-link" href="ui-and-accessibility.html">
-            <span class="nav-link__number">04</span>
+            <span class="nav-link__number">05</span>
             <span>UI & accessibility</span>
           </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
-            <span class="nav-link__number">05</span>
+            <span class="nav-link__number">06</span>
             <span>Testing & quality</span>
           </a><a class="nav-link" href="extension-guide.html">
-            <span class="nav-link__number">06</span>
+            <span class="nav-link__number">07</span>
             <span>Extension guide</span>
           </a></nav></section></div>
       <div class="sidebar-footer">
@@ -89,7 +92,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--amber">
-            <div class="page-hero__meta"><span>Guide 03</span><span>6 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 04</span><span>6 min read</span></div>
             <h1>Editor and suggestion system</h1>
             <p>Trace agent context, feed events, inbox transitions, editable previews, and workspace pins end to end.</p>
             <div class="page-hero__footer">
@@ -195,13 +198,14 @@
 <td>Set a displayable error and its recoverability metadata.</td>
 </tr>
 </tbody></table>
-<p>The current implementation in <a href="../../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts"><code>createInjectedSuggestionFeed.ts</code></a>:</p>
+<p>The browser-only development adapter in <a href="../../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts"><code>createInjectedSuggestionFeed.ts</code></a>:</p>
 <ul>
 <li>opens a <code>BroadcastChannel</code> receiver when its first listener subscribes;</li>
 <li>forwards valid <code>suggestion.added</code> events sent by the temporary <code>/mock-suggestions</code> controller;</li>
 <li>closes the channel receiver after its last listener leaves.</li>
 </ul>
-<p>The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs. This directory is the sole mock ingress: there are no seeded events, document observations, steering methods, retries, or secondary feed adapters.</p>
+<p>The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs.</p>
+<p>The packaged desktop application instead uses <a href="../../src/desktop/desktopClient.ts"><code>createDesktopSuggestionFeed</code></a>. It receives suggestion and agent-status events from the Electron main process. Suggestions are written to the desktop database before an event is forwarded to the renderer, so reload hydrates the same inbox projection rather than starting a mock session.</p>
 <h2 id="inbox-state-machine">Inbox state machine<a class="heading-anchor" href="#inbox-state-machine" aria-label="Link to Inbox state machine">#</a></h2><p><a href="../../src/suggestions/inbox.ts"><code>inboxReducer</code></a> owns:</p>
 <div class="code-block" data-language="text"><div class="code-block__bar"><span>text</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-text">entries             live inbox suggestions
 pinnedEntries       frozen references in the Pins section
@@ -384,7 +388,7 @@ status / error      agent presentation state</code></pre></div><h3 id="feed-even
 <td align="right">340 px</td>
 </tr>
 </tbody></table>
-<p>Cards cannot be smaller than 280 × 180 px and keep 16 px of edge padding. Geometry and z-order are in-memory and reset on reload.</p>
+<p>Cards cannot be smaller than 280 × 180 px and keep 16 px of edge padding. Geometry and z-order are included in the persisted suggestion projection and restored on reload.</p>
 <h2 id="mermaid-rendering">Mermaid rendering<a class="heading-anchor" href="#mermaid-rendering" aria-label="Link to Mermaid rendering">#</a></h2><p>Mind maps use <a href="../../src/components/MermaidDiagram.tsx"><code>MermaidDiagram</code></a>:</p>
 <ul>
 <li>the <code>mermaid</code> package is imported once, lazily;</li>
@@ -397,7 +401,7 @@ status / error      agent presentation state</code></pre></div><h3 id="feed-even
 <p>Because SVG injection is deliberate, keep Mermaid in strict mode and treat source strings as untrusted when replacing the injected feed.</p>
 </article>
           <nav class="page-pagination" aria-label="Documentation pages">
-    <a class="page-pagination__link page-pagination__link--previous" href="architecture.html"><span>Previous</span><strong>← Architecture</strong></a>
+    <a class="page-pagination__link page-pagination__link--previous" href="desktop-runtime.html"><span>Previous</span><strong>← Desktop & Pi</strong></a>
     <a class="page-pagination__link page-pagination__link--next" href="ui-and-accessibility.html"><span>Next</span><strong>UI & accessibility →</strong></a>
   </nav>
           <footer class="content-footer"><p>ScribeAI developer documentation</p><p>Generated from <a href="../editor-and-suggestions.md">editor-and-suggestions.md</a>.</p></footer>

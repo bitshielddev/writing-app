@@ -2,11 +2,11 @@
 
 ## Prerequisites
 
-- Node.js `^20.19.0` or `>=22.12.0`. This is the engine range required by the installed Vite 8 release.
+- Node.js `>=22.19.0`. Pi agent-core sets the effective project minimum.
 - npm, using the committed `package-lock.json`.
 - A modern browser with ES2022, `BroadcastChannel`, dynamic imports, media queries, pointer events, and `ResizeObserver` support.
 
-No environment variables, service credentials, database, or local backend are required.
+No database daemon is required. The Electron runtime creates its SQLite database in the platform application-data directory. An API key or local inference endpoint is only required when enabling the Pi agent.
 
 ## Install and run
 
@@ -20,6 +20,14 @@ npm run dev
 Open the local URL printed by Vite. Vite normally uses `http://localhost:5173`, but it will select another port if that one is occupied.
 
 Use `npm ci`, rather than `npm install`, for a clean checkout or CI job so dependency versions remain aligned with the lockfile.
+
+To build and launch the persistent desktop application:
+
+```bash
+npm run desktop
+```
+
+This command always builds the renderer and Electron processes before launching. The production renderer is loaded directly from `dist/index.html`, not from Vite's development server. The first desktop launch creates the default project and document. Open **Agent settings** in the writing-partner panel to select a provider/model, optionally supply a base URL, enter the API key for the current launch, and enable observation.
 
 ## What to expect after startup
 
@@ -39,7 +47,11 @@ React runs in `StrictMode`. During development, effects are mounted, cleaned up,
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the Vite development server with hot reload. |
-| `npm run build` | Type-check the project with `tsc -b`, then create a production bundle in `dist/`. |
+| `npm run build` | Type-check and build both the Vite renderer and Electron process bundles. |
+| `npm run build:desktop` | Type-check and bundle only Electron process entries. |
+| `npm run desktop` | Build and launch the Electron application. |
+| `npm run package` | Build an unpacked desktop application with electron-builder. |
+| `npm run dist` | Build platform installers with electron-builder. |
 | `npm run docs:build` | Regenerate the static site in `docs/html/` from the Markdown documentation. |
 | `npm run preview` | Serve the existing production bundle locally. Run `npm run build` first. |
 | `npm run lint` | Run ESLint over the repository. |
@@ -60,12 +72,12 @@ The production build currently completes with Vite's warning that some minified 
 
 ## Runtime configuration
 
-The application has no `.env` contract. Its current runtime inputs are hard-coded at the composition boundary:
+The browser runtime has no `.env` contract and uses the mock feed. The Electron runtime persists non-secret global provider/model/base-URL settings in SQLite; the API key is entered for each application launch.
 
 - initial editor content: [`initialContent`](../src/App.tsx);
 - temporary suggestion controller and channel: [`src/dev/mockSuggestions`](../src/dev/mockSuggestions);
 - injected feed adapter: [`createInjectedSuggestionFeed.ts`](../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts);
-- navigation labels and displayed research sources: [`Sidebar.tsx`](../src/components/Sidebar.tsx).
+- desktop provider settings and observation controls: [`AgentControls.tsx`](../src/components/AgentControls.tsx).
 
 ## Browser storage
 
@@ -78,7 +90,7 @@ The app stores two optional values:
 
 Invalid or unavailable values are ignored. Double-clicking a resize separator removes its key and restores the CSS default. If browser storage is blocked, resizing still works for the current session.
 
-To reset the prototype completely, reload the page and remove those two keys from browser storage. All other application state is already in memory only.
+These values remain renderer-local in both runtimes. Electron workspace data lives in `scribe.sqlite3` under Electron's `userData` directory.
 
 ## First-pass manual tour
 
@@ -98,11 +110,28 @@ Below `80rem`:
 2. Press Escape and confirm the drawer closes and focus returns to its trigger.
 3. Confirm workspace placement is not offered; workspace cards are desktop-only.
 
+For an Electron smoke test:
+
+1. Run `npm run desktop` and confirm the workspace, editor, and both side panels render.
+2. Edit the document, wait at least 650 ms, restart, and confirm the accepted blocks return.
+3. Import a text, Markdown, JSON, DOCX, or PDF source and confirm it appears under **AI research context**.
+4. Configure an agent provider, exercise Pause / Resume and Consider now, and confirm the API key field clears after save.
+
 ## Common problems
 
 ### Vite refuses to start
 
 Check `node --version`. Vite 8 does not support early Node 20 releases; use Node 20.19 or newer, or Node 22.12 or newer.
+
+### Electron opens a blank window
+
+Inspect `dist/index.html`. Built script, stylesheet, module-preload, and lazy-chunk URLs must be relative to the file, such as `./assets/index-….js`. [`vite.config.ts`](../vite.config.ts) sets `base: "./"` for this reason. Root-relative `/assets/...` references resolve from the filesystem root under Electron and fail with `ERR_FILE_NOT_FOUND`.
+
+### Electron starts but no window appears
+
+Run Electron with logging enabled and inspect `Desktop startup failed` plus utility-process stderr. Main waits for both storage and agent readiness before creating the window. Keep the ES-module entry free of a top-level `await app.whenReady()`; startup must be attached with `app.whenReady().then(start)` so module evaluation can complete.
+
+Wayland compositor capability warnings are not, by themselves, evidence that window creation failed. Diagnose renderer load failures and utility-process startup before forcing an X11 backend.
 
 ### Fonts look different
 

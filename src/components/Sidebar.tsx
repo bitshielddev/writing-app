@@ -12,6 +12,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { SourceSnapshot } from "../shared/desktop";
+
 type NavigationItem = {
   icon: LucideIcon;
   label: string;
@@ -31,10 +33,10 @@ const footerItems: NavigationItem[] = [
   { icon: Archive, label: "Archive" },
 ];
 
-const sources = [
-  { label: "Market_Trends_2024.pdf", tone: "text-amber-700" },
-  { label: "Internal_Product_Vision.docx", tone: "text-brand-600" },
-];
+type SidebarProps = {
+  sources?: SourceSnapshot[];
+  onUploadSource?: () => void;
+};
 
 function NavigationButton({ active, icon: Icon, label }: NavigationItem) {
   return (
@@ -53,7 +55,7 @@ function NavigationButton({ active, icon: Icon, label }: NavigationItem) {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ sources = [], onUploadSource }: SidebarProps) {
   return (
     <aside
       aria-label="Project navigation"
@@ -93,19 +95,23 @@ export function Sidebar() {
             AI research context
           </h2>
           <div className="mt-3 grid gap-2">
-            {sources.map((source) => (
+            {sources.map((source, index) => (
               <button
-                key={source.label}
+                key={source.id}
                 type="button"
                 className="flex min-h-10 items-center gap-2.5 rounded-md border border-transparent bg-white/55 px-3 text-left text-xs text-[#393844] hover:border-[#d7d4e8] hover:bg-white"
               >
-                <FileText className={`size-4 shrink-0 ${source.tone}`} aria-hidden="true" />
-                <span className="min-w-0 truncate">{source.label}</span>
+                <FileText
+                  className={`size-4 shrink-0 ${index % 2 ? "text-brand-600" : "text-amber-700"}`}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 truncate">{source.title}</span>
               </button>
             ))}
             <button
               type="button"
               className="flex min-h-10 items-center gap-2.5 rounded-md px-3 text-left text-xs font-semibold text-[#686577] hover:bg-white/65 hover:text-brand-700"
+              onClick={onUploadSource}
             >
               <Upload className="size-4" aria-hidden="true" />
               <span>Upload Sources</span>

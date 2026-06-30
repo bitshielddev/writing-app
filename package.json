@@ -2,10 +2,17 @@
   "name": "scribe-ai-writing-app",
   "private": true,
   "version": "0.1.0",
+  "description": "A local-first AI-assisted writing workspace",
+  "author": "ScribeAI",
   "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run build:desktop",
+    "build:desktop": "tsc -p tsconfig.desktop.json --noEmit && node desktop/build.mjs",
+    "desktop": "npm run build && electron .",
+    "package": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
     "docs:build": "node docs/html/build.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -13,32 +20,65 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "0.80.2",
+    "@earendil-works/pi-ai": "0.80.2",
+    "@napi-rs/canvas": "0.1.80",
+    "mammoth": "1.12.0",
+    "pdf-parse": "2.4.5",
+    "typebox": "1.1.38"
+  },
+  "devDependencies": {
     "@blocknote/core": "0.51.4",
     "@blocknote/react": "0.51.4",
     "@blocknote/shadcn": "0.51.4",
-    "lucide-react": "1.21.0",
-    "mermaid": "^11.16.0",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
-  },
-  "devDependencies": {
     "@eslint/js": "10.0.1",
     "@tailwindcss/vite": "4.3.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "@types/node": "24.10.0",
     "@vitejs/plugin-react": "6.0.3",
+    "electron": "42.5.1",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.1",
     "eslint": "10.6.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.3",
     "globals": "17.7.0",
     "jsdom": "^29.1.1",
+    "lucide-react": "1.21.0",
     "marked": "16.4.2",
+    "mermaid": "^11.16.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "tailwindcss": "4.3.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.62.0",
     "vite": "8.1.0",
     "vitest": "^4.1.9"
+  },
+  "build": {
+    "appId": "com.scribeai.writingapp",
+    "productName": "ScribeAI",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Office"
+    }
   }
 }

@@ -47,13 +47,15 @@ The event channel supports:
 | `agent.status` | Set `idle`, `working`, or `offline` and clear the current error. |
 | `agent.error` | Set a displayable error and its recoverability metadata. |
 
-The current implementation in [`createInjectedSuggestionFeed.ts`](../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts):
+The browser-only development adapter in [`createInjectedSuggestionFeed.ts`](../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts):
 
 - opens a `BroadcastChannel` receiver when its first listener subscribes;
 - forwards valid `suggestion.added` events sent by the temporary `/mock-suggestions` controller;
 - closes the channel receiver after its last listener leaves.
 
-The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs. This directory is the sole mock ingress: there are no seeded events, document observations, steering methods, retries, or secondary feed adapters.
+The temporary controller supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields; validates recursive structure-node JSON; and sends events only to already-open same-origin tabs.
+
+The packaged desktop application instead uses [`createDesktopSuggestionFeed`](../src/desktop/desktopClient.ts). It receives suggestion and agent-status events from the Electron main process. Suggestions are written to the desktop database before an event is forwarded to the renderer, so reload hydrates the same inbox projection rather than starting a mock session.
 
 ## Inbox state machine
 
@@ -206,7 +208,7 @@ Initial sizes are:
 | Outline or layout | 380 px | 300 px |
 | Mind map | 460 px | 340 px |
 
-Cards cannot be smaller than 280 × 180 px and keep 16 px of edge padding. Geometry and z-order are in-memory and reset on reload.
+Cards cannot be smaller than 280 × 180 px and keep 16 px of edge padding. Geometry and z-order are included in the persisted suggestion projection and restored on reload.
 
 ## Mermaid rendering
 

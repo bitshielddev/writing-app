@@ -16,6 +16,7 @@ type EditorWorkspaceProps = {
   onToggleContextPanel: () => void;
   onToggleNavigationPanel: () => void;
   onEditorSelectionChange: () => void;
+  onEditorChange: () => void;
   onWorkspacePinGeometryChange: (id: string, rect: WorkspacePinRect) => void;
   onRaiseWorkspacePin: (id: string) => void;
   onReturnToPins: (id: string) => void;
@@ -34,6 +35,7 @@ export function EditorWorkspace({
   onToggleContextPanel,
   onToggleNavigationPanel,
   onEditorSelectionChange,
+  onEditorChange,
   onWorkspacePinGeometryChange,
   onRaiseWorkspacePin,
   onReturnToPins,
@@ -58,6 +60,7 @@ export function EditorWorkspace({
         editor={editor}
         workspacePins={workspacePins}
         onSelectionChange={onEditorSelectionChange}
+        onChange={onEditorChange}
         onWorkspacePinGeometryChange={onWorkspacePinGeometryChange}
         onRaiseWorkspacePin={onRaiseWorkspacePin}
         onReturnToPins={onReturnToPins}

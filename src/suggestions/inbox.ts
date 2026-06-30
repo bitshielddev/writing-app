@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 
+import type { PersistedSuggestionState } from "../shared/desktop";
 import type {
   AgentStatus,
   SuggestionEvent,
@@ -32,7 +33,7 @@ export type WorkspacePin = WorkspacePinRect & {
   zIndex: number;
 };
 
-type InboxState = {
+export type InboxState = {
   entries: InboxEntry[];
   pinnedEntries: PinnedInboxEntry[];
   workspacePins: WorkspacePin[];
@@ -45,6 +46,7 @@ type InboxState = {
 };
 
 type InboxAction =
+  | { type: "hydrate"; state: PersistedSuggestionState }
   | { type: "event"; event: SuggestionEvent }
   | { type: "select"; id: string }
   | { type: "back" }
@@ -110,6 +112,15 @@ export function inboxReducer(
   state: InboxState,
   action: InboxAction,
 ): InboxState {
+  if (action.type === "hydrate") {
+    return {
+      ...initialInboxState,
+      ...action.state,
+      status: state.status,
+      error: state.error,
+    };
+  }
+
   if (action.type === "event") {
     const event = action.event;
 
@@ -363,13 +374,40 @@ export function inboxReducer(
   };
 }
 
-export function useSuggestionInbox(feed: SuggestionFeed) {
+export function persistedSuggestionState(
+  state: InboxState,
+): PersistedSuggestionState {
+  return {
+    entries: state.entries,
+    pinnedEntries: state.pinnedEntries,
+    workspacePins: state.workspacePins,
+    seenKeys: state.seenKeys,
+    nextZIndex: state.nextZIndex,
+  };
+}
+
+type SuggestionInboxOptions = {
+  onStateChange?: (state: PersistedSuggestionState) => void;
+};
+
+export function useSuggestionInbox(
+  feed: SuggestionFeed,
+  options: SuggestionInboxOptions = {},
+) {
+  const onStateChange = options.onStateChange;
   const [state, dispatch] = useReducer(inboxReducer, initialInboxState);
+  const [hydrated, setHydrated] = useReducer(() => true, !onStateChange);
 
   useEffect(
     () => feed.subscribe((event) => dispatch({ type: "event", event })),
     [feed],
   );
+
+  useEffect(() => {
+    if (hydrated) {
+      onStateChange?.(persistedSuggestionState(state));
+    }
+  }, [hydrated, onStateChange, state]);
 
   const entries = useMemo(
     () =>
@@ -427,6 +465,13 @@ export function useSuggestionInbox(feed: SuggestionFeed) {
       dispatch({ type: "preview.resolved", id, outcome }),
     [],
   );
+  const hydrate = useCallback(
+    (nextState: PersistedSuggestionState) => {
+      dispatch({ type: "hydrate", state: nextState });
+      setHydrated();
+    },
+    [],
+  );
 
   return {
     ...state,
@@ -447,5 +492,6 @@ export function useSuggestionInbox(feed: SuggestionFeed) {
     raiseWorkspacePin,
     previewStarted,
     previewResolved,
+    hydrate,
   };
 }

@@ -11,7 +11,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type {
@@ -28,6 +28,7 @@ type SuggestionDockProps = {
   unreadCount: number;
   status: AgentStatus;
   error?: { message: string; recoverable: boolean };
+  controls?: ReactNode;
   onSelect: (id: string) => void;
   onBack: () => void;
   onDismiss: (id: string) => void;
@@ -261,6 +262,7 @@ export function SuggestionDock({
   unreadCount,
   status,
   error,
+  controls,
   onSelect,
   onBack,
   onDismiss,
@@ -327,6 +329,8 @@ export function SuggestionDock({
               </span>
             ) : null}
           </header>
+
+          {controls}
 
           {error ? (
             <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">

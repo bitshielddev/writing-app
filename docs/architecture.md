@@ -2,7 +2,7 @@
 
 ## System boundary
 
-The application is browser-only React. The entry point has one temporary pathname switch for `/mock-suggestions`; there is no routing library or server boundary in the current repository.
+The React renderer supports two composition paths. Normal Vite development is browser-only and retains the temporary `/mock-suggestions` route. The packaged Electron path adds a preload bridge, main-process orchestration, a SQLite utility process, and a Pi utility process. There is still no routing library.
 
 ```mermaid
 flowchart LR
@@ -14,6 +14,10 @@ flowchart LR
     Dock[Writing partner UI]
     Pins[Workspace cards]
     Storage[(localStorage widths)]
+    Bridge[Electron preload bridge]
+    Main[Electron main]
+    Database[SQLite storage process]
+    Agent[Pi agent process]
     Controller[Temporary suggestion controller]
     Channel[BroadcastChannel]
 
@@ -25,11 +29,16 @@ flowchart LR
     Dock -->|select, pin, dismiss, preview| Shell
     Editor -->|preview accepted/cancelled| Inbox
     Shell <--> Storage
+    Shell <--> Bridge
+    Bridge <--> Main
+    Main <--> Database
+    Main <--> Agent
+    Agent <--> Database
     Controller --> Channel
     Channel --> Feed
 ```
 
-The service-shaped interfaces exist, but their current implementations are in-memory. This separation is the main seam for adding a real agent or persistence later.
+The `SuggestionFeed` remains transport-neutral. The browser adapter uses `BroadcastChannel`; the Electron adapter maps committed desktop events. Desktop queries and commands use the typed `DesktopBridge` contract.
 
 ## Composition root
 
@@ -46,14 +55,16 @@ Keeping feed creation stable is important. Recreating it during a render would r
 
 | State | Owner | Lifetime / persistence |
 | --- | --- | --- |
-| Editor blocks and selection | BlockNote editor created in `App` | Current page only |
+| Editor blocks and selection | BlockNote editor created in `App` | Selection is in-memory; accepted blocks autosave in Electron |
 | Feed subscribers and injected-event channel | `createInjectedSuggestionFeed` closure | While at least one feed subscriber exists |
-| Inbox, pins, preview id, agent status, errors | `useSuggestionInbox` / `inboxReducer` | Current page only |
-| Workspace pin geometry and z-order | Inbox reducer | Current page only |
+| Inbox, pins, preview id, agent status, errors | `useSuggestionInbox` / `inboxReducer` | Visible suggestion projection persists in Electron; preview/status stay ephemeral |
+| Workspace pin geometry and z-order | Inbox reducer | Persists in Electron |
 | Desktop panel open/closed state | `App` React state | Current page only |
 | Mobile drawer open/closed state | `App` React state | Current page only |
 | Last editor block with a text cursor | `App` React state | Current page only |
 | Desktop column widths | `App` React state | `localStorage` when available |
+| Documents, sources, transcripts, memory | SQLite storage process | Electron application data |
+| Provider settings | SQLite storage process / Electron main | Configuration persists; API key is launch-memory only |
 | Draft title, tab, source, and navigation data | Component constants | Static |
 
 There is intentionally one owner for each lifecycle. Components such as `SuggestionDock`, `WorkspacePins`, and `DocumentHeader` receive values and callbacks; they do not own duplicate application state.
@@ -79,6 +90,15 @@ This temporary directory owns the controller view, payload builder and validatio
 
 This layer is React-independent except for the `useSuggestionInbox` hook at the bottom of `inbox.ts`. The reducer itself is a pure function and is the most important unit-test boundary.
 
+### `desktop` and `src/desktop`
+
+- `desktop/main.ts` owns Electron lifecycle, renderer IPC, utility processes, and the 10-second scheduler.
+- `desktop/storage.ts` owns schema creation, SQLite queries, source extraction, committed events, and agent persistence.
+- `desktop/agent.ts` embeds Pi agent-core, defines domain tools, records transcripts, and coalesces observations.
+- `desktop/preload.ts` exposes the typed desktop API.
+- `src/desktop/desktopClient.ts` maps desktop events into `SuggestionFeed`.
+- `src/shared/desktop.ts` is the cross-process contract.
+
 ### `src/components`
 
 - [`EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) joins the document header and editor surface.
@@ -90,11 +110,13 @@ This layer is React-independent except for the `useSuggestionInbox` hook at the 
 - [`ColumnResizeHandle.tsx`](../src/components/ColumnResizeHandle.tsx) provides pointer and keyboard column resizing.
 - [`SuggestionPresentation.tsx`](../src/components/SuggestionPresentation.tsx) renders kind badges and structured suggestion visuals.
 - [`MermaidDiagram.tsx`](../src/components/MermaidDiagram.tsx) lazy-loads Mermaid and renders an accessible fallback on failure.
-- [`Sidebar.tsx`](../src/components/Sidebar.tsx) is the static project navigation shell.
+- [`Sidebar.tsx`](../src/components/Sidebar.tsx) renders the static project navigation shell plus the persisted Electron source list and upload callback.
 
 Components rely on their props for application actions. When adding behavior, prefer moving data and transitions into the relevant owner rather than making a display component stateful.
 
-## Bootstrap and runtime sequence
+## Browser bootstrap sequence
+
+The browser-development path remains the lightweight mock composition. The Electron startup, hydration, and utility-process sequence is documented separately in [Desktop persistence and Pi runtime](desktop-runtime.md#startup-and-renderer-loading).
 
 ```mermaid
 sequenceDiagram
@@ -150,9 +172,11 @@ BlockNote's shadcn stylesheet is imported by `DocumentEditor.tsx`. Its utility c
 
 - TypeScript is strict and emits no files during type-checking.
 - Vite targets a browser application; there is no server-side rendering guard around browser globals.
+- Vite's `base` is `./` because the production renderer is loaded from `file://`; changing it back to `/` breaks all built renderer assets in Electron.
+- Electron main, storage, and agent bundles are ES modules. Main must finish evaluating before Electron can become ready, so application startup is registered as a promise continuation rather than awaited at module scope.
 - Mermaid is a dynamic chunk because `MermaidDiagram` imports it lazily.
 - Google Fonts are external runtime requests. Font failure degrades to local fallbacks.
-- `dist/` is generated and ignored by ESLint; source code lives under `src/`.
+- `dist/`, `dist-electron/`, and `release/` are generated outputs; source code lives under `src/` and `desktop/`.
 - Files in `artifacts/` are not imported and have no runtime effect.
 
 ## Architectural invariants

@@ -38,7 +38,18 @@ const pages = [
     category: "Get oriented",
     number: "02",
     description:
-      "Understand the browser-only system boundary, state ownership, data direction, and module responsibilities.",
+      "Understand browser and Electron boundaries, state ownership, data direction, and module responsibilities.",
+    accent: "cyan",
+  },
+  {
+    source: "desktop-runtime.md",
+    output: "desktop-runtime.html",
+    title: "Desktop persistence and Pi runtime",
+    shortTitle: "Desktop & Pi",
+    category: "Build internals",
+    number: "03",
+    description:
+      "Trace Electron processes, SQLite persistence, source import, events, and background Pi observations.",
     accent: "cyan",
   },
   {
@@ -47,7 +58,7 @@ const pages = [
     title: "Editor and suggestion system",
     shortTitle: "Editor & suggestions",
     category: "Build internals",
-    number: "03",
+    number: "04",
     description:
       "Trace agent context, feed events, inbox transitions, editable previews, and workspace pins end to end.",
     accent: "amber",
@@ -58,7 +69,7 @@ const pages = [
     title: "UI and accessibility",
     shortTitle: "UI & accessibility",
     category: "Build internals",
-    number: "04",
+    number: "05",
     description:
       "Work confidently with responsive panels, editor layout, keyboard input, focus, and visual conventions.",
     accent: "rose",
@@ -69,7 +80,7 @@ const pages = [
     title: "Testing and quality",
     shortTitle: "Testing & quality",
     category: "Ship safely",
-    number: "05",
+    number: "06",
     description:
       "Know what the automated suite protects, where browser checks are required, and what to run before handoff.",
     accent: "green",
@@ -80,7 +91,7 @@ const pages = [
     title: "Extension guide",
     shortTitle: "Extension guide",
     category: "Ship safely",
-    number: "06",
+    number: "07",
     description:
       "Use the existing seams to add a real agent, persistence, suggestion kinds, editor blocks, and application actions.",
     accent: "violet",

@@ -1,10 +1,10 @@
 # Extension guide
 
-This guide identifies the existing seams for likely next steps. It does not prescribe a backend or product architecture that is not present in the repository.
+This guide identifies the existing seams for likely next steps in the browser and desktop runtimes.
 
-## Replace the mock writing partner
+## Evolve the writing-partner transport
 
-Implement the existing [`SuggestionFeed`](../src/suggestions/types.ts) contract and keep transport details behind it.
+Keep transport details behind the existing [`SuggestionFeed`](../src/suggestions/types.ts) contract. The browser development runtime uses the injected mock adapter; the Electron runtime uses the desktop adapter and Pi agent process.
 
 A production adapter must define:
 
@@ -15,7 +15,7 @@ A production adapter must define:
 - ordering of status, suggestion, and error events;
 - cleanup under React `StrictMode`.
 
-Then replace `createInjectedSuggestionFeed()` in [`App.tsx`](../src/App.tsx) with the new adapter. Preserve stable construction with `useMemo` or move service creation above React if it is intentionally process-wide.
+Choose or introduce adapters at the construction boundary in [`App.tsx`](../src/App.tsx). Preserve stable construction with `useMemo`, or move service creation above React if it is intentionally process-wide.
 
 Do not call an HTTP or model SDK directly from `SuggestionDock`. That would couple view lifecycle to transport lifecycle, make replay/dedupe inconsistent, and bypass reducer tests.
 
@@ -33,27 +33,27 @@ The current application does not publish editor or artifact context to the feed.
 
 Version the payload if a server will persist or process it independently.
 
-## Add persistence
+## Extend persistence
 
-There are three distinct data classes; do not persist the entire React/reducer state as one opaque blob.
+The desktop runtime persists through its storage process and SQLite database. Keep the existing separation between document data, suggestion projection, sources, agent records, and provider settings rather than replacing it with one opaque React-state blob.
 
 ### Document data
 
-Persist BlockNote's serializable document model and document metadata. Decide when autosave occurs and how loading replaces the initial seeded content. Handle schema versions because the custom block set may evolve.
+Document saves contain BlockNote's serializable document model and metadata. Accepted content is autosaved after a short debounce, and startup hydration replaces the initial browser seed. Preserve schema-version handling as the custom block set evolves.
 
-Temporary `suggestionPreview` blocks need an explicit product decision on reload. The safest default is to exclude them from saved accepted content or persist them as recoverable drafts with clearly separate semantics.
+Temporary `suggestionPreview` blocks are excluded from the saved accepted document. If preview recovery is added later, store it as a separate draft concept.
 
 ### Suggestion data
 
-Decide whether the live inbox is a session stream, durable server inbox, or client cache. The current `seenKeys` behavior means a dismissed item cannot be re-added during the page session; durable dedupe will need a deliberate retention policy.
+The live inbox, pins, workspace cards, dedupe keys, and geometry are stored as a document-scoped projection. Changes to dedupe retention should be made deliberately because a dismissed item currently cannot be re-added with the same key.
 
 Pinned entries are user-owned frozen snapshots. Preserve that distinction if live suggestions are server-backed: server updates should not mutate a saved pin.
 
 ### Workspace preferences
 
-Column widths can remain local preferences. Workspace-card geometry could be stored per document and viewport class, but restore through the same clamp path because available canvas dimensions change.
+Column widths remain local browser preferences. Workspace-card geometry is stored per document and restored through the same clamp path because available canvas dimensions change.
 
-Add persistence through a repository/storage boundary. Hydrate owners at application startup and keep serialization out of display components.
+Add new durable data through the storage-process RPC boundary. Hydrate owners at application startup and keep serialization out of display components.
 
 ## Add a suggestion kind
 
@@ -93,7 +93,6 @@ The following are static today:
 
 - New Document;
 - Library, Recent, Templates, Collections, Settings, Help, Archive;
-- displayed source files and Upload Sources;
 - Drafts, Review, Published;
 - history, export, share, and overflow actions.
 
@@ -107,9 +106,9 @@ Before wiring buttons individually, introduce the missing domain/state boundary:
 
 `Sidebar` and `DocumentHeader` should remain presentation components receiving current state and callbacks. Avoid placing fetches or persistence logic directly in them.
 
-## Add artifact upload or source retrieval
+## Extend artifact upload or source retrieval
 
-The sidebar source list is currently a static presentation constant. Replace it with a shared artifact owner.
+The desktop sidebar imports PDF, DOCX, Markdown, and text files through the main/storage boundary and shows persisted sources. The browser development runtime has no source backend.
 
 That owner should distinguish:
 
@@ -120,7 +119,7 @@ That owner should distinguish:
 - content availability to the agent;
 - deletion and access-control behavior.
 
-A real feed can use stable artifact references to ask a backend for indexed content; raw file content should not be pushed into React component props.
+The Pi tools use stable artifact IDs to list, read, and search extracted content. Keep raw file content behind that boundary rather than pushing it into React component props.
 
 ## Evolve the inbox reducer safely
 

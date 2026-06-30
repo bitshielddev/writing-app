@@ -19,11 +19,11 @@ npm run lint
 npm run build
 ```
 
-`npm run build` is also the authoritative type check because it runs `tsc -b` before Vite. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.
+`npm run build` is also the authoritative type and bundle check. It runs `tsc -b`, builds the Vite renderer, then type-checks and bundles the Electron main, preload, storage, and agent entries. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.
 
 ## Current automated coverage
 
-The suite currently contains 29 tests across eight files.
+The suite currently contains 34 tests across nine files.
 
 | File | What it protects |
 | --- | --- |
@@ -35,6 +35,7 @@ The suite currently contains 29 tests across eight files.
 | [`components/WorkspacePins.test.tsx`](../src/components/WorkspacePins.test.tsx) | Card content, return action, keyboard geometry, and pointer drag commit. |
 | [`components/DocumentHeader.test.tsx`](../src/components/DocumentHeader.test.tsx) | Desktop panel semantics, hidden-partner unread count, and independent mobile controls. |
 | [`components/ResponsiveDrawer.test.tsx`](../src/components/ResponsiveDrawer.test.tsx) | Escape/close behavior and focus restoration. |
+| [`desktop/storage.test.ts`](../desktop/storage.test.ts) | SQLite bootstrap and revisioned document saves, durable agent suggestions, transcript recording, and searchable source import. |
 
 ### Why reducer tests matter most
 
@@ -58,7 +59,8 @@ The current suite does not render the full `App` or BlockNote editor. It therefo
 - initial workspace-card placement in the real scrolling canvas;
 - canvas clamping through a real `ResizeObserver`;
 - Mermaid SVG rendering and failure handling;
-- production bundle execution;
+- production bundle execution, Electron readiness, and `file://` asset resolution;
+- DOCX and PDF extraction inside the Electron utility process;
 - visual layout, overflow, font fallback, or contrast.
 
 Changes in these areas require targeted tests where practical and the manual checks below.
@@ -113,6 +115,15 @@ Changes in these areas require targeted tests where practical and the manual che
 - Confirm visible focus on all interactive elements.
 - Confirm unread counts and errors are announced as text, not color alone.
 - Force invalid Mermaid source and confirm the description remains available.
+
+### Electron runtime
+
+- Launch the built application and confirm the renderer mounts without failed local script or stylesheet requests.
+- Edit and restart to verify document hydration and the 650 ms autosave path.
+- Import each supported source type; include PDF to exercise the utility-process canvas globals.
+- Restart and confirm sources, suggestions, pins, workspace geometry, provider settings, and paused state hydrate from SQLite.
+- Confirm an API key is retained only for the current launch and is not restored from the database.
+- Force a storage or agent utility-process startup failure and confirm main reports the failure and exits instead of hanging without a window.
 
 ## Adding tests
 

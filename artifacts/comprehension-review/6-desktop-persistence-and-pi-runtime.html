@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension Review: Desktop persistence and Pi runtime</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20212a;
+      --muted: #686577;
+      --soft: #f6f4fb;
+      --line: #ddd8ec;
+      --panel: #ffffff;
+      --brand: #6354c7;
+      --brand-soft: #eeeaff;
+      --warn: #8a5a00;
+      --warn-bg: #fff7e5;
+      --code: #171923;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #fbfaff 0%, #f4f1fa 100%);
+      color: var(--ink);
+      font: 16px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      padding: 56px 24px 28px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,0.72);
+    }
+    main { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+    .hero { max-width: 920px; margin: 0 auto; }
+    h1, h2, h3 { line-height: 1.18; margin: 0 0 14px; }
+    h1 { font-size: clamp(2rem, 4vw, 3.2rem); letter-spacing: -0.04em; }
+    h2 { font-size: 1.55rem; margin-top: 42px; letter-spacing: -0.02em; }
+    h3 { font-size: 1.05rem; margin-top: 24px; }
+    p { margin: 0 0 16px; max-width: 78ch; }
+    .lede { font-size: 1.12rem; color: #393844; max-width: 82ch; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    .pill {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 999px;
+      padding: 6px 11px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+    section { margin-top: 34px; }
+    .card {
+      background: rgba(255,255,255,0.86);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 12px 36px rgba(42, 35, 84, 0.06);
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+    .map {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .node {
+      min-height: 86px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fff;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    .node small { display: block; margin-top: 4px; color: var(--muted); font-weight: 500; }
+    .connector { text-align: center; color: var(--muted); font-size: 0.86rem; margin-top: -4px; }
+    @media (max-width: 900px) { .map { grid-template-columns: 1fr; } .connector { display: none; } }
+    pre {
+      margin: 16px 0 18px;
+      padding: 16px;
+      overflow: auto;
+      background: var(--code);
+      color: #eef0ff;
+      border-radius: 14px;
+      border: 1px solid #2d3040;
+      font: 13px/1.55 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 0.92em; }
+    .mark { color: #ffe08a; font-weight: 700; }
+    .note, .risk {
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin: 18px 0;
+      border: 1px solid var(--line);
+      background: var(--brand-soft);
+    }
+    .risk { background: var(--warn-bg); border-color: #f0d18b; color: #4f3808; }
+    .files {
+      columns: 2;
+      column-gap: 30px;
+      padding-left: 18px;
+      color: #393844;
+    }
+    @media (max-width: 760px) { .files { columns: 1; } }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fff; border-radius: 14px; overflow: hidden; }
+    th, td { border-bottom: 1px solid var(--line); padding: 11px 12px; text-align: left; vertical-align: top; }
+    th { background: #f2effa; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    tr:last-child td { border-bottom: 0; }
+    details {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 13px 15px;
+      margin: 12px 0;
+    }
+    summary { cursor: pointer; font-weight: 700; }
+    .checks ol { padding-left: 22px; }
+    .checks li { margin: 18px 0; }
+    .small { color: var(--muted); font-size: 0.92rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <h1>Desktop persistence turns the writing partner into a second runtime</h1>
+      <p class="lede">This change adds an Electron path beside the existing browser development path. The browser still uses the injected mock suggestion feed, while the desktop app hydrates from SQLite, autosaves accepted document content, imports source files, and runs a Pi-powered background agent in a utility process.</p>
+      <div class="meta">
+        <span class="pill">Review target: current working tree</span>
+        <span class="pill">Verification run: npm test -- --run, npm run build</span>
+        <span class="pill">Relevant history: mock feed, pins, docs, then desktop runtime</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>The new shape of the app</h2>
+      <p>The most important mental model is that <code>App.tsx</code> now chooses between two producers and two persistence stories at startup. If <code>window.scribe</code> exists, the renderer is running under Electron and talks through the preload bridge. If it does not, the Vite browser flow stays in memory and keeps using the mock suggestion controller.</p>
+      <div class="map" aria-label="Desktop runtime map">
+        <div class="node">React renderer<small>BlockNote, inbox, panels</small></div>
+        <div class="node">Preload bridge<small>typed window.scribe API</small></div>
+        <div class="node">Electron main<small>IPC, windows, scheduler</small></div>
+        <div class="node">Storage process<small>SQLite, source text, outbox</small></div>
+        <div class="node">Agent process<small>Pi tools and observations</small></div>
+      </div>
+      <p class="small">The arrows are bidirectional in the implementation: renderer commands go through preload/main, storage emits committed events back through main, and the agent asks storage to read content and commit suggestions.</p>
+    </section>
+
+    <section>
+      <h2>Files that carry the behaviour</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Runtime and persistence</h3>
+          <ul class="files">
+            <li><code>desktop/main.ts</code></li>
+            <li><code>desktop/preload.ts</code></li>
+            <li><code>desktop/storage.ts</code></li>
+            <li><code>desktop/agent.ts</code></li>
+            <li><code>desktop/build.mjs</code></li>
+            <li><code>tsconfig.desktop.json</code></li>
+            <li><code>src/shared/desktop.ts</code></li>
+            <li><code>src/desktop/desktopClient.ts</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Renderer integration</h3>
+          <ul class="files">
+            <li><code>src/App.tsx</code></li>
+            <li><code>src/suggestions/inbox.ts</code></li>
+            <li><code>src/components/AgentControls.tsx</code></li>
+            <li><code>src/components/Sidebar.tsx</code></li>
+            <li><code>src/components/SuggestionDock.tsx</code></li>
+            <li><code>src/components/DocumentEditor.tsx</code></li>
+            <li><code>src/components/EditorWorkspace.tsx</code></li>
+            <li><code>src/vite-env.d.ts</code></li>
+          </ul>
+        </div>
+      </div>
+      <p>The documentation set and generated static HTML are updated to describe the desktop runtime. <code>package.json</code>, <code>package-lock.json</code>, <code>vite.config.ts</code>, and <code>.gitignore</code> add Electron build/package support and local output folders.</p>
+    </section>
+
+    <section class="card">
+      <h2>The bridge is the new boundary</h2>
+      <p>The preload does not expose Electron primitives. It exposes the application operations in <code>DesktopBridge</code>, which becomes the contract between renderer and desktop services.</p>
+      <pre><code>export type DesktopBridge = {
+  hydrate(): Promise&lt;WorkspaceSnapshot&gt;;
+  saveDocument(input: {
+    documentId: string;
+    blocks: unknown[];
+    expectedRevision: number;
+  }): Promise&lt;DocumentSnapshot&gt;;
+  saveSuggestionState(state: PersistedSuggestionState): Promise&lt;void&gt;;
+  importSource(): Promise&lt;SourceSnapshot | undefined&gt;;
+  setProvider(input: ProviderSettings &amp; { apiKey: string }): Promise&lt;ProviderSettings&gt;;
+  setAgentPaused(paused: boolean): Promise&lt;AgentRuntime&gt;;
+  considerNow(): Promise&lt;void&gt;;
+  subscribe(listener: (event: DesktopEvent) =&gt; void): () =&gt; void;
+};</code></pre>
+      <p>The implementation in <code>desktop/preload.ts</code> maps each method to a named IPC channel and wires <code>subscribe</code> to <code>scribe:event</code>. The global type in <code>src/vite-env.d.ts</code> lets the React side safely check <code>window.scribe</code>.</p>
+      <pre><code>export function getDesktopBridge(): DesktopBridge | undefined {
+  return window.scribe;
+}
+
+export function createDesktopSuggestionFeed(
+  bridge: DesktopBridge,
+): SuggestionFeed {
+  return {
+    subscribe(listener) {
+      return bridge.subscribe((event: DesktopEvent) =&gt; {
+        let suggestionEvent: SuggestionEvent | undefined;
+        if (event.type === "suggestion.event") {
+          suggestionEvent = event.event;
+        } else if (event.type === "agent.runtime") {
+          suggestionEvent = event.runtime.lastError
+            ? { type: "agent.error", message: event.runtime.lastError, recoverable: true }
+            : { type: "agent.status", status: event.runtime.running
+                ? "working"
+                : event.runtime.configured ? "idle" : "offline" };
+        }
+        if (suggestionEvent) listener(suggestionEvent);
+      });
+    },
+  };
+}</code></pre>
+      <p>That adapter is deliberately narrow: the inbox still receives normal <code>SuggestionEvent</code> values. This preserves the reducer path introduced by the earlier writing-partner refactor and avoids putting Electron logic into <code>SuggestionDock</code>.</p>
+    </section>
+
+    <section class="card">
+      <h2>Follow desktop startup once</h2>
+      <p>On the renderer side, <code>App.tsx</code> creates either the desktop feed or the injected browser feed. In desktop mode it also hydrates the saved workspace and passes an <code>onStateChange</code> callback into the inbox hook so suggestion projection changes can be persisted.</p>
+      <pre><code>const desktop = useMemo(() =&gt; getDesktopBridge(), []);
+const feed = useMemo(
+  () =&gt;
+    desktop
+      ? createDesktopSuggestionFeed(desktop)
+      : createInjectedSuggestionFeed(),
+  [desktop],
+);
+
+const inboxOptions = useMemo(
+  () =&gt; ({ onStateChange: desktop ? saveSuggestionState : undefined }),
+  [desktop, saveSuggestionState],
+);
+const inbox = useSuggestionInbox(feed, inboxOptions);</code></pre>
+      <p>The hydration effect is where seeded browser content gives way to the stored document. It replaces the BlockNote document only if storage returns saved blocks, restores provider/runtime/source state, and hydrates the reducer-owned suggestion projection.</p>
+      <pre><code>void desktop
+  .hydrate()
+  .then((snapshot) =&gt; {
+    hydrationInProgressRef.current = true;
+    if (snapshot.document.blocks.length) {
+      editor.replaceBlocks(
+        editor.document,
+        snapshot.document.blocks as WritingPartialBlock[],
+      );
+    }
+    documentIdRef.current = snapshot.document.id;
+    documentRevisionRef.current = snapshot.document.revision;
+    setProvider(snapshot.provider);
+    setAgentRuntime(snapshot.agent);
+    setSources(snapshot.sources);
+    hydrateInbox(snapshot.suggestions);
+    window.requestAnimationFrame(() =&gt; {
+      hydrationInProgressRef.current = false;
+      documentHydratedRef.current = true;
+    });
+  })</code></pre>
+      <div class="note"><p><strong>Why the hydration flags matter:</strong> <code>editor.replaceBlocks</code> can trigger editor-change plumbing. The flags keep startup replacement from being immediately written back as a user edit. The save path also checks <code>documentHydratedRef</code>.</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Autosave and suggestion projection are separate</h2>
+      <p>Document persistence writes accepted BlockNote content after a 650 ms debounce. Before saving, the renderer filters out <code>suggestionPreview</code> blocks, so a temporary preview is not treated as accepted draft content after restart.</p>
+      <pre><code>const persistDocument = useCallback(() =&gt; {
+  if (!desktop || !documentHydratedRef.current || hydrationInProgressRef.current) {
+    return;
+  }
+  const blocks = editor.document.filter(
+    (block) =&gt; block.type !== "suggestionPreview",
+  );
+  void desktop
+    .saveDocument({
+      documentId: documentIdRef.current,
+      blocks,
+      expectedRevision: documentRevisionRef.current,
+    })
+    .then((document) =&gt; {
+      documentRevisionRef.current = document.revision;
+    });
+}, [desktop, editor]);</code></pre>
+      <p>Suggestion state persists through the reducer hook instead of through the editor. The reducer now has a <code>hydrate</code> action and a serializer that leaves out ephemeral fields such as <code>activePreviewId</code>, <code>status</code>, and <code>error</code>.</p>
+      <pre><code>if (action.type === "hydrate") {
+  return {
+    ...initialInboxState,
+    ...action.state,
+    status: state.status,
+    error: state.error,
+  };
+}
+
+export function persistedSuggestionState(
+  state: InboxState,
+): PersistedSuggestionState {
+  return {
+    entries: state.entries,
+    pinnedEntries: state.pinnedEntries,
+    workspacePins: state.workspacePins,
+    seenKeys: state.seenKeys,
+    nextZIndex: state.nextZIndex,
+  };
+}</code></pre>
+      <p>The new reducer test locks down the important part of this behaviour: durable entries and z-index restore, but preview state does not.</p>
+    </section>
+
+    <section class="card">
+      <h2>Where SQLite owns truth</h2>
+      <p><code>desktop/storage.ts</code> is the only SQLite owner. It creates a default project/document, stores source text, stores the visible suggestion projection, records agent runs/transcripts, and commits outbound events. Mutating operations use <code>transaction</code>, and the outbox is flushed only after commit.</p>
+      <pre><code>function transaction&lt;T&gt;(work: () =&gt; T): T {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = work();
+    db.exec("COMMIT");
+    flushOutbox();
+    return result;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}</code></pre>
+      <p>Agent-created suggestions show that ordering. Storage checks the document revision supplied by the agent, applies dedupe, updates the durable projection, and emits the existing reducer event type.</p>
+      <pre><code>function createSuggestion(params: unknown) {
+  const input = params as { item: SuggestionItem; expectedDocumentRevision: number };
+  const document = getDocument();
+  if (input.expectedDocumentRevision !== document.revision) {
+    throw new Error("The target document changed; start a new observation");
+  }
+  return transaction(() =&gt; {
+    const state = getSuggestionState();
+    if (state.seenKeys[input.item.dedupeKey]) return { accepted: false };
+    state.seenKeys[input.item.dedupeKey] = true;
+    state.entries.push({ item: input.item, viewed: false, stale: false, withdrawn: false });
+    enforceSuggestionLimit(state);
+    putSuggestionState(state);
+    emitSuggestion({ type: "suggestion.added", item: input.item });
+    return { accepted: true };
+  });
+}</code></pre>
+      <p>Source import follows the same storage boundary. The renderer only gets <code>SourceSnapshot</code> values for the sidebar; extracted file content remains in storage for agent tools.</p>
+    </section>
+
+    <section class="card">
+      <h2>The Pi agent path</h2>
+      <p><code>desktop/main.ts</code> owns the observation schedule. It asks storage for an <code>ObservationSeed</code>, refuses to run when the provider is disabled or paused, and skips repeated observations of the same project revision unless the user forces a run.</p>
+      <pre><code>async function observe(force = false) {
+  const seed = await storage.call&lt;ObservationSeed&gt;("agent.seed");
+  if (!seed.provider.enabled || seed.paused) {
+    setRuntime({
+      configured: seed.provider.enabled,
+      paused: seed.paused,
+      running: false,
+    });
+    return;
+  }
+  if (!force &amp;&amp; seed.projectRevision === lastCompletedProjectRevision) return;
+  agent.post({ kind: "observe", seed, apiKey, force });
+}</code></pre>
+      <p>The agent process builds Pi tools that operate through storage RPC. A created suggestion does not edit the document directly; it asks storage to commit a suggestion item for the current document revision.</p>
+      <pre><code>const create: AgentTool&lt;typeof suggestionSchema&gt; = {
+  name: "create_suggestion",
+  label: "Create suggestion",
+  description: "Create a useful suggestion for the active document. This does not edit the document.",
+  parameters: suggestionSchema,
+  execute: async (_id, params) =&gt; {
+    const item = toSuggestion(params as SuggestionInput);
+    const result = await storageCall("agent.suggestion.create", {
+      item,
+      expectedDocumentRevision: seed.documentRevision,
+    });
+    return { content: [{ type: "text", text: JSON.stringify(result) }], details: { item } };
+  },
+};</code></pre>
+      <p>Provider controls are exposed only in desktop mode through <code>AgentControls</code> inserted into <code>SuggestionDock</code>. The API key is kept in process memory for the current launch, while provider/model/base URL and enabled state are persisted.</p>
+    </section>
+
+    <section class="card">
+      <h2>What future maintainers should be careful about</h2>
+      <table>
+        <thead><tr><th>Invariant or risk</th><th>Evidence in the change</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>The browser path must keep working without Electron.</td>
+            <td><code>getDesktopBridge()</code> returns <code>window.scribe</code>, and <code>App.tsx</code> falls back to <code>createInjectedSuggestionFeed()</code>.</td>
+            <td>Any renderer code that assumes the bridge exists would break Vite development and tests.</td>
+          </tr>
+          <tr>
+            <td>Do not persist temporary previews as accepted document content.</td>
+            <td><code>persistDocument</code> filters <code>block.type !== "suggestionPreview"</code>.</td>
+            <td>Preview blocks are a UI draft state, not the accepted saved document.</td>
+          </tr>
+          <tr>
+            <td>Storage is the consistency point for agent suggestions.</td>
+            <td><code>createSuggestion</code>, <code>updateSuggestion</code>, and <code>retractSuggestion</code> check document revision before mutating suggestion state.</td>
+            <td>An observation based on an old document should not commit suggestions against newer content.</td>
+          </tr>
+          <tr>
+            <td>Document autosave accepts an <code>expectedRevision</code> but does not currently enforce it in storage.</td>
+            <td><code>saveDocument</code> reads the current document and updates when blocks differ, but the shown code does not compare <code>input.expectedRevision</code> with <code>current.revision</code>.</td>
+            <td>This is fine for the current single-active-document model, but it is a gap if multi-window or conflict handling is added.</td>
+          </tr>
+          <tr>
+            <td>Secrets are intentionally not durable.</td>
+            <td><code>desktop/main.ts</code> keeps <code>apiKey</code> in a module variable and <code>provider.set</code> stores only provider/model/base URL/enabled.</td>
+            <td>Restarting the desktop app requires re-entering the key before enabled agent calls can authenticate.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>How this relates to recent history</h2>
+      <p>The last few commits created the seams this change now uses. <code>bb071f9</code> introduced the writing-partner reducer/feed flow. <code>0b62339</code> added pins and workspace card geometry. <code>4c96792</code> and <code>9538f0b</code> consolidated browser mock event injection and documented the client-only state. This desktop change keeps the reducer and feed interface, then swaps in an Electron-backed producer and storage layer.</p>
+      <p>That history explains why the change mostly avoids rewriting suggestion UI. The new work is concentrated at the boundaries: <code>DesktopBridge</code>, <code>createDesktopSuggestionFeed</code>, storage/agent utility processes, and the renderer hydration/autosave glue.</p>
+    </section>
+
+    <section class="card">
+      <h2>Test and build impact</h2>
+      <p>Two test areas changed:</p>
+      <ul>
+        <li><code>src/suggestions/inbox.test.ts</code> adds coverage for hydrating a durable suggestion projection without restoring preview state.</li>
+        <li><code>desktop/storage.test.ts</code> covers storage bootstrap/document save, persisted agent suggestions, transcript writes, and searchable source import.</li>
+      </ul>
+      <p>Verification performed for this review:</p>
+      <pre><code>npm test -- --run
+# 9 test files passed, 34 tests passed
+
+npm run build
+# renderer build and desktop esbuild bundle completed
+# Vite still reports the existing large-chunk warning</code></pre>
+    </section>
+
+    <section class="card checks">
+      <h2>Comprehension checks</h2>
+      <ol>
+        <li>
+          <p>When the app is opened in Vite without Electron, which suggestion feed is used, and why?</p>
+          <details><summary>Answer</summary><p><code>createInjectedSuggestionFeed()</code> is used because <code>getDesktopBridge()</code> returns <code>window.scribe</code>, which is undefined outside the Electron preload path. <code>App.tsx</code> branches on that value.</p></details>
+        </li>
+        <li>
+          <p>Why does document autosave filter out <code>suggestionPreview</code> blocks?</p>
+          <details><summary>Answer</summary><p>Those blocks represent an editable preview of a suggestion before the user accepts it. Saving them with normal document blocks would restore temporary preview UI as accepted draft content after restart.</p></details>
+        </li>
+        <li>
+          <p>An agent run creates a suggestion, but the user edited the document after the run started. Which layer rejects the stale write?</p>
+          <details><summary>Answer</summary><p><code>desktop/storage.ts</code> rejects it in <code>createSuggestion</code>, <code>updateSuggestion</code>, or <code>retractSuggestion</code> by comparing <code>expectedDocumentRevision</code> with the current document revision.</p></details>
+        </li>
+        <li>
+          <p>What would break if <code>useSuggestionInbox</code> persisted state before hydration finished?</p>
+          <details><summary>Answer</summary><p>The initial empty reducer state could overwrite the stored suggestion projection. The hook starts with <code>hydrated</code> false when <code>onStateChange</code> exists, then sets it true after <code>hydrate</code> dispatches the durable state.</p></details>
+        </li>
+        <li>
+          <p>Where would you start debugging if the desktop sidebar shows an imported source but the agent cannot search it?</p>
+          <details><summary>Answer</summary><p>Start in <code>desktop/storage.ts</code>: <code>importSource</code> should copy the file, extract text, persist <code>sources.extracted_text</code>, and update project revision. Then check <code>agent.content.search</code>, which calls <code>listProjectContent()</code> and <code>readProjectContent()</code> against stored text.</p></details>
+        </li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>

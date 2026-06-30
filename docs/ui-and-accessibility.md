@@ -159,4 +159,4 @@ There is a `dark` custom variant declaration, but the current app forces a light
 
 ## Static prototype surfaces
 
-Do not infer application behavior from every button currently visible. The sidebar navigation, document-management actions, source buttons, and tabs are static. When implementing them, add an explicit state/data owner and update this documentation; avoid placing navigation or persistence side effects directly inside presentational components.
+Do not infer application behavior from every button currently visible. The sidebar navigation, document-management actions, and tabs are static. Source upload is functional in Electron: `App` supplies persisted source data and an import callback to `Sidebar`, while browser development has no source backend. When implementing the remaining controls, add an explicit state/data owner and update this documentation; avoid placing navigation or persistence side effects directly inside presentational components.

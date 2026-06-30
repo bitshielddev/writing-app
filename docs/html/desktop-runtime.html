@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Trace Electron processes, SQLite persistence, source import, events, and background Pi observations." />
+    <meta name="theme-color" content="#f7f8fc" />
+    <title>Desktop persistence and Pi runtime · ScribeAI docs</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script>try{const t=localStorage.getItem("scribe-docs-theme");if(t){document.documentElement.dataset.theme=t}else if(matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.dataset.theme="dark"}}catch{}</script>
+    <script src="assets/search-index.js" defer></script>
+    <script src="assets/site.js" defer></script>
+  </head>
+  <body data-page="desktop-runtime.html">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="reading-progress" aria-hidden="true"><span></span></div>
+    <div class="mobile-overlay" data-nav-close hidden></div>
+    <aside class="site-sidebar" id="site-navigation" aria-label="Documentation navigation">
+      <div class="sidebar-header">
+        <a class="brand" href="index.html" aria-label="ScribeAI documentation home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>ScribeAI</strong><small>Developer docs</small></span>
+        </a>
+        <button type="button" class="icon-button sidebar-close" data-nav-close aria-label="Close navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+      </div>
+      <div class="sidebar-search">
+        <button type="button" class="search-trigger" data-search-open aria-label="Search documentation">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search docs</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="sidebar-scroll"><section class="nav-group"><h2>Get oriented</h2><nav aria-label="Get oriented"><a class="nav-link" href="index.html">
+            <span class="nav-link__number">00</span>
+            <span>Overview</span>
+          </a><a class="nav-link" href="getting-started.html">
+            <span class="nav-link__number">01</span>
+            <span>Getting started</span>
+          </a><a class="nav-link" href="architecture.html">
+            <span class="nav-link__number">02</span>
+            <span>Architecture</span>
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link is-active" href="desktop-runtime.html" aria-current="page">
+            <span class="nav-link__number">03</span>
+            <span>Desktop & Pi</span>
+          </a><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">04</span>
+            <span>Editor & suggestions</span>
+          </a><a class="nav-link" href="ui-and-accessibility.html">
+            <span class="nav-link__number">05</span>
+            <span>UI & accessibility</span>
+          </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
+            <span class="nav-link__number">06</span>
+            <span>Testing & quality</span>
+          </a><a class="nav-link" href="extension-guide.html">
+            <span class="nav-link__number">07</span>
+            <span>Extension guide</span>
+          </a></nav></section></div>
+      <div class="sidebar-footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span><strong>Current snapshot</strong><small>Client-only prototype</small></span>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <button type="button" class="icon-button" data-nav-open aria-controls="site-navigation" aria-expanded="false" aria-label="Open navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+      <a class="mobile-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>ScribeAI docs</strong></a>
+      <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+    </header>
+
+    <div class="search-dialog" data-search-dialog role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
+      <div class="search-backdrop" data-search-close></div>
+      <div class="search-panel">
+        <div class="search-input-wrap">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg>
+          <label class="sr-only" id="search-title" for="site-search">Search documentation</label>
+          <input id="site-search" type="search" placeholder="Search architecture, previews, testing…" autocomplete="off" data-search-input />
+          <button type="button" class="search-close" data-search-close aria-label="Close search"><kbd>Esc</kbd></button>
+        </div>
+        <div class="search-results" data-search-results>
+          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search across all seven guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
+        </div>
+      </div>
+    </div>
+
+    <main class="site-main" id="main-content">
+      <div class="desktop-toolbar">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Developer docs</a><span>/</span><span>Build internals</span></nav>
+        <div class="toolbar-actions">
+          <button type="button" class="toolbar-search" data-search-open><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search</span><kbd>⌘ K</kbd></button>
+          <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="page-shell">
+        <div class="content-column">
+          <header class="page-hero page-hero--cyan">
+            <div class="page-hero__meta"><span>Guide 03</span><span>4 min read</span></div>
+            <h1>Desktop persistence and Pi runtime</h1>
+            <p>Trace Electron processes, SQLite persistence, source import, events, and background Pi observations.</p>
+            <div class="page-hero__footer">
+              <span><i class="status-dot" aria-hidden="true"></i> Reflects the current codebase</span>
+              <a href="../desktop-runtime.md">View Markdown <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg></a>
+            </div>
+            <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+          </header>
+
+          <article class="prose"><h2 id="process-topology">Process topology<a class="heading-anchor" href="#process-topology" aria-label="Link to Process topology">#</a></h2><p>The packaged application has four cooperating runtimes:</p>
+<ol>
+<li>The React renderer owns BlockNote and presentation state.</li>
+<li>Electron main owns application lifecycle, IPC routing, provider launch state, and the observation timer.</li>
+<li>The storage utility process is the only SQLite owner.</li>
+<li>The agent utility process runs <code>@earendil-works/pi-agent-core</code> with application-domain tools.</li>
+</ol>
+<p>The preload exposes named methods from <code>DesktopBridge</code>. The renderer never imports Electron, SQLite, or Pi packages.</p>
+<h2 id="startup-and-renderer-loading">Startup and renderer loading<a class="heading-anchor" href="#startup-and-renderer-loading" aria-label="Link to Startup and renderer loading">#</a></h2><p>The Electron entry is an ES module. It registers startup with <code>app.whenReady().then(start)</code> rather than using a top-level <code>await app.whenReady()</code>: Electron does not emit <code>ready</code> until the entry module has finished evaluating, so awaiting that event during module evaluation deadlocks startup.</p>
+<p><code>start</code> forks both utility processes and waits for an explicit <code>ready</code> message from each before it registers IPC handlers or creates a window. If either child exits first, its readiness promise rejects and main logs <code>Desktop startup failed</code> before quitting instead of leaving a hidden process running indefinitely.</p>
+<p>In a production launch, main loads <code>dist/index.html</code> with <code>BrowserWindow.loadFile</code>. Vite therefore uses <code>base: &quot;./&quot;</code> so scripts, styles, and lazy chunks resolve relative to that HTML file. A root-relative <code>/assets/...</code> URL resolves to <code>file:///assets/...</code> in Electron and produces a blank window. <code>SCRIBE_DEV_SERVER_URL</code> can instead direct the window at an already-running development server.</p>
+<p>The renderer runs with context isolation enabled and Node integration disabled. <code>desktop/preload.ts</code> is bundled as CommonJS and exposes the narrow bridge through <code>contextBridge</code>; main, storage, and agent entries are bundled as ES modules under <code>dist-electron/</code>.</p>
+<h2 id="persistence-model">Persistence model<a class="heading-anchor" href="#persistence-model" aria-label="Link to Persistence model">#</a></h2><p>The database is <code>scribe.sqlite3</code> under Electron&#39;s <code>userData</code> directory. Startup creates a default project and document and enables SQLite WAL mode. Schema creation is idempotent.</p>
+<p>The current implementation persists:</p>
+<ul>
+<li>the latest accepted BlockNote block snapshot and monotonic document/project revisions;</li>
+<li>imported source metadata, app-owned file copies, and extracted text;</li>
+<li>the complete visible suggestion projection, including pins and workspace geometry;</li>
+<li>provider/model/base-URL settings and paused state;</li>
+<li>per-document agent memory;</li>
+<li>agent runs and every Pi lifecycle/tool/message event;</li>
+<li>committed desktop events in an outbox.</li>
+</ul>
+<p>Temporary <code>suggestionPreview</code> blocks are filtered from document saves. They are not restored after restart. Document history, transcript retention, automatic backups, encrypted storage, and persisted API keys are not implemented.</p>
+<h2 id="editor-and-event-flow">Editor and event flow<a class="heading-anchor" href="#editor-and-event-flow" aria-label="Link to Editor and event flow">#</a></h2><p>On mount, <code>App</code> hydrates a <code>WorkspaceSnapshot</code>, replaces seeded BlockNote content, restores suggestions, and enables autosave. Editor changes are debounced for 650 ms. Suggestion reducer changes save a durable projection.</p>
+<p>Storage mutations write canonical data and any desktop event in one transaction. After commit, the storage process forwards outbox events through main to every renderer. The desktop feed converts suggestion and agent runtime events into the existing <code>SuggestionEvent</code> variants.</p>
+<h2 id="source-import">Source import<a class="heading-anchor" href="#source-import" aria-label="Link to Source import">#</a></h2><p>The sidebar&#39;s Upload Sources action opens the native file picker. The storage process copies the file into the application-data <code>sources</code> directory and extracts text from:</p>
+<ul>
+<li>plain text, Markdown, and JSON with UTF-8 reads;</li>
+<li>DOCX with Mammoth;</li>
+<li>PDF with pdf-parse.</li>
+</ul>
+<p>Extracted text is capped at two million characters per source. Agent read results are capped separately.</p>
+<p>PDF.js does not install its normal Node canvas globals inside an Electron utility process because <code>process.type</code> is <code>utility</code>. Before <code>pdf-parse</code> is loaded, storage installs <code>DOMMatrix</code>, <code>ImageData</code>, and <code>Path2D</code> from <code>@napi-rs/canvas</code>. Keep that initialization before the dynamic <code>pdf-parse</code> import or PDF source import will fail during module evaluation.</p>
+<h2 id="agent-lifecycle">Agent lifecycle<a class="heading-anchor" href="#agent-lifecycle" aria-label="Link to Agent lifecycle">#</a></h2><p>The scheduler checks every 10 seconds while the app is open. It starts a run only when the project revision differs from the last completed observation, unless the user selects Consider now. Only one run executes at once; newer observations are coalesced.</p>
+<p>Each run receives the active project/document IDs and revisions plus the previous document-memory summary. Its tools can list, search, and read project content; list current suggestions; create, update, or retract live suggestions; and save the next memory summary. Suggestion and memory writes fail when the document revision has changed.</p>
+<p>The provider selection is global. Built-in Pi models use the catalog; a custom base URL can override a catalog model or define an OpenAI-compatible model. The API key remains in Electron/agent process memory for the current launch.</p>
+<h2 id="failure-behaviour">Failure behaviour<a class="heading-anchor" href="#failure-behaviour" aria-label="Link to Failure behaviour">#</a></h2><ul>
+<li>A utility process that exits before its <code>ready</code> message rejects desktop startup; main logs the error and quits.</li>
+<li>Provider or tool errors update the writing-partner error state and mark the run failed.</li>
+<li>Runs time out after two minutes.</li>
+<li>Pausing aborts the active run and clears queued observations.</li>
+<li>Storage errors reject the originating IPC or agent tool call.</li>
+<li>Renderer reload hydrates canonical SQLite state rather than relying on event replay.</li>
+</ul>
+<h2 id="build-and-packaging">Build and packaging<a class="heading-anchor" href="#build-and-packaging" aria-label="Link to Build and packaging">#</a></h2><p><code>npm run build</code> type-checks and builds the Vite renderer, then type-checks and bundles all Electron entries. <code>npm run desktop</code> performs that full build before launching Electron. <code>npm run package</code> produces an unpacked electron-builder application, while <code>npm run dist</code> produces the configured platform packages. Generated <code>dist-electron/</code> and <code>release/</code> directories are not source and remain ignored by Git.</p>
+</article>
+          <nav class="page-pagination" aria-label="Documentation pages">
+    <a class="page-pagination__link page-pagination__link--previous" href="architecture.html"><span>Previous</span><strong>← Architecture</strong></a>
+    <a class="page-pagination__link page-pagination__link--next" href="editor-and-suggestions.html"><span>Next</span><strong>Editor & suggestions →</strong></a>
+  </nav>
+          <footer class="content-footer"><p>ScribeAI developer documentation</p><p>Generated from <a href="../desktop-runtime.md">desktop-runtime.md</a>.</p></footer>
+        </div>
+
+        <aside class="page-toc" aria-label="On this page">
+          <div class="page-toc__inner">
+            <h2>On this page</h2>
+            <nav><a class="toc-link toc-link--2" href="#process-topology">Process topology</a><a class="toc-link toc-link--2" href="#startup-and-renderer-loading">Startup and renderer loading</a><a class="toc-link toc-link--2" href="#persistence-model">Persistence model</a><a class="toc-link toc-link--2" href="#editor-and-event-flow">Editor and event flow</a><a class="toc-link toc-link--2" href="#source-import">Source import</a><a class="toc-link toc-link--2" href="#agent-lifecycle">Agent lifecycle</a><a class="toc-link toc-link--2" href="#failure-behaviour">Failure behaviour</a><a class="toc-link toc-link--2" href="#build-and-packaging">Build and packaging</a></nav>
+            <a class="toc-source" href="../desktop-runtime.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <noscript><div class="noscript">JavaScript is only used for search, navigation controls, and theme switching. All documentation content remains available.</div></noscript>
+  </body>
+</html>

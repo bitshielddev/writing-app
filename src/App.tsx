@@ -9,37 +9,34 @@ import {
 } from "react";
 
 import { ColumnResizeHandle } from "./components/ColumnResizeHandle";
+import { AgentControls } from "./components/AgentControls";
 import { EditorWorkspace } from "./components/EditorWorkspace";
 import { ResponsiveDrawer } from "./components/ResponsiveDrawer";
 import { Sidebar } from "./components/Sidebar";
 import { SuggestionDock } from "./components/SuggestionDock";
+import {
+  createDesktopSuggestionFeed,
+  getDesktopBridge,
+} from "./desktop/desktopClient";
 import { createInjectedSuggestionFeed } from "./dev/mockSuggestions/createInjectedSuggestionFeed";
 import { subscribeToPreviewResolutions } from "./editor/previewEvents";
-import {
-  writingSchema,
-  type WritingPartialBlock,
-} from "./editor/schema";
+import { writingSchema, type WritingPartialBlock } from "./editor/schema";
 import { useSuggestionInbox } from "./suggestions/inbox";
 import { getInitialWorkspacePinSize } from "./suggestions/workspacePinLayout";
+import type {
+  AgentRuntime,
+  PersistedSuggestionState,
+  ProviderSettings,
+  SourceSnapshot,
+} from "./shared/desktop";
 import type { SuggestionItem, TextSuggestion } from "./suggestions/types";
 
 const initialContent: WritingPartialBlock[] = [
   {
     type: "heading",
     props: { level: 1 },
-    content: "The Future of AI Collaboration",
+    content: "New Page",
   },
-  {
-    type: "paragraph",
-    content:
-      "The integration of artificial intelligence into creative workflows is no longer a speculative concept; it is an active paradigm shift. As we observe the maturation of language models, the focus is moving from mere automation to profound augmentation.",
-  },
-  {
-    type: "paragraph",
-    content:
-      "Unlike early tools that acted as opaque oracles, the next generation of AI interfaces is designed for cognitive partnership. They exist in the gutters of our digital canvas, offering contextual relevance without disrupting the user's flow state.",
-  },
-  { type: "paragraph" },
 ];
 
 const MIN_NAVIGATION_WIDTH = 220;
@@ -49,11 +46,24 @@ const MAX_CONTEXT_WIDTH = 720;
 const MIN_EDITOR_WIDTH = 520;
 const NAVIGATION_WIDTH_KEY = "scribe-navigation-column-width";
 const CONTEXT_WIDTH_KEY = "scribe-context-column-width";
+const DEFAULT_PROVIDER: ProviderSettings = {
+  provider: "anthropic",
+  model: "claude-sonnet-4-6",
+  baseUrl: "",
+  enabled: false,
+};
+const DEFAULT_AGENT_RUNTIME: AgentRuntime = {
+  paused: false,
+  running: false,
+  configured: false,
+};
 
 function readSavedWidth(key: string, min: number, max: number) {
   try {
     const width = Number(window.localStorage.getItem(key));
-    return Number.isFinite(width) && width >= min && width <= max ? width : null;
+    return Number.isFinite(width) && width >= min && width <= max
+      ? width
+      : null;
   } catch {
     return null;
   }
@@ -72,10 +82,13 @@ function saveWidth(key: string, width: number | null) {
 }
 
 function isTextSuggestion(item: SuggestionItem): item is TextSuggestion {
-  return item.kind === "snippet" || item.kind === "fact" || item.kind === "term";
+  return (
+    item.kind === "snippet" || item.kind === "fact" || item.kind === "term"
+  );
 }
 
 export default function App() {
+  const desktop = useMemo(() => getDesktopBridge(), []);
   const workspaceRef = useRef<HTMLElement>(null);
   const navigationColumnRef = useRef<HTMLDivElement>(null);
   const contextColumnRef = useRef<HTMLDivElement>(null);
@@ -83,41 +96,120 @@ export default function App() {
   const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
   const [navigationPanelOpen, setNavigationPanelOpen] = useState(true);
   const [contextPanelOpen, setContextPanelOpen] = useState(true);
-  const [navigationColumnWidth, setNavigationColumnWidth] = useState<number | null>(
-    () =>
-      readSavedWidth(
-        NAVIGATION_WIDTH_KEY,
-        MIN_NAVIGATION_WIDTH,
-        MAX_NAVIGATION_WIDTH,
-      ),
+  const [navigationColumnWidth, setNavigationColumnWidth] = useState<
+    number | null
+  >(() =>
+    readSavedWidth(
+      NAVIGATION_WIDTH_KEY,
+      MIN_NAVIGATION_WIDTH,
+      MAX_NAVIGATION_WIDTH,
+    ),
   );
   const [contextColumnWidth, setContextColumnWidth] = useState<number | null>(
     () =>
-      readSavedWidth(
-        CONTEXT_WIDTH_KEY,
-        MIN_CONTEXT_WIDTH,
-        MAX_CONTEXT_WIDTH,
-      ),
+      readSavedWidth(CONTEXT_WIDTH_KEY, MIN_CONTEXT_WIDTH, MAX_CONTEXT_WIDTH),
   );
   const editor = useCreateBlockNote({ schema: writingSchema, initialContent });
-  const feed = useMemo(() => createInjectedSuggestionFeed(), []);
-  const inbox = useSuggestionInbox(feed);
-  const resolvePreview = inbox.previewResolved;
-  const [lastActiveBlockId, setLastActiveBlockId] = useState(
-    () => {
-      try {
-        return editor.getTextCursorPosition().block.id;
-      } catch {
-        return editor.document.at(-1)?.id;
-      }
-    },
+  const feed = useMemo(
+    () =>
+      desktop
+        ? createDesktopSuggestionFeed(desktop)
+        : createInjectedSuggestionFeed(),
+    [desktop],
   );
+  const saveSuggestionState = useCallback(
+    (state: PersistedSuggestionState) => {
+      void desktop?.saveSuggestionState(state);
+    },
+    [desktop],
+  );
+  const inboxOptions = useMemo(
+    () => ({ onStateChange: desktop ? saveSuggestionState : undefined }),
+    [desktop, saveSuggestionState],
+  );
+  const inbox = useSuggestionInbox(feed, inboxOptions);
+  const resolvePreview = inbox.previewResolved;
+  const hydrateInbox = inbox.hydrate;
+  const [provider, setProvider] = useState(DEFAULT_PROVIDER);
+  const [agentRuntime, setAgentRuntime] = useState(DEFAULT_AGENT_RUNTIME);
+  const [sources, setSources] = useState<SourceSnapshot[]>([]);
+  const documentIdRef = useRef("default-document");
+  const documentRevisionRef = useRef(0);
+  const documentHydratedRef = useRef(!desktop);
+  const hydrationInProgressRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const [lastActiveBlockId, setLastActiveBlockId] = useState(() => {
+    try {
+      return editor.getTextCursorPosition().block.id;
+    } catch {
+      return editor.document.at(-1)?.id;
+    }
+  });
+
+  useEffect(() => {
+    if (!desktop) {
+      return;
+    }
+    let cancelled = false;
+    void desktop
+      .hydrate()
+      .then((snapshot) => {
+        if (cancelled) return;
+        hydrationInProgressRef.current = true;
+        if (snapshot.document.blocks.length) {
+          editor.replaceBlocks(
+            editor.document,
+            snapshot.document.blocks as WritingPartialBlock[],
+          );
+        }
+        documentIdRef.current = snapshot.document.id;
+        documentRevisionRef.current = snapshot.document.revision;
+        setProvider(snapshot.provider);
+        setAgentRuntime(snapshot.agent);
+        setSources(snapshot.sources);
+        hydrateInbox(snapshot.suggestions);
+        const finalBlock = editor.document.at(-1);
+        if (finalBlock) setLastActiveBlockId(finalBlock.id);
+        window.requestAnimationFrame(() => {
+          hydrationInProgressRef.current = false;
+          documentHydratedRef.current = true;
+        });
+      })
+      .catch((error: unknown) => {
+        setAgentRuntime((current) => ({
+          ...current,
+          lastError: error instanceof Error ? error.message : String(error),
+        }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [desktop, editor, hydrateInbox]);
+
+  useEffect(() => {
+    if (!desktop) return;
+    return desktop.subscribe((event) => {
+      if (event.type === "agent.runtime") {
+        setAgentRuntime(event.runtime);
+      } else if (event.type === "document.saved") {
+        documentRevisionRef.current = event.document.revision;
+      } else if (event.type === "source.imported") {
+        setSources((current) => [
+          event.source,
+          ...current.filter((source) => source.id !== event.source.id),
+        ]);
+      }
+    });
+  }, [desktop]);
 
   const getMaximumNavigationWidth = useCallback(() => {
     const workspaceWidth =
       workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
     const contextWidth = contextPanelOpen
-      ? contextColumnRef.current?.getBoundingClientRect().width ?? MIN_CONTEXT_WIDTH
+      ? (contextColumnRef.current?.getBoundingClientRect().width ??
+        MIN_CONTEXT_WIDTH)
       : 0;
     return Math.max(
       MIN_NAVIGATION_WIDTH,
@@ -132,8 +224,8 @@ export default function App() {
     const workspaceWidth =
       workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
     const navigationWidth = navigationPanelOpen
-      ? navigationColumnRef.current?.getBoundingClientRect().width ??
-        MIN_NAVIGATION_WIDTH
+      ? (navigationColumnRef.current?.getBoundingClientRect().width ??
+        MIN_NAVIGATION_WIDTH)
       : 0;
     return Math.max(
       MIN_CONTEXT_WIDTH,
@@ -203,7 +295,8 @@ export default function App() {
     };
 
     desktopQuery.addEventListener("change", closeDrawersAtDesktop);
-    return () => desktopQuery.removeEventListener("change", closeDrawersAtDesktop);
+    return () =>
+      desktopQuery.removeEventListener("change", closeDrawersAtDesktop);
   }, []);
 
   useEffect(
@@ -213,6 +306,84 @@ export default function App() {
       }),
     [resolvePreview],
   );
+
+  const persistDocument = useCallback(() => {
+    if (
+      !desktop ||
+      !documentHydratedRef.current ||
+      hydrationInProgressRef.current
+    ) {
+      return;
+    }
+    const blocks = editor.document.filter(
+      (block) => block.type !== "suggestionPreview",
+    );
+    void desktop
+      .saveDocument({
+        documentId: documentIdRef.current,
+        blocks,
+        expectedRevision: documentRevisionRef.current,
+      })
+      .then((document) => {
+        documentRevisionRef.current = document.revision;
+      })
+      .catch((error: unknown) => {
+        setAgentRuntime((current) => ({
+          ...current,
+          lastError: error instanceof Error ? error.message : String(error),
+        }));
+      });
+  }, [desktop, editor]);
+
+  const handleEditorChange = useCallback(() => {
+    if (!desktop || hydrationInProgressRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(persistDocument, 650);
+  }, [desktop, persistDocument]);
+
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      persistDocument();
+    },
+    [persistDocument],
+  );
+
+  const handleSaveProvider = useCallback(
+    async (next: ProviderSettings & { apiKey: string }) => {
+      if (!desktop) return;
+      const saved = await desktop.setProvider(next);
+      setProvider(saved);
+      setAgentRuntime((current) => ({
+        ...current,
+        configured: saved.enabled,
+        lastError: undefined,
+      }));
+    },
+    [desktop],
+  );
+
+  const handleSetAgentPaused = useCallback(
+    async (paused: boolean) => {
+      if (!desktop) return;
+      setAgentRuntime(await desktop.setAgentPaused(paused));
+    },
+    [desktop],
+  );
+
+  const handleConsiderNow = useCallback(async () => {
+    await desktop?.considerNow();
+  }, [desktop]);
+
+  const handleUploadSource = useCallback(async () => {
+    const source = await desktop?.importSource();
+    if (source) {
+      setSources((current) => [
+        source,
+        ...current.filter((candidate) => candidate.id !== source.id),
+      ]);
+    }
+  }, [desktop]);
 
   const handleEditorSelectionChange = () => {
     try {
@@ -282,6 +453,18 @@ export default function App() {
       unreadCount={inbox.unreadCount}
       status={inbox.status}
       error={inbox.error}
+      controls={
+        desktop ? (
+          <AgentControls
+            key={`${provider.provider}:${provider.model}:${provider.baseUrl}:${provider.enabled}`}
+            provider={provider}
+            runtime={agentRuntime}
+            onSaveProvider={handleSaveProvider}
+            onSetPaused={handleSetAgentPaused}
+            onConsiderNow={handleConsiderNow}
+          />
+        ) : undefined
+      }
       onSelect={inbox.select}
       onBack={inbox.back}
       onDismiss={inbox.dismiss}
@@ -322,7 +505,7 @@ export default function App() {
               : "hidden"
           }
         >
-          <Sidebar />
+          <Sidebar sources={sources} onUploadSource={handleUploadSource} />
           {navigationPanelOpen ? (
             <ColumnResizeHandle
               controls="project-navigation-column"
@@ -352,6 +535,7 @@ export default function App() {
           }
           onToggleContextPanel={() => setContextPanelOpen((open) => !open)}
           onEditorSelectionChange={handleEditorSelectionChange}
+          onEditorChange={handleEditorChange}
           onWorkspacePinGeometryChange={inbox.updateWorkspaceGeometry}
           onRaiseWorkspacePin={inbox.raiseWorkspacePin}
           onReturnToPins={inbox.returnToPins}
@@ -389,7 +573,7 @@ export default function App() {
         open={navigationDrawerOpen}
         onClose={() => setNavigationDrawerOpen(false)}
       >
-        <Sidebar />
+        <Sidebar sources={sources} onUploadSource={handleUploadSource} />
       </ResponsiveDrawer>
 
       <ResponsiveDrawer

@@ -37,17 +37,20 @@
           </a><a class="nav-link" href="architecture.html">
             <span class="nav-link__number">02</span>
             <span>Architecture</span>
-          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="editor-and-suggestions.html">
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="desktop-runtime.html">
             <span class="nav-link__number">03</span>
+            <span>Desktop & Pi</span>
+          </a><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">04</span>
             <span>Editor & suggestions</span>
           </a><a class="nav-link is-active" href="ui-and-accessibility.html" aria-current="page">
-            <span class="nav-link__number">04</span>
+            <span class="nav-link__number">05</span>
             <span>UI & accessibility</span>
           </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
-            <span class="nav-link__number">05</span>
+            <span class="nav-link__number">06</span>
             <span>Testing & quality</span>
           </a><a class="nav-link" href="extension-guide.html">
-            <span class="nav-link__number">06</span>
+            <span class="nav-link__number">07</span>
             <span>Extension guide</span>
           </a></nav></section></div>
       <div class="sidebar-footer">
@@ -89,7 +92,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--rose">
-            <div class="page-hero__meta"><span>Guide 04</span><span>6 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 05</span><span>6 min read</span></div>
             <h1>UI and accessibility</h1>
             <p>Work confidently with responsive panels, editor layout, keyboard input, focus, and visual conventions.</p>
             <div class="page-hero__footer">
@@ -259,7 +262,7 @@
 <h2 id="styling-conventions">Styling conventions<a class="heading-anchor" href="#styling-conventions" aria-label="Link to Styling conventions">#</a></h2><p>Use Tailwind utilities in components for local layout and presentation. Add global CSS only when a selector must target third-party/editor markup, define shared tokens, or coordinate the workspace grid.</p>
 <p>The brand palette is declared as <code>brand-50</code> through <code>brand-900</code> in <a href="../../src/index.css"><code>index.css</code></a>. BlockNote has a parallel set of <code>--bn-*</code> variables in the same file. When changing a core color, check both systems as well as hard-coded neutral colors in components.</p>
 <p>There is a <code>dark</code> custom variant declaration, but the current app forces a light color scheme and does not implement theme switching.</p>
-<h2 id="static-prototype-surfaces">Static prototype surfaces<a class="heading-anchor" href="#static-prototype-surfaces" aria-label="Link to Static prototype surfaces">#</a></h2><p>Do not infer application behavior from every button currently visible. The sidebar navigation, document-management actions, source buttons, and tabs are static. When implementing them, add an explicit state/data owner and update this documentation; avoid placing navigation or persistence side effects directly inside presentational components.</p>
+<h2 id="static-prototype-surfaces">Static prototype surfaces<a class="heading-anchor" href="#static-prototype-surfaces" aria-label="Link to Static prototype surfaces">#</a></h2><p>Do not infer application behavior from every button currently visible. The sidebar navigation, document-management actions, and tabs are static. Source upload is functional in Electron: <code>App</code> supplies persisted source data and an import callback to <code>Sidebar</code>, while browser development has no source backend. When implementing the remaining controls, add an explicit state/data owner and update this documentation; avoid placing navigation or persistence side effects directly inside presentational components.</p>
 </article>
           <nav class="page-pagination" aria-label="Documentation pages">
     <a class="page-pagination__link page-pagination__link--previous" href="editor-and-suggestions.html"><span>Previous</span><strong>← Editor & suggestions</strong></a>

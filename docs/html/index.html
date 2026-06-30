@@ -37,17 +37,20 @@
           </a><a class="nav-link" href="architecture.html">
             <span class="nav-link__number">02</span>
             <span>Architecture</span>
-          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="editor-and-suggestions.html">
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="desktop-runtime.html">
             <span class="nav-link__number">03</span>
+            <span>Desktop & Pi</span>
+          </a><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">04</span>
             <span>Editor & suggestions</span>
           </a><a class="nav-link" href="ui-and-accessibility.html">
-            <span class="nav-link__number">04</span>
+            <span class="nav-link__number">05</span>
             <span>UI & accessibility</span>
           </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
-            <span class="nav-link__number">05</span>
+            <span class="nav-link__number">06</span>
             <span>Testing & quality</span>
           </a><a class="nav-link" href="extension-guide.html">
-            <span class="nav-link__number">06</span>
+            <span class="nav-link__number">07</span>
             <span>Extension guide</span>
           </a></nav></section></div>
       <div class="sidebar-footer">
@@ -100,22 +103,25 @@
           </header>
 
           <article class="prose"><p>This directory describes the application as it works now. It is intended to get a developer from a fresh checkout to making safe changes without first reverse-engineering the UI, editor, and suggestion state machine.</p>
-<h2 id="what-this-application-is">What this application is<a class="heading-anchor" href="#what-this-application-is" aria-label="Link to What this application is">#</a></h2><p>ScribeAI is a client-only React writing workspace. The current implementation combines:</p>
+<h2 id="what-this-application-is">What this application is<a class="heading-anchor" href="#what-this-application-is" aria-label="Link to What this application is">#</a></h2><p>ScribeAI is a React writing workspace with both browser-development and Electron desktop runtimes. The current implementation combines:</p>
 <ul>
 <li>a BlockNote rich-text editor;</li>
-<li>a manually injected, event-driven writing-partner feed;</li>
+<li>a manually injected browser feed and a persistent desktop writing-partner feed;</li>
 <li>an inbox for reading, dismissing, pinning, and previewing suggestions;</li>
 <li>desktop workspace cards for keeping references over the editor;</li>
-<li>responsive navigation and writing-partner panels.</li>
+<li>responsive navigation and writing-partner panels;</li>
+<li>SQLite document, source, suggestion, transcript, and agent-memory persistence;</li>
+<li>a background Pi agent with user-configured inference providers.</li>
 </ul>
-<p>There is currently no backend, authentication, router, remote model call, document persistence, or file upload pipeline. Most navigation and document-management controls are presentation-only. The only persisted values are the two desktop column widths in browser <code>localStorage</code>.</p>
+<p>The browser development runtime remains in-memory and uses the <code>/mock-suggestions</code> controller. The Electron runtime owns SQLite and Pi in utility processes, imports text, Markdown, JSON, PDF, and DOCX sources, and restores the workspace after restart. Routing and most document-management controls remain presentation-only.</p>
 <h2 id="fastest-route-into-the-codebase">Fastest route into the codebase<a class="heading-anchor" href="#fastest-route-into-the-codebase" aria-label="Link to Fastest route into the codebase">#</a></h2><ol>
 <li>Follow <a href="getting-started.html">Getting started</a> and run the app and checks.</li>
 <li>Read <a href="architecture.html">Architecture</a> for state ownership and module boundaries.</li>
 <li>Read <a href="editor-and-suggestions.html">Editor and suggestion system</a> before changing feed, preview, pin, or inbox behavior.</li>
 <li>Use <a href="ui-and-accessibility.html">UI and accessibility</a> for responsive layout, resizing, styling, and keyboard behavior.</li>
 <li>Use <a href="testing-and-quality.html">Testing and quality</a> before submitting a change.</li>
-<li>Use <a href="extension-guide.html">Extension guide</a> when adding a real service, persistence, or a new suggestion kind.</li>
+<li>Read <a href="desktop-runtime.html">Desktop runtime</a> before changing persistence, IPC, source import, or Pi behaviour.</li>
+<li>Use <a href="extension-guide.html">Extension guide</a> when extending those boundaries or adding a new suggestion kind.</li>
 </ol>
 <h2 id="current-user-visible-behavior">Current user-visible behavior<a class="heading-anchor" href="#current-user-visible-behavior" aria-label="Link to Current user-visible behavior">#</a></h2><table>
 <thead>
@@ -126,11 +132,11 @@
 </thead>
 <tbody><tr>
 <td>Editor</td>
-<td>Starts with a seeded article and edits in memory through BlockNote.</td>
+<td>Browser development starts with seeded content; Electron hydrates and autosaves the current BlockNote document.</td>
 </tr>
 <tr>
 <td>Writing partner</td>
-<td>Starts empty and receives suggestions only from the temporary <code>/mock-suggestions</code> controller.</td>
+<td>Browser development uses <code>/mock-suggestions</code>; Electron receives committed suggestions from the Pi agent.</td>
 </tr>
 <tr>
 <td>Text suggestions</td>
@@ -150,23 +156,30 @@
 </tr>
 <tr>
 <td>Persistence</td>
-<td>Desktop column widths only. Editor content, inbox state, pins, and workspace geometry reset on reload.</td>
+<td>Electron restores the current document, sources, suggestion inbox, pins, workspace cards, transcripts, and agent memory.</td>
+</tr>
+<tr>
+<td>Sources</td>
+<td>Electron imports text, Markdown, JSON, PDF, and DOCX files into the active project.</td>
 </tr>
 <tr>
 <td>Static controls</td>
-<td>Navigation destinations, document tabs, New Document, source upload, history, export, share, and overflow actions have no application behavior yet.</td>
+<td>Navigation destinations, document tabs, New Document, history, export, share, and overflow actions have no application behavior yet.</td>
 </tr>
 </tbody></table>
 <h2 id="repository-map">Repository map<a class="heading-anchor" href="#repository-map" aria-label="Link to Repository map">#</a></h2><div class="code-block" data-language="text"><div class="code-block__bar"><span>text</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-text">.
 ├── docs/                         Developer documentation
+├── desktop/                      Electron main, preload, storage, Pi, and build entries
 ├── src/
 │   ├── App.tsx                   Composition root and cross-feature orchestration
 │   ├── main.tsx                  React browser entry point
 │   ├── index.css                 Tailwind theme, layout rules, and editor overrides
 │   ├── components/               UI components and component tests
 │   ├── dev/mockSuggestions/      Temporary controller, validation, channel, and injected feed
+│   ├── desktop/                  Renderer-side desktop feed adapter
 │   ├── editor/                   BlockNote schema and preview events
 │   ├── suggestions/              Suggestion contracts, inbox state, and workspace layout
+│   ├── shared/                   Cross-process desktop contracts
 │   └── test/setup.ts             Shared Vitest cleanup
 ├── artifacts/                    Standalone review artifacts; not used at runtime
 ├── index.html                    Vite HTML shell and Google Font loading
@@ -180,9 +193,9 @@
 <li><strong>Preview</strong>: a temporary, editable custom BlockNote block created from a text suggestion. Only one preview may be active.</li>
 </ul>
 <h2 id="important-implementation-constraints">Important implementation constraints<a class="heading-anchor" href="#important-implementation-constraints" aria-label="Link to Important implementation constraints">#</a></h2><ul>
-<li><a href="../../src/App.tsx"><code>App.tsx</code></a> is the composition root. It connects the injected feed, inbox state, previews, panel state, and workspace pins.</li>
+<li><a href="../../src/App.tsx"><code>App.tsx</code></a> is the renderer composition root. It selects the browser or Electron adapter and connects hydration, autosave, feed, previews, panel state, and workspace pins.</li>
 <li><a href="../../src/suggestions/inbox.ts"><code>inboxReducer</code></a> is the source of truth for suggestion lifecycle rules. UI components dispatch intent; they should not recreate those rules locally.</li>
-<li><a href="../../src/suggestions/types.ts"><code>SuggestionFeed</code></a> is the event-stream boundary. The temporary controller channel is the only current producer.</li>
+<li><a href="../../src/suggestions/types.ts"><code>SuggestionFeed</code></a> is the event-stream boundary. Browser and Electron adapters are separate producers.</li>
 <li>The app assumes a browser DOM. <code>window</code>, <code>document</code>, <code>localStorage</code>, media queries, <code>ResizeObserver</code>, and pointer capture are used directly.</li>
 </ul>
 </article>

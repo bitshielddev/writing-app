@@ -37,17 +37,20 @@
           </a><a class="nav-link" href="architecture.html">
             <span class="nav-link__number">02</span>
             <span>Architecture</span>
-          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="editor-and-suggestions.html">
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="desktop-runtime.html">
             <span class="nav-link__number">03</span>
+            <span>Desktop & Pi</span>
+          </a><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">04</span>
             <span>Editor & suggestions</span>
           </a><a class="nav-link" href="ui-and-accessibility.html">
-            <span class="nav-link__number">04</span>
+            <span class="nav-link__number">05</span>
             <span>UI & accessibility</span>
           </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
-            <span class="nav-link__number">05</span>
+            <span class="nav-link__number">06</span>
             <span>Testing & quality</span>
           </a><a class="nav-link" href="extension-guide.html">
-            <span class="nav-link__number">06</span>
+            <span class="nav-link__number">07</span>
             <span>Extension guide</span>
           </a></nav></section></div>
       <div class="sidebar-footer">
@@ -89,7 +92,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--blue">
-            <div class="page-hero__meta"><span>Guide 01</span><span>5 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 01</span><span>6 min read</span></div>
             <h1>Getting started</h1>
             <p>Install, run, inspect, and troubleshoot the project from a clean checkout.</p>
             <div class="page-hero__footer">
@@ -100,15 +103,17 @@
           </header>
 
           <article class="prose"><h2 id="prerequisites">Prerequisites<a class="heading-anchor" href="#prerequisites" aria-label="Link to Prerequisites">#</a></h2><ul>
-<li>Node.js <code>^20.19.0</code> or <code>&gt;=22.12.0</code>. This is the engine range required by the installed Vite 8 release.</li>
+<li>Node.js <code>&gt;=22.19.0</code>. Pi agent-core sets the effective project minimum.</li>
 <li>npm, using the committed <code>package-lock.json</code>.</li>
 <li>A modern browser with ES2022, <code>BroadcastChannel</code>, dynamic imports, media queries, pointer events, and <code>ResizeObserver</code> support.</li>
 </ul>
-<p>No environment variables, service credentials, database, or local backend are required.</p>
+<p>No database daemon is required. The Electron runtime creates its SQLite database in the platform application-data directory. An API key or local inference endpoint is only required when enabling the Pi agent.</p>
 <h2 id="install-and-run">Install and run<a class="heading-anchor" href="#install-and-run" aria-label="Link to Install and run">#</a></h2><p>From the repository root:</p>
 <div class="code-block" data-language="bash"><div class="code-block__bar"><span>bash</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-bash">npm ci
 npm run dev</code></pre></div><p>Open the local URL printed by Vite. Vite normally uses <code>http://localhost:5173</code>, but it will select another port if that one is occupied.</p>
 <p>Use <code>npm ci</code>, rather than <code>npm install</code>, for a clean checkout or CI job so dependency versions remain aligned with the lockfile.</p>
+<p>To build and launch the persistent desktop application:</p>
+<div class="code-block" data-language="bash"><div class="code-block__bar"><span>bash</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-bash">npm run desktop</code></pre></div><p>This command always builds the renderer and Electron processes before launching. The production renderer is loaded directly from <code>dist/index.html</code>, not from Vite&#39;s development server. The first desktop launch creates the default project and document. Open <strong>Agent settings</strong> in the writing-partner panel to select a provider/model, optionally supply a base URL, enter the API key for the current launch, and enable observation.</p>
 <h2 id="what-to-expect-after-startup">What to expect after startup<a class="heading-anchor" href="#what-to-expect-after-startup" aria-label="Link to What to expect after startup">#</a></h2><p>The root URL opens the writing workspace with seeded document content and an empty suggestion inbox. Suggestions are injected manually from a temporary controller:</p>
 <ol>
 <li>Keep the writing workspace open in one tab, or use the controller&#39;s Open writing workspace link.</li>
@@ -131,7 +136,23 @@ npm run dev</code></pre></div><p>Open the local URL printed by Vite. Vite normal
 </tr>
 <tr>
 <td><code>npm run build</code></td>
-<td>Type-check the project with <code>tsc -b</code>, then create a production bundle in <code>dist/</code>.</td>
+<td>Type-check and build both the Vite renderer and Electron process bundles.</td>
+</tr>
+<tr>
+<td><code>npm run build:desktop</code></td>
+<td>Type-check and bundle only Electron process entries.</td>
+</tr>
+<tr>
+<td><code>npm run desktop</code></td>
+<td>Build and launch the Electron application.</td>
+</tr>
+<tr>
+<td><code>npm run package</code></td>
+<td>Build an unpacked desktop application with electron-builder.</td>
+</tr>
+<tr>
+<td><code>npm run dist</code></td>
+<td>Build platform installers with electron-builder.</td>
 </tr>
 <tr>
 <td><code>npm run docs:build</code></td>
@@ -159,12 +180,12 @@ npm run dev</code></pre></div><p>Open the local URL printed by Vite. Vite normal
 npm test
 npm run build</code></pre></div><p>See <a href="testing-and-quality.html">Testing and quality</a> for the current automated coverage and manual checks.</p>
 <p>The production build currently completes with Vite&#39;s warning that some minified chunks exceed 500 kB. The main application bundle and parts of Mermaid are the principal contributors. This is a warning, not a failed build; treat a new error separately. The performance watch points in the <a href="extension-guide.html#performance-watch-points">Extension guide</a> describe the relevant boundaries.</p>
-<h2 id="runtime-configuration">Runtime configuration<a class="heading-anchor" href="#runtime-configuration" aria-label="Link to Runtime configuration">#</a></h2><p>The application has no <code>.env</code> contract. Its current runtime inputs are hard-coded at the composition boundary:</p>
+<h2 id="runtime-configuration">Runtime configuration<a class="heading-anchor" href="#runtime-configuration" aria-label="Link to Runtime configuration">#</a></h2><p>The browser runtime has no <code>.env</code> contract and uses the mock feed. The Electron runtime persists non-secret global provider/model/base-URL settings in SQLite; the API key is entered for each application launch.</p>
 <ul>
 <li>initial editor content: <a href="../../src/App.tsx"><code>initialContent</code></a>;</li>
 <li>temporary suggestion controller and channel: <a href="../../src/dev/mockSuggestions"><code>src/dev/mockSuggestions</code></a>;</li>
 <li>injected feed adapter: <a href="../../src/dev/mockSuggestions/createInjectedSuggestionFeed.ts"><code>createInjectedSuggestionFeed.ts</code></a>;</li>
-<li>navigation labels and displayed research sources: <a href="../../src/components/Sidebar.tsx"><code>Sidebar.tsx</code></a>.</li>
+<li>desktop provider settings and observation controls: <a href="../../src/components/AgentControls.tsx"><code>AgentControls.tsx</code></a>.</li>
 </ul>
 <h2 id="browser-storage">Browser storage<a class="heading-anchor" href="#browser-storage" aria-label="Link to Browser storage">#</a></h2><p>The app stores two optional values:</p>
 <table>
@@ -187,7 +208,7 @@ npm run build</code></pre></div><p>See <a href="testing-and-quality.html">Testin
 </tr>
 </tbody></table>
 <p>Invalid or unavailable values are ignored. Double-clicking a resize separator removes its key and restores the CSS default. If browser storage is blocked, resizing still works for the current session.</p>
-<p>To reset the prototype completely, reload the page and remove those two keys from browser storage. All other application state is already in memory only.</p>
+<p>These values remain renderer-local in both runtimes. Electron workspace data lives in <code>scribe.sqlite3</code> under Electron&#39;s <code>userData</code> directory.</p>
 <h2 id="first-pass-manual-tour">First-pass manual tour<a class="heading-anchor" href="#first-pass-manual-tour" aria-label="Link to First-pass manual tour">#</a></h2><p>At a viewport at least <code>80rem</code> wide:</p>
 <ol>
 <li>Inject one suggestion of each kind from <code>/mock-suggestions</code>.</li>
@@ -204,7 +225,17 @@ npm run build</code></pre></div><p>See <a href="testing-and-quality.html">Testin
 <li>Press Escape and confirm the drawer closes and focus returns to its trigger.</li>
 <li>Confirm workspace placement is not offered; workspace cards are desktop-only.</li>
 </ol>
+<p>For an Electron smoke test:</p>
+<ol>
+<li>Run <code>npm run desktop</code> and confirm the workspace, editor, and both side panels render.</li>
+<li>Edit the document, wait at least 650 ms, restart, and confirm the accepted blocks return.</li>
+<li>Import a text, Markdown, JSON, DOCX, or PDF source and confirm it appears under <strong>AI research context</strong>.</li>
+<li>Configure an agent provider, exercise Pause / Resume and Consider now, and confirm the API key field clears after save.</li>
+</ol>
 <h2 id="common-problems">Common problems<a class="heading-anchor" href="#common-problems" aria-label="Link to Common problems">#</a></h2><h3 id="vite-refuses-to-start">Vite refuses to start<a class="heading-anchor" href="#vite-refuses-to-start" aria-label="Link to Vite refuses to start">#</a></h3><p>Check <code>node --version</code>. Vite 8 does not support early Node 20 releases; use Node 20.19 or newer, or Node 22.12 or newer.</p>
+<h3 id="electron-opens-a-blank-window">Electron opens a blank window<a class="heading-anchor" href="#electron-opens-a-blank-window" aria-label="Link to Electron opens a blank window">#</a></h3><p>Inspect <code>dist/index.html</code>. Built script, stylesheet, module-preload, and lazy-chunk URLs must be relative to the file, such as <code>./assets/index-….js</code>. <a href="../../vite.config.ts"><code>vite.config.ts</code></a> sets <code>base: &quot;./&quot;</code> for this reason. Root-relative <code>/assets/...</code> references resolve from the filesystem root under Electron and fail with <code>ERR_FILE_NOT_FOUND</code>.</p>
+<h3 id="electron-starts-but-no-window-appears">Electron starts but no window appears<a class="heading-anchor" href="#electron-starts-but-no-window-appears" aria-label="Link to Electron starts but no window appears">#</a></h3><p>Run Electron with logging enabled and inspect <code>Desktop startup failed</code> plus utility-process stderr. Main waits for both storage and agent readiness before creating the window. Keep the ES-module entry free of a top-level <code>await app.whenReady()</code>; startup must be attached with <code>app.whenReady().then(start)</code> so module evaluation can complete.</p>
+<p>Wayland compositor capability warnings are not, by themselves, evidence that window creation failed. Diagnose renderer load failures and utility-process startup before forcing an X11 backend.</p>
 <h3 id="fonts-look-different">Fonts look different<a class="heading-anchor" href="#fonts-look-different" aria-label="Link to Fonts look different">#</a></h3><p><a href="../../index.html"><code>index.html</code></a> loads Inter and Literata from Google Fonts. If the network request is blocked, the UI falls back to system sans-serif and Georgia-style serif fonts. Functionality is unaffected.</p>
 <h3 id="a-mind-map-says-diagram-unavailable">A mind map says “Diagram unavailable”<a class="heading-anchor" href="#a-mind-map-says-diagram-unavailable" aria-label="Link to A mind map says “Diagram unavailable”">#</a></h3><p>Mermaid is loaded lazily only when a mind-map visual renders. Invalid Mermaid source or a failed module render activates the accessible text fallback. Inspect <a href="../../src/components/MermaidDiagram.tsx"><code>MermaidDiagram.tsx</code></a> and the <code>mermaidSource</code> on the suggestion.</p>
 <h3 id="a-workspace-pin-is-missing">A workspace pin is missing<a class="heading-anchor" href="#a-workspace-pin-is-missing" aria-label="Link to A workspace pin is missing">#</a></h3><p>Workspace cards render only at the desktop <code>xl</code> breakpoint (<code>80rem</code> and above). A card also remains hidden for one animation frame while its initial geometry is calculated. It must first be pinned in the writing partner before “Place on workspace” is available.</p>
@@ -221,7 +252,7 @@ npm run build</code></pre></div><p>See <a href="testing-and-quality.html">Testin
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#prerequisites">Prerequisites</a><a class="toc-link toc-link--2" href="#install-and-run">Install and run</a><a class="toc-link toc-link--2" href="#what-to-expect-after-startup">What to expect after startup</a><a class="toc-link toc-link--2" href="#developer-commands">Developer commands</a><a class="toc-link toc-link--2" href="#runtime-configuration">Runtime configuration</a><a class="toc-link toc-link--2" href="#browser-storage">Browser storage</a><a class="toc-link toc-link--2" href="#first-pass-manual-tour">First-pass manual tour</a><a class="toc-link toc-link--2" href="#common-problems">Common problems</a><a class="toc-link toc-link--3" href="#vite-refuses-to-start">Vite refuses to start</a><a class="toc-link toc-link--3" href="#fonts-look-different">Fonts look different</a><a class="toc-link toc-link--3" href="#a-mind-map-says-diagram-unavailable">A mind map says “Diagram unavailable”</a><a class="toc-link toc-link--3" href="#a-workspace-pin-is-missing">A workspace pin is missing</a><a class="toc-link toc-link--3" href="#suggestion-behavior-seems-duplicated-in-development">Suggestion behavior seems duplicated in development</a><a class="toc-link toc-link--3" href="#a-manually-sent-suggestion-does-not-appear">A manually sent suggestion does not appear</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#prerequisites">Prerequisites</a><a class="toc-link toc-link--2" href="#install-and-run">Install and run</a><a class="toc-link toc-link--2" href="#what-to-expect-after-startup">What to expect after startup</a><a class="toc-link toc-link--2" href="#developer-commands">Developer commands</a><a class="toc-link toc-link--2" href="#runtime-configuration">Runtime configuration</a><a class="toc-link toc-link--2" href="#browser-storage">Browser storage</a><a class="toc-link toc-link--2" href="#first-pass-manual-tour">First-pass manual tour</a><a class="toc-link toc-link--2" href="#common-problems">Common problems</a><a class="toc-link toc-link--3" href="#vite-refuses-to-start">Vite refuses to start</a><a class="toc-link toc-link--3" href="#electron-opens-a-blank-window">Electron opens a blank window</a><a class="toc-link toc-link--3" href="#electron-starts-but-no-window-appears">Electron starts but no window appears</a><a class="toc-link toc-link--3" href="#fonts-look-different">Fonts look different</a><a class="toc-link toc-link--3" href="#a-mind-map-says-diagram-unavailable">A mind map says “Diagram unavailable”</a><a class="toc-link toc-link--3" href="#a-workspace-pin-is-missing">A workspace pin is missing</a><a class="toc-link toc-link--3" href="#suggestion-behavior-seems-duplicated-in-development">Suggestion behavior seems duplicated in development</a><a class="toc-link toc-link--3" href="#a-manually-sent-suggestion-does-not-appear">A manually sent suggestion does not appear</a></nav>
             <a class="toc-source" href="../getting-started.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>
