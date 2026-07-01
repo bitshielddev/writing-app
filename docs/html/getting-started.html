@@ -92,7 +92,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--blue">
-            <div class="page-hero__meta"><span>Guide 01</span><span>6 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 01</span><span>7 min read</span></div>
             <h1>Getting started</h1>
             <p>Install, run, inspect, and troubleshoot the project from a clean checkout.</p>
             <div class="page-hero__footer">
@@ -110,10 +110,44 @@
 <h2 id="install-and-run">Install and run<a class="heading-anchor" href="#install-and-run" aria-label="Link to Install and run">#</a></h2><p>From the repository root:</p>
 <div class="code-block" data-language="bash"><div class="code-block__bar"><span>bash</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-bash">npm ci
 npm run dev</code></pre></div><p>Vite builds the Electron main, preload, storage, and agent entries, starts its renderer development server, and launches Electron. Renderer changes use HMR; main, storage, or agent changes restart Electron; preload changes reload the renderer.</p>
-<p>Development intentionally uses the same Electron <code>userData</code> directory as a built or installed ScribeAI application. Edits, imported sources, settings, and mock suggestions therefore affect the same persisted workspace. Do not run development and an installed build concurrently against that profile.</p>
+<p>Development intentionally uses Electron&#39;s persistent <code>userData</code> directory instead of a throwaway Vite profile. Edits, imported sources, settings, and mock suggestions therefore survive restarts and can affect the same persisted workspace as a built application when both resolve to the same app-data profile. Do not run development and an installed build concurrently against that profile.</p>
 <p>Use <code>npm ci</code>, rather than <code>npm install</code>, for a clean checkout or CI job so dependency versions remain aligned with the lockfile.</p>
 <p>To build and launch the persistent desktop application:</p>
 <div class="code-block" data-language="bash"><div class="code-block__bar"><span>bash</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-bash">npm run desktop</code></pre></div><p>This command always builds the renderer and Electron processes before launching. The first launch creates the default project workspace under <code>&lt;userData&gt;/projects/default-project/</code>; Pi reads native configuration from <code>&lt;userData&gt;/pi/</code>.</p>
+<h2 id="local-data-layout">Local data layout<a class="heading-anchor" href="#local-data-layout" aria-label="Link to Local data layout">#</a></h2><p><code>&lt;userData&gt;</code> means the directory returned by Electron&#39;s <code>app.getPath(&quot;userData&quot;)</code> for the running app. For a packaged ScribeAI build this is normally:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Typical <code>&lt;userData&gt;</code> location</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>macOS</td>
+<td><code>~/Library/Application Support/ScribeAI/</code></td>
+</tr>
+<tr>
+<td>Windows</td>
+<td><code>%APPDATA%\ScribeAI\</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>~/.config/ScribeAI/</code></td>
+</tr>
+</tbody></table>
+<p>The running app owns this tree:</p>
+<div class="code-block" data-language="text"><div class="code-block__bar"><span>text</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-text">&lt;userData&gt;/
+  scribe.sqlite3
+  pi/
+    settings.json
+    auth.json
+    models.json
+  projects/default-project/
+    draft.md
+    sources/
+      &lt;imported-source&gt;.md
+    .pi/sessions/
+      *.jsonl</code></pre></div><p>The source checkout is not the writing project workspace. Electron creates and repairs <code>draft.md</code>, stores the source list and suggestions in <code>scribe.sqlite3</code>, and resumes Pi sessions from the project-specific <code>.pi/sessions/</code> directory.</p>
 <h2 id="what-to-expect-after-startup">What to expect after startup<a class="heading-anchor" href="#what-to-expect-after-startup" aria-label="Link to What to expect after startup">#</a></h2><p>Electron opens the persisted writing workspace. To inject deterministic suggestions without invoking a model:</p>
 <ol>
 <li>Choose <strong>Development → Mock suggestions</strong>, or press <code>CmdOrCtrl+Shift+M</code>.</li>
@@ -122,6 +156,21 @@ npm run dev</code></pre></div><p>Vite builds the Electron main, preload, storage
 </ol>
 <p>The development window is single-instance. Closing and reopening it does not clear injected suggestions.</p>
 <p>React runs in <code>StrictMode</code>. During development, effects are mounted, cleaned up, and mounted again to expose unsafe effect code. The mock feed opens its channel receiver for the first subscriber and closes it after the final subscriber leaves, preventing duplicate streams.</p>
+<h2 id="set-up-the-pi-agent">Set up the Pi agent<a class="heading-anchor" href="#set-up-the-pi-agent" aria-label="Link to Set up the Pi agent">#</a></h2><p>Launch the app once before configuring Pi so Electron creates <code>&lt;userData&gt;/</code>. Then add Pi&#39;s native configuration files under <code>&lt;userData&gt;/pi/</code>.</p>
+<p><code>settings.json</code> selects the default provider and model:</p>
+<div class="code-block" data-language="json"><div class="code-block__bar"><span>json</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-json">{
+  &quot;defaultProvider&quot;: &quot;anthropic&quot;,
+  &quot;defaultModel&quot;: &quot;claude-sonnet-4-6&quot;
+}</code></pre></div><p>Credentials can either live in Pi&#39;s native <code>&lt;userData&gt;/pi/auth.json</code> file or be supplied as standard provider environment variables, such as <code>ANTHROPIC_API_KEY</code>, before starting Electron. Custom providers and model aliases belong in <code>&lt;userData&gt;/pi/models.json</code>.</p>
+<p>Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline and the reason appears in the Activity tab. A configured agent reads <code>draft.md</code> plus Markdown files in <code>sources/</code>, but it cannot edit them directly; it publishes suggestions through Scribe&#39;s suggestion tools.</p>
+<h2 id="import-writing-sources">Import writing sources<a class="heading-anchor" href="#import-writing-sources" aria-label="Link to Import writing sources">#</a></h2><p>Use the Electron app to import sources:</p>
+<ol>
+<li>Open the sidebar section labelled <strong>AI research context</strong>.</li>
+<li>Choose <strong>Upload Sources</strong>.</li>
+<li>Select a UTF-8 <code>.md</code> or <code>.markdown</code> file.</li>
+</ol>
+<p>Electron copies the selected file into <code>&lt;userData&gt;/projects/default-project/sources/</code>, records it in SQLite, adds it to the sidebar, increments the project revision, and wakes the agent. Name collisions are kept readable, for example <code>notes (2).md</code>.</p>
+<p>Do not place source files directly in the <code>sources/</code> directory as the normal workflow. Direct copies bypass the SQLite source record and revision event, so the file may not appear in the app or wake the agent. The original selected file is not watched after import; import the changed Markdown file again when source content changes.</p>
 <h2 id="developer-commands">Developer commands<a class="heading-anchor" href="#developer-commands" aria-label="Link to Developer commands">#</a></h2><table>
 <thead>
 <tr>
@@ -171,12 +220,7 @@ npm run dev</code></pre></div><p>Vite builds the Electron main, preload, storage
 npm test
 npm run build</code></pre></div><p>See <a href="testing-and-quality.html">Testing and quality</a> for the current automated coverage and manual checks.</p>
 <p>The production build currently completes with Vite&#39;s warning that some minified chunks exceed 500 kB. The main application bundle and parts of Mermaid are the principal contributors. This is a warning, not a failed build; treat a new error separately. The performance watch points in the <a href="extension-guide.html#performance-watch-points">Extension guide</a> describe the relevant boundaries.</p>
-<h2 id="runtime-configuration">Runtime configuration<a class="heading-anchor" href="#runtime-configuration" aria-label="Link to Runtime configuration">#</a></h2><p>Configure Pi with <code>&lt;userData&gt;/pi/settings.json</code>. For example:</p>
-<div class="code-block" data-language="json"><div class="code-block__bar"><span>json</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-json">{
-  &quot;defaultProvider&quot;: &quot;anthropic&quot;,
-  &quot;defaultModel&quot;: &quot;claude-sonnet-4-6&quot;
-}</code></pre></div><p>Credentials may be stored in Pi&#39;s <code>auth.json</code> or supplied through standard provider environment variables such as <code>ANTHROPIC_API_KEY</code>. Custom providers/models use Pi&#39;s <code>models.json</code>. Invalid or incomplete native configuration leaves the agent offline and displays the diagnostic under Activity.</p>
-<ul>
+<h2 id="runtime-entry-points">Runtime entry points<a class="heading-anchor" href="#runtime-entry-points" aria-label="Link to Runtime entry points">#</a></h2><ul>
 <li>initial editor content: <a href="../../src/App.tsx"><code>initialContent</code></a>;</li>
 <li>Electron-only mock suggestion controller: <a href="../../src/dev/mockSuggestions"><code>src/dev/mockSuggestions</code></a>;</li>
 <li>autonomous Pi runtime and extension: <a href="../../desktop/agent.ts"><code>agent.ts</code></a> and <a href="../../desktop/scribe-extension.ts"><code>scribe-extension.ts</code></a>.</li>
@@ -246,7 +290,7 @@ npm run build</code></pre></div><p>See <a href="testing-and-quality.html">Testin
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#prerequisites">Prerequisites</a><a class="toc-link toc-link--2" href="#install-and-run">Install and run</a><a class="toc-link toc-link--2" href="#what-to-expect-after-startup">What to expect after startup</a><a class="toc-link toc-link--2" href="#developer-commands">Developer commands</a><a class="toc-link toc-link--2" href="#runtime-configuration">Runtime configuration</a><a class="toc-link toc-link--2" href="#renderer-preferences">Renderer preferences</a><a class="toc-link toc-link--2" href="#first-pass-manual-tour">First-pass manual tour</a><a class="toc-link toc-link--2" href="#common-problems">Common problems</a><a class="toc-link toc-link--3" href="#vite-refuses-to-start">Vite refuses to start</a><a class="toc-link toc-link--3" href="#electron-opens-a-blank-window">Electron opens a blank window</a><a class="toc-link toc-link--3" href="#electron-starts-but-no-window-appears">Electron starts but no window appears</a><a class="toc-link toc-link--3" href="#fonts-look-different">Fonts look different</a><a class="toc-link toc-link--3" href="#a-mind-map-says-diagram-unavailable">A mind map says “Diagram unavailable”</a><a class="toc-link toc-link--3" href="#a-workspace-pin-is-missing">A workspace pin is missing</a><a class="toc-link toc-link--3" href="#suggestion-behavior-seems-duplicated-in-development">Suggestion behavior seems duplicated in development</a><a class="toc-link toc-link--3" href="#a-manually-sent-suggestion-does-not-appear">A manually sent suggestion does not appear</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#prerequisites">Prerequisites</a><a class="toc-link toc-link--2" href="#install-and-run">Install and run</a><a class="toc-link toc-link--2" href="#local-data-layout">Local data layout</a><a class="toc-link toc-link--2" href="#what-to-expect-after-startup">What to expect after startup</a><a class="toc-link toc-link--2" href="#set-up-the-pi-agent">Set up the Pi agent</a><a class="toc-link toc-link--2" href="#import-writing-sources">Import writing sources</a><a class="toc-link toc-link--2" href="#developer-commands">Developer commands</a><a class="toc-link toc-link--2" href="#runtime-entry-points">Runtime entry points</a><a class="toc-link toc-link--2" href="#renderer-preferences">Renderer preferences</a><a class="toc-link toc-link--2" href="#first-pass-manual-tour">First-pass manual tour</a><a class="toc-link toc-link--2" href="#common-problems">Common problems</a><a class="toc-link toc-link--3" href="#vite-refuses-to-start">Vite refuses to start</a><a class="toc-link toc-link--3" href="#electron-opens-a-blank-window">Electron opens a blank window</a><a class="toc-link toc-link--3" href="#electron-starts-but-no-window-appears">Electron starts but no window appears</a><a class="toc-link toc-link--3" href="#fonts-look-different">Fonts look different</a><a class="toc-link toc-link--3" href="#a-mind-map-says-diagram-unavailable">A mind map says “Diagram unavailable”</a><a class="toc-link toc-link--3" href="#a-workspace-pin-is-missing">A workspace pin is missing</a><a class="toc-link toc-link--3" href="#suggestion-behavior-seems-duplicated-in-development">Suggestion behavior seems duplicated in development</a><a class="toc-link toc-link--3" href="#a-manually-sent-suggestion-does-not-appear">A manually sent suggestion does not appear</a></nav>
             <a class="toc-source" href="../getting-started.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>

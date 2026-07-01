@@ -8,7 +8,7 @@ The preload exposes the typed `DesktopBridge`. The renderer never imports Electr
 
 ## Managed project workspace
 
-The default project uses:
+Electron resolves `<userData>` with `app.getPath("userData")`; it is outside the repository and under the platform application-data directory. The default project uses:
 
 ```text
 <userData>/projects/default-project/
@@ -17,9 +17,11 @@ The default project uses:
   .pi/sessions/*.jsonl
 ```
 
-Accepted BlockNote blocks and the lossy Markdown export are saved together in SQLite. Storage atomically replaces `draft.md` before it commits and publishes the new revision. Startup repairs a missing or damaged mirror from SQLite before the agent is woken.
+Accepted BlockNote blocks and the lossy Markdown export are saved together in SQLite at `<userData>/scribe.sqlite3`. Storage atomically replaces `draft.md` before it commits and publishes the new revision. Startup repairs a missing or damaged mirror from SQLite before the agent is woken.
 
-Source import accepts only `.md` and `.markdown`. Storage validates the complete file as UTF-8 and copies it without extraction or truncation. Existing names receive a readable suffix such as `notes (2).md`.
+Source import accepts only `.md` and `.markdown`. The renderer asks Electron main to open a native file picker from the sidebar's **Upload Sources** action, then storage validates the complete file as UTF-8 and copies it without extraction or truncation. Existing names receive a readable suffix such as `notes (2).md`.
+
+The copied file is only one part of the import. Storage also records source metadata in SQLite, increments the project revision, queues a `source.imported` event, and wakes the agent with the latest document revision. Directly copying files into `sources/` bypasses those steps, so normal source ingestion should go through the Electron import flow.
 
 The fresh schema persists projects, block JSON plus Markdown, source metadata, suggestion projection, and the committed event outbox. It intentionally contains no provider settings, extracted-content index, agent memory, run transcript, or run-history tables. Temporary `suggestionPreview` blocks remain excluded from autosave.
 
@@ -34,6 +36,8 @@ Pi uses native global files under `<userData>/pi/`:
 Standard provider environment variables are also supported. Invalid settings, auth, or model files—or no usable model/credential pair—leave the runtime `offline` and expose a diagnostic in the writing-partner panel.
 
 `SessionManager.continueRecent()` targets the project-specific `.pi/sessions` directory. `DefaultResourceLoader` trusts the app-managed workspace, preserves Pi's default system prompt, appends Scribe's read-only/suggestion instructions, and registers the bundled Scribe extension factory. External extension tools are disabled. The exact active tool set is `read`, `grep`, `find`, `ls`, and Scribe's list/create/update/retract/wait tools; `bash`, `write`, and `edit` are excluded.
+
+The agent process runs with `cwd` set to the managed project workspace. Its visible project files are `draft.md`, imported files under `sources/`, and its `.pi/sessions` history. The source repository, renderer bundle, and arbitrary filesystem locations are not used as writing context unless a future feature explicitly imports or exposes them.
 
 ## Autonomous loop
 

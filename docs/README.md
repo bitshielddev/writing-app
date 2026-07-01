@@ -18,7 +18,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 
 ## Fastest route into the codebase
 
-1. Follow [Getting started](getting-started.md) and run the app and checks.
+1. Follow [Getting started](getting-started.md) to run the app, configure the Pi agent under Electron `userData`, import Markdown sources, and run the checks.
 2. Read [Architecture](architecture.md) for state ownership and module boundaries.
 3. Read [Editor and suggestion system](editor-and-suggestions.md) before changing feed, preview, pin, or inbox behavior.
 4. Use [UI and accessibility](ui-and-accessibility.md) for responsive layout, resizing, styling, and keyboard behavior.
@@ -37,7 +37,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 | Pins | A suggestion can be frozen into the Pins section. On desktop it can then be placed, moved, resized, stacked, and returned. |
 | Responsive layout | Below `80rem`, navigation and writing partner use modal drawers. At `80rem` and above they become independently collapsible, resizable columns. |
 | Persistence | Electron restores the document, Markdown mirror, sources, suggestion inbox, pins, workspace cards, and Pi session. |
-| Sources | Electron imports complete UTF-8 `.md` and `.markdown` files into the managed project workspace. |
+| Sources | Electron imports complete UTF-8 `.md` and `.markdown` files through **Upload Sources** into the managed project workspace. |
 | Static controls | Navigation destinations, document tabs, New Document, history, export, share, and overflow actions have no application behavior yet. |
 
 ## Repository map

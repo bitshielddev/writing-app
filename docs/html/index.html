@@ -115,7 +115,7 @@
 </ul>
 <p>Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources, and restores the workspace and Pi session after restart. Development uses the same runtime with Vite renderer HMR and a dedicated mock-suggestion window.</p>
 <h2 id="fastest-route-into-the-codebase">Fastest route into the codebase<a class="heading-anchor" href="#fastest-route-into-the-codebase" aria-label="Link to Fastest route into the codebase">#</a></h2><ol>
-<li>Follow <a href="getting-started.html">Getting started</a> and run the app and checks.</li>
+<li>Follow <a href="getting-started.html">Getting started</a> to run the app, configure the Pi agent under Electron <code>userData</code>, import Markdown sources, and run the checks.</li>
 <li>Read <a href="architecture.html">Architecture</a> for state ownership and module boundaries.</li>
 <li>Read <a href="editor-and-suggestions.html">Editor and suggestion system</a> before changing feed, preview, pin, or inbox behavior.</li>
 <li>Use <a href="ui-and-accessibility.html">UI and accessibility</a> for responsive layout, resizing, styling, and keyboard behavior.</li>
@@ -160,7 +160,7 @@
 </tr>
 <tr>
 <td>Sources</td>
-<td>Electron imports complete UTF-8 <code>.md</code> and <code>.markdown</code> files into the managed project workspace.</td>
+<td>Electron imports complete UTF-8 <code>.md</code> and <code>.markdown</code> files through <strong>Upload Sources</strong> into the managed project workspace.</td>
 </tr>
 <tr>
 <td>Static controls</td>

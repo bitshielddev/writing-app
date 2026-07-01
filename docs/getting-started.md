@@ -18,7 +18,7 @@ npm run dev
 
 Vite builds the Electron main, preload, storage, and agent entries, starts its renderer development server, and launches Electron. Renderer changes use HMR; main, storage, or agent changes restart Electron; preload changes reload the renderer.
 
-Development intentionally uses the same Electron `userData` directory as a built or installed ScribeAI application. Edits, imported sources, settings, and mock suggestions therefore affect the same persisted workspace. Do not run development and an installed build concurrently against that profile.
+Development intentionally uses Electron's persistent `userData` directory instead of a throwaway Vite profile. Edits, imported sources, settings, and mock suggestions therefore survive restarts and can affect the same persisted workspace as a built application when both resolve to the same app-data profile. Do not run development and an installed build concurrently against that profile.
 
 Use `npm ci`, rather than `npm install`, for a clean checkout or CI job so dependency versions remain aligned with the lockfile.
 
@@ -29,6 +29,35 @@ npm run desktop
 ```
 
 This command always builds the renderer and Electron processes before launching. The first launch creates the default project workspace under `<userData>/projects/default-project/`; Pi reads native configuration from `<userData>/pi/`.
+
+## Local data layout
+
+`<userData>` means the directory returned by Electron's `app.getPath("userData")` for the running app. For a packaged ScribeAI build this is normally:
+
+| Platform | Typical `<userData>` location |
+| --- | --- |
+| macOS | `~/Library/Application Support/ScribeAI/` |
+| Windows | `%APPDATA%\ScribeAI\` |
+| Linux | `~/.config/ScribeAI/` |
+
+The running app owns this tree:
+
+```text
+<userData>/
+  scribe.sqlite3
+  pi/
+    settings.json
+    auth.json
+    models.json
+  projects/default-project/
+    draft.md
+    sources/
+      <imported-source>.md
+    .pi/sessions/
+      *.jsonl
+```
+
+The source checkout is not the writing project workspace. Electron creates and repairs `draft.md`, stores the source list and suggestions in `scribe.sqlite3`, and resumes Pi sessions from the project-specific `.pi/sessions/` directory.
 
 ## What to expect after startup
 
@@ -41,6 +70,35 @@ Electron opens the persisted writing workspace. To inject deterministic suggesti
 The development window is single-instance. Closing and reopening it does not clear injected suggestions.
 
 React runs in `StrictMode`. During development, effects are mounted, cleaned up, and mounted again to expose unsafe effect code. The mock feed opens its channel receiver for the first subscriber and closes it after the final subscriber leaves, preventing duplicate streams.
+
+## Set up the Pi agent
+
+Launch the app once before configuring Pi so Electron creates `<userData>/`. Then add Pi's native configuration files under `<userData>/pi/`.
+
+`settings.json` selects the default provider and model:
+
+```json
+{
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-4-6"
+}
+```
+
+Credentials can either live in Pi's native `<userData>/pi/auth.json` file or be supplied as standard provider environment variables, such as `ANTHROPIC_API_KEY`, before starting Electron. Custom providers and model aliases belong in `<userData>/pi/models.json`.
+
+Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline and the reason appears in the Activity tab. A configured agent reads `draft.md` plus Markdown files in `sources/`, but it cannot edit them directly; it publishes suggestions through Scribe's suggestion tools.
+
+## Import writing sources
+
+Use the Electron app to import sources:
+
+1. Open the sidebar section labelled **AI research context**.
+2. Choose **Upload Sources**.
+3. Select a UTF-8 `.md` or `.markdown` file.
+
+Electron copies the selected file into `<userData>/projects/default-project/sources/`, records it in SQLite, adds it to the sidebar, increments the project revision, and wakes the agent. Name collisions are kept readable, for example `notes (2).md`.
+
+Do not place source files directly in the `sources/` directory as the normal workflow. Direct copies bypass the SQLite source record and revision event, so the file may not appear in the app or wake the agent. The original selected file is not watched after import; import the changed Markdown file again when source content changes.
 
 ## Developer commands
 
@@ -68,18 +126,7 @@ See [Testing and quality](testing-and-quality.md) for the current automated cove
 
 The production build currently completes with Vite's warning that some minified chunks exceed 500 kB. The main application bundle and parts of Mermaid are the principal contributors. This is a warning, not a failed build; treat a new error separately. The performance watch points in the [Extension guide](extension-guide.md#performance-watch-points) describe the relevant boundaries.
 
-## Runtime configuration
-
-Configure Pi with `<userData>/pi/settings.json`. For example:
-
-```json
-{
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-4-6"
-}
-```
-
-Credentials may be stored in Pi's `auth.json` or supplied through standard provider environment variables such as `ANTHROPIC_API_KEY`. Custom providers/models use Pi's `models.json`. Invalid or incomplete native configuration leaves the agent offline and displays the diagnostic under Activity.
+## Runtime entry points
 
 - initial editor content: [`initialContent`](../src/App.tsx);
 - Electron-only mock suggestion controller: [`src/dev/mockSuggestions`](../src/dev/mockSuggestions);
