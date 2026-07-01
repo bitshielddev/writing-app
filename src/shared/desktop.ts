@@ -30,7 +30,13 @@ export type PersistedSuggestionState = {
   nextZIndex: number;
 };
 
-export type AgentStatus = "offline" | "working" | "waiting" | "capped" | "error";
+export type AgentStatus =
+  | "offline"
+  | "stopped"
+  | "working"
+  | "waiting"
+  | "capped"
+  | "error";
 
 export type AgentRuntime = {
   status: AgentStatus;
@@ -99,6 +105,8 @@ export type DesktopEvent =
 
 export type DesktopBridge = {
   hydrate(): Promise<WorkspaceSnapshot>;
+  startAgent(): Promise<AgentRuntime>;
+  stopAgent(): Promise<AgentRuntime>;
   saveDocument(input: {
     documentId: string;
     blocks: unknown[];

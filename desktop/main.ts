@@ -154,6 +154,20 @@ function registerIpc() {
     return { ...snapshot, agent: runtime, activity: activity.snapshot() };
   });
 
+  ipcMain.handle("scribe:agent.start", async (event) => {
+    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+    const seed = await storage.call<ObservationSeed>("agent.seed");
+    return agent.call<AgentRuntime>("agent.start", {
+      projectRevision: seed.projectRevision,
+      documentRevision: seed.documentRevision,
+    });
+  });
+
+  ipcMain.handle("scribe:agent.stop", (event) => {
+    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+    return agent.call<AgentRuntime>("agent.stop");
+  });
+
   ipcMain.handle("scribe:document.save", (event, input) => {
     if (!validateSender(event.sender)) throw new Error("Unknown renderer");
     return storage.call("document.save", input);

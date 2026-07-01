@@ -11,6 +11,8 @@ import type { SuggestionItem } from "../src/suggestions/types.js";
 
 const bridge: DesktopBridge = {
   hydrate: () => ipcRenderer.invoke("scribe:hydrate"),
+  startAgent: () => ipcRenderer.invoke("scribe:agent.start"),
+  stopAgent: () => ipcRenderer.invoke("scribe:agent.stop"),
   saveDocument: (input) => ipcRenderer.invoke("scribe:document.save", input),
   saveSuggestionState: (state: PersistedSuggestionState) =>
     ipcRenderer.invoke("scribe:suggestions.save", state),

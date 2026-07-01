@@ -111,7 +111,7 @@
 <li>desktop workspace cards for keeping references over the editor;</li>
 <li>responsive navigation and writing-partner panels;</li>
 <li>SQLite document, Markdown mirror, source, and suggestion persistence;</li>
-<li>a durable autonomous Pi coding-agent session and launch-scoped activity diagnostics.</li>
+<li>a durable Pi coding-agent session with writer-controlled autonomous work and launch-scoped activity diagnostics.</li>
 </ul>
 <p>Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources, and restores the workspace and Pi session after restart. Development uses the same runtime with Vite renderer HMR and a dedicated mock-suggestion window.</p>
 <h2 id="fastest-route-into-the-codebase">Fastest route into the codebase<a class="heading-anchor" href="#fastest-route-into-the-codebase" aria-label="Link to Fastest route into the codebase">#</a></h2><ol>
@@ -136,7 +136,7 @@
 </tr>
 <tr>
 <td>Writing partner</td>
-<td>Electron receives committed suggestions from the Pi agent or its development-only mock controller.</td>
+<td>The agent starts stopped on every app launch. A persistent control starts or immediately stops autonomous work. Electron receives committed suggestions from the Pi agent or its development-only mock controller.</td>
 </tr>
 <tr>
 <td>Text suggestions</td>

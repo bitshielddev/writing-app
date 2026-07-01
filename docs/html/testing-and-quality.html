@@ -236,6 +236,9 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <li>Import <code>.md</code> and <code>.markdown</code>, including duplicate names; reject invalid UTF-8 and other extensions.</li>
 <li>Restart and confirm sources, suggestions, pins, and workspace geometry hydrate from SQLite.</li>
 <li>Confirm Pi <code>settings.json</code>, <code>auth.json</code>, and <code>models.json</code> load; invalid configuration leaves the agent offline without exposing credentials.</li>
+<li>Confirm every app launch begins stopped and editing or importing sources does not invoke the provider before Start Agent.</li>
+<li>Start after several stopped revisions and confirm only the latest revision is reviewed. Stop during streaming and confirm cancellation is immediate, no error is reported, and no new cycle begins.</li>
+<li>Start again after cancellation, error, or cap and confirm the latest revision is retried; stop/start after a successful yield must not repeat unchanged work.</li>
 <li>Observe multi-cycle work, a suggestion, <code>waiting</code>, and immediate wake after a new durable revision.</li>
 <li>Reload the renderer and retain current-launch Activity; restart the app and confirm Activity clears while the Pi session resumes.</li>
 <li>Force a storage or agent utility-process startup failure and confirm main reports the failure and exits instead of hanging without a window.</li>

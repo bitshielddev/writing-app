@@ -44,7 +44,7 @@ The event channel supports:
 | `suggestion.added` | Introduce a suggestion if its `dedupeKey` has not been seen. |
 | `suggestion.updated` | Replace a live suggestion with the same `id`. |
 | `suggestion.retracted` | Remove a live suggestion, unless user state protects it. |
-| `agent.status` | Set `idle`, `working`, or `offline` and clear the current error. |
+| `agent.status` | Set the current `offline`, `stopped`, `working`, `waiting`, `capped`, or `error` presentation state and clear the current error when appropriate. |
 | `agent.error` | Set a displayable error and its recoverability metadata. |
 
 The renderer uses [`createDesktopSuggestionFeed`](../src/desktop/desktopClient.ts). It receives suggestion and agent-status events from Electron main. Suggestions are written to the desktop database before an event is forwarded, so reload hydrates the same inbox projection.

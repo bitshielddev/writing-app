@@ -5,9 +5,21 @@ import { describe, expect, it } from "vitest";
 import { ScribeLoopState } from "./scribe-loop";
 
 describe("Scribe autonomous loop", () => {
+  it("starts stopped and coalesces revisions until explicitly started", () => {
+    const loop = new ScribeLoopState();
+    expect(loop.snapshot().status).toBe("stopped");
+    loop.revision(1, 1);
+    loop.revision(3, 2);
+    expect(loop.beginCycle()).toBeUndefined();
+
+    expect(loop.start()).toBe(true);
+    expect(loop.beginCycle()).toMatchObject({ projectRevision: 3, documentRevision: 2 });
+  });
+
   it("starts on the durable startup revision and coalesces busy changes", () => {
     const loop = new ScribeLoopState();
     expect(loop.revision(1, 1)).toBe(true);
+    loop.start();
     expect(loop.beginCycle()).toMatchObject({ projectRevision: 1, documentRevision: 1 });
     loop.revision(2, 2);
     loop.revision(3, 2);
@@ -18,6 +30,7 @@ describe("Scribe autonomous loop", () => {
   it("waits after a successful yield", () => {
     const loop = new ScribeLoopState();
     loop.revision(1, 1);
+    loop.start();
     loop.beginCycle();
     expect(loop.requestYield()).toBe(true);
     expect(loop.finishCycle()).toBe(false);
@@ -27,6 +40,7 @@ describe("Scribe autonomous loop", () => {
   it("does not yield when a change races the yield cycle", () => {
     const loop = new ScribeLoopState();
     loop.revision(1, 1);
+    loop.start();
     loop.beginCycle();
     expect(loop.requestYield()).toBe(true);
     loop.revision(2, 2);
@@ -37,6 +51,7 @@ describe("Scribe autonomous loop", () => {
   it("caps after five consecutive cycles without a yield or revision", () => {
     const loop = new ScribeLoopState();
     loop.revision(1, 1);
+    loop.start();
     for (let cycle = 0; cycle < 4; cycle += 1) {
       expect(loop.beginCycle()).toBeTruthy();
       expect(loop.finishCycle()).toBe(true);
@@ -49,6 +64,7 @@ describe("Scribe autonomous loop", () => {
   it("sleeps on error and wakes/reset cycles only for a newer revision", () => {
     const loop = new ScribeLoopState();
     loop.revision(4, 2);
+    loop.start();
     loop.beginCycle();
     loop.fail("provider unavailable");
     expect(loop.snapshot()).toMatchObject({ status: "error", error: "provider unavailable" });
@@ -60,6 +76,7 @@ describe("Scribe autonomous loop", () => {
   it("restores yielded and loop state without redundant work", () => {
     const first = new ScribeLoopState();
     first.revision(7, 4);
+    first.start();
     first.beginCycle();
     first.requestYield();
     first.finishCycle();
@@ -67,6 +84,46 @@ describe("Scribe autonomous loop", () => {
 
     expect(restored.revision(7, 4)).toBe(false);
     expect(restored.beginCycle()).toBeUndefined();
+    expect(restored.snapshot().status).toBe("stopped");
+    restored.start();
+    expect(restored.beginCycle()).toBeUndefined();
     expect(restored.snapshot().status).toBe("waiting");
+  });
+
+  it("does not count an aborted cycle and retries it after restart", () => {
+    const loop = new ScribeLoopState();
+    loop.revision(5, 3);
+    loop.start();
+    loop.beginCycle();
+
+    expect(loop.stop()).toBe(true);
+    expect(loop.snapshot()).toMatchObject({ status: "stopped", cycleCount: 0 });
+    expect(loop.finishCycle()).toBe(false);
+
+    loop.start();
+    expect(loop.beginCycle()).toMatchObject({ projectRevision: 5, cycleCount: 1 });
+  });
+
+  it("restarts capped work but does not repeat successfully yielded work", () => {
+    const capped = new ScribeLoopState();
+    capped.revision(2, 1);
+    capped.start();
+    for (let cycle = 0; cycle < 5; cycle += 1) {
+      capped.beginCycle();
+      capped.finishCycle();
+    }
+    capped.stop();
+    capped.start();
+    expect(capped.beginCycle()).toMatchObject({ projectRevision: 2, cycleCount: 1 });
+
+    const yielded = new ScribeLoopState();
+    yielded.revision(2, 1);
+    yielded.start();
+    yielded.beginCycle();
+    yielded.requestYield();
+    yielded.finishCycle();
+    yielded.stop();
+    yielded.start();
+    expect(yielded.beginCycle()).toBeUndefined();
   });
 });

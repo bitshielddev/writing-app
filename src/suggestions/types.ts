@@ -45,7 +45,13 @@ export type SuggestionItem =
   | StructureSuggestion
   | MindMapSuggestion;
 
-export type AgentStatus = "offline" | "working" | "waiting" | "capped" | "error";
+export type AgentStatus =
+  | "offline"
+  | "stopped"
+  | "working"
+  | "waiting"
+  | "capped"
+  | "error";
 
 export type SuggestionEvent =
   | { type: "suggestion.added"; item: SuggestionItem }

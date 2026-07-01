@@ -26,6 +26,8 @@ import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
 
 type ParentMessage =
   | ({ kind: "project.changed" } & ScribeRevision)
+  | { kind: "rpc"; id: string; method: "agent.start"; params: ScribeRevision }
+  | { kind: "rpc"; id: string; method: "agent.stop" }
   | { kind: "storage.result"; id: string; result?: unknown; error?: string }
   | { kind: "shutdown" };
 
@@ -67,9 +69,9 @@ function postActivity(value: Omit<AgentActivity, "updatedAt">) {
 const host: ScribeExtensionHost = {
   loop: new ScribeLoopState(),
   storageCall,
-  runtime(update) {
+  runtime() {
     if (!configured) return;
-    postRuntime({ ...update, sessionId: session?.sessionId });
+    postRuntime(runtime());
   },
   activity: postActivity,
   wake() {
@@ -183,7 +185,15 @@ function runtime() {
 }
 
 async function drain() {
-  if (!configured || !session || draining || session.isStreaming) return;
+  if (
+    !configured ||
+    !session ||
+    !host.loop.isEnabled() ||
+    draining ||
+    session.isStreaming
+  ) {
+    return;
+  }
   const cycle = host.loop.beginCycle();
   if (!cycle) {
     host.persist();
@@ -206,6 +216,7 @@ async function drain() {
     await session.prompt(
       `Review the durable Scribe project revision ${cycle.projectRevision} (draft revision ${cycle.documentRevision}). Read draft.md and relevant Markdown files in sources/. Manage only concrete, high-value suggestions. If no useful work remains for this revision, call wait_for_changes.`,
     );
+    if (!host.loop.isEnabled()) return;
     const continueRunning = host.loop.finishCycle();
     host.persist();
     postRuntime(runtime());
@@ -224,6 +235,7 @@ async function drain() {
       });
     }
   } catch (error) {
+    if (!host.loop.isEnabled()) return;
     const message = error instanceof Error ? error.message : String(error);
     host.loop.fail(message);
     host.persist();
@@ -240,7 +252,69 @@ async function drain() {
   } finally {
     draining = false;
   }
-  if (host.loop.snapshot().status === "working") setTimeout(() => void drain(), 0);
+  if (host.loop.isEnabled() && host.loop.snapshot().status === "working") {
+    setTimeout(() => void drain(), 0);
+  }
+}
+
+async function startAgent(revision: ScribeRevision) {
+  if (!configured || !session) {
+    throw new Error("The agent is unavailable because Pi is not configured");
+  }
+  host.loop.revision(revision.projectRevision, revision.documentRevision);
+  if (host.loop.start()) {
+    const timestamp = Date.now();
+    host.persist();
+    postRuntime(runtime());
+    postActivity({
+      id: `control:started:${timestamp}`,
+      kind: "lifecycle",
+      timestamp,
+      title: "Agent started by writer",
+      status: host.loop.snapshot().status,
+    });
+    host.wake();
+  }
+  return runtime();
+}
+
+async function stopAgent() {
+  if (!configured || !session) {
+    throw new Error("The agent is unavailable because Pi is not configured");
+  }
+  if (host.loop.stop()) {
+    const timestamp = Date.now();
+    host.persist();
+    postRuntime(runtime());
+    postActivity({
+      id: `control:stopped:${timestamp}`,
+      kind: "lifecycle",
+      timestamp,
+      title: "Agent stopped by writer",
+      status: "stopped",
+    });
+    if (session.isStreaming) await session.abort();
+  }
+  return runtime();
+}
+
+let controlQueue = Promise.resolve();
+
+function handleControl(message: Extract<ParentMessage, { kind: "rpc" }>) {
+  controlQueue = controlQueue.then(async () => {
+    try {
+      const result = message.method === "agent.start"
+        ? await startAgent(message.params)
+        : await stopAgent();
+      process.parentPort?.postMessage({ kind: "rpc.result", id: message.id, result });
+    } catch (error) {
+      process.parentPort?.postMessage({
+        kind: "rpc.result",
+        id: message.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 }
 
 async function initialize() {
@@ -319,6 +393,10 @@ async function initialize() {
 }
 
 process.parentPort?.on("message", ({ data }: { data: ParentMessage }) => {
+  if (data.kind === "rpc") {
+    handleControl(data);
+    return;
+  }
   if (data.kind === "storage.result") {
     const request = pendingStorage.get(data.id);
     if (!request) return;

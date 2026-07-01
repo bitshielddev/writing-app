@@ -41,11 +41,13 @@ The agent process runs with `cwd` set to the managed project workspace. Its visi
 
 ## Autonomous loop
 
-There is no polling timer. After storage commits a document or source revision, main forwards that durable revision through Pi's shared event bus. The extension coalesces updates while Pi is busy and starts the next cycle against the latest revision.
+There is no polling timer. The Pi utility process and durable session initialize at launch, but autonomous work starts disabled. After storage commits a document or source revision, main forwards that durable revision through Pi's shared event bus. The extension coalesces updates while Pi is stopped or busy and starts a cycle against the latest revision only after the writer chooses **Start Agent**.
+
+**Stop Agent** marks the runtime `stopped` before awaiting Pi's `session.abort()`. The cancelled cycle does not count toward the five-cycle cap, no later cycle is scheduled, and committed suggestions remain intact. Starting again retries aborted, errored, or capped work against the latest revision. A successfully yielded unchanged revision remains `waiting` without a redundant provider call. The enabled preference is launch-scoped, so every application start is quiet.
 
 `wait_for_changes` succeeds only when no newer revision arrived during the active cycle. A successful yield persists the yielded revision and loop state as a Pi custom session entry and leaves the runtime `waiting`. If Pi ends without yielding, the extension immediately starts another cycle. Five consecutive cycles without a yield or new revision produce `capped`; the next revision resets the counter and wakes `waiting`, `capped`, or recoverable `error` state.
 
-Suggestion tools include the active document revision. Storage rejects stale mutations, after which the extension schedules the latest revision. Runtime state is one of `offline`, `working`, `waiting`, `capped`, or `error` and includes the Pi session ID, active revision, cycle count, and optional diagnostic.
+Suggestion tools include the active document revision. Storage rejects stale mutations, after which the extension schedules the latest revision. Runtime state is one of `offline`, `stopped`, `working`, `waiting`, `capped`, or `error` and includes the Pi session ID, active revision, cycle count, and optional diagnostic. `offline` means Pi cannot run; `stopped` means it is configured but disabled by the writer.
 
 ## Activity diagnostics
 
@@ -55,7 +57,7 @@ Hydration includes the current launch's ring, so renderer reload retains diagnos
 
 ## Startup and failure behaviour
 
-Storage is started first, creates/repairs the workspace mirror, and reports readiness. Main then starts the Pi process, waits for its readiness diagnostic, registers renderer IPC, creates the window, and delivers the current revision. Utility process startup failure is fatal; provider/tool failures put the autonomous loop to sleep in `error` until a newer project revision arrives.
+Storage is started first, creates/repairs the workspace mirror, and reports readiness. Main then initializes the Pi process, waits for its readiness diagnostic, registers renderer IPC, creates the window, and delivers the current revision without starting a model cycle. Utility process startup failure is fatal; provider/tool failures put the enabled autonomous loop to sleep in `error` until a newer project revision arrives or the writer stops and starts it.
 
 Production loads `dist/index.html` through `BrowserWindow.loadFile`; Vite therefore uses `base: "./"`. Development loads `VITE_DEV_SERVER_URL` in Electron and adds the isolated mock-suggestion window. Context isolation remains enabled and Node integration disabled.
 

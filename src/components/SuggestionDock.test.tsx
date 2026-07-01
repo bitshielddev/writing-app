@@ -46,6 +46,8 @@ function renderDock(
     onUnpin: vi.fn(),
     onPlaceOnWorkspace: vi.fn(),
     onPreview: vi.fn(),
+    onStartAgent: vi.fn(),
+    onStopAgent: vi.fn(),
     ...overrides,
   };
   render(<SuggestionDock {...props} />);
@@ -72,6 +74,32 @@ describe("SuggestionDock", () => {
       screen.getByRole("button", { name: `Open ${item.title}` }),
     );
     expect(props.onSelect).toHaveBeenCalledWith(item.id);
+  });
+
+  it("starts and stops the agent from the persistent toolbar", async () => {
+    const stoppedProps = renderDock({ status: "stopped" });
+    await userEvent.click(screen.getByRole("button", { name: "Start Agent" }));
+    expect(stoppedProps.onStartAgent).toHaveBeenCalledOnce();
+    cleanup();
+
+    const workingProps = renderDock({ status: "working" });
+    await userEvent.click(screen.getByRole("button", { name: "Stop Agent" }));
+    expect(workingProps.onStopAgent).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: "Activity" }));
+    expect(screen.getByRole("button", { name: "Stop Agent" })).toBeTruthy();
+  });
+
+  it("disables lifecycle control while offline or pending", () => {
+    renderDock({ status: "offline" });
+    expect(
+      screen.getByRole("button", { name: "Start Agent" }).hasAttribute("disabled"),
+    ).toBe(true);
+    cleanup();
+
+    renderDock({ status: "stopped", controlPending: "start" });
+    expect(
+      screen.getByRole("button", { name: "Starting…" }).hasAttribute("disabled"),
+    ).toBe(true);
   });
 
   it("offers an editable preview action only from text detail", async () => {
@@ -119,7 +147,7 @@ describe("SuggestionDock", () => {
     expect(props.onPlaceOnWorkspace).toHaveBeenCalledWith(item);
   });
 
-  it.each(["offline", "working", "waiting", "capped", "error"] as const)(
+  it.each(["offline", "stopped", "working", "waiting", "capped", "error"] as const)(
     "shows the %s runtime state in Activity",
     async (status) => {
       renderDock({ runtime: { status, cycleCount: 2 } });

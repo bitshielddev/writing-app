@@ -217,7 +217,8 @@
 <li>large bottom padding to leave drafting space.</li>
 </ul>
 <p>On small screens the editor&#39;s inline padding is reduced. The editor remains the primary page scroll container at all sizes.</p>
-<h2 id="suggestion-dock-interaction">Suggestion dock interaction<a class="heading-anchor" href="#suggestion-dock-interaction" aria-label="Link to Suggestion dock interaction">#</a></h2><p>The writing partner has two mutually exclusive views:</p>
+<h2 id="suggestion-dock-interaction">Suggestion dock interaction<a class="heading-anchor" href="#suggestion-dock-interaction" aria-label="Link to Suggestion dock interaction">#</a></h2><p>The writing partner has two tabs, Suggestions and Activity. Its sticky toolbar also contains the lifecycle control, so <strong>Start Agent</strong> or <strong>Stop Agent</strong> remains available from either tab and suggestion detail.</p>
+<p>The Suggestions tab has two mutually exclusive views:</p>
 <ul>
 <li>queue view: error, Pins, and live inbox;</li>
 <li>detail view: full suggestion, sources, visual content, and actions.</li>
@@ -226,6 +227,9 @@
 <p>The queue deliberately has no suggestion-type tabs. All kinds share one stream, with a badge identifying the kind. Pins are separated above the live inbox.</p>
 <p>Action availability is constrained by lifecycle:</p>
 <ul>
+<li>Start Agent is disabled while Pi configuration is unavailable;</li>
+<li>Start and Stop are disabled while their IPC request is pending;</li>
+<li>stopping preserves existing suggestions and cancels active model work;</li>
 <li>only text kinds can preview;</li>
 <li>any active preview disables starting another;</li>
 <li>the active preview&#39;s source item cannot be dismissed or placed on the workspace;</li>
@@ -254,6 +258,7 @@
 <li>drawers are named modal dialogs and restore focus;</li>
 <li>unread state is not color-only (<code>Unread</code> is exposed to assistive technology on queue rows);</li>
 <li>agent errors use readable text;</li>
+<li>agent lifecycle state and the pending Start/Stop label are exposed as text;</li>
 <li>a mind map has an accessible description even if rendering fails;</li>
 <li>workspace cards are named regions with named move, resize, and return controls;</li>
 <li>custom focus outlines are visible on buttons, links, and inputs;</li>

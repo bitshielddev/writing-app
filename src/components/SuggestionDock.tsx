@@ -31,6 +31,7 @@ type SuggestionDockProps = {
   error?: { message: string; recoverable: boolean };
   activity?: AgentActivity[];
   runtime?: AgentRuntime;
+  controlPending?: "start" | "stop";
   onSelect: (id: string) => void;
   onBack: () => void;
   onDismiss: (id: string) => void;
@@ -38,6 +39,8 @@ type SuggestionDockProps = {
   onUnpin: (id: string) => void;
   onPlaceOnWorkspace: (item: SuggestionItem) => void;
   onPreview: (item: SuggestionItem) => void;
+  onStartAgent: () => void;
+  onStopAgent: () => void;
 };
 
 function ActivityView({
@@ -319,6 +322,7 @@ export function SuggestionDock({
   error,
   activity = [],
   runtime,
+  controlPending,
   onSelect,
   onBack,
   onDismiss,
@@ -326,9 +330,19 @@ export function SuggestionDock({
   onUnpin,
   onPlaceOnWorkspace,
   onPreview,
+  onStartAgent,
+  onStopAgent,
 }: SuggestionDockProps) {
   const dockRef = useRef<HTMLElement>(null);
   const [view, setView] = useState<"suggestions" | "activity">("suggestions");
+  const agentIsEnabled = status !== "offline" && status !== "stopped";
+  const controlLabel = controlPending === "start"
+    ? "Starting…"
+    : controlPending === "stop"
+      ? "Stopping…"
+      : agentIsEnabled
+        ? "Stop Agent"
+        : "Start Agent";
 
   useEffect(() => {
     if (typeof dockRef.current?.scrollTo === "function") {
@@ -347,24 +361,38 @@ export function SuggestionDock({
           ? `Agent status: ${runtime.status}${runtime.error ? `. ${runtime.error}` : ""}`
           : ""}
       </p>
-      <nav className="sticky top-0 z-20 grid grid-cols-2 border-b border-[#d7d4e8] bg-[#f4f2fd]/95 p-2 backdrop-blur" aria-label="Writing partner views">
+      <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-[#d7d4e8] bg-[#f4f2fd]/95 p-2 backdrop-blur">
+        <nav className="grid min-w-0 flex-1 grid-cols-2" aria-label="Writing partner views">
+          <button
+            type="button"
+            aria-current={view === "suggestions" ? "page" : undefined}
+            className={`min-h-9 rounded-md text-sm font-bold ${view === "suggestions" ? "bg-white text-brand-700 shadow-sm" : "text-[#686577]"}`}
+            onClick={() => setView("suggestions")}
+          >
+            Suggestions
+          </button>
+          <button
+            type="button"
+            aria-current={view === "activity" ? "page" : undefined}
+            className={`min-h-9 rounded-md text-sm font-bold ${view === "activity" ? "bg-white text-brand-700 shadow-sm" : "text-[#686577]"}`}
+            onClick={() => setView("activity")}
+          >
+            Activity
+          </button>
+        </nav>
         <button
           type="button"
-          aria-current={view === "suggestions" ? "page" : undefined}
-          className={`min-h-9 rounded-md text-sm font-bold ${view === "suggestions" ? "bg-white text-brand-700 shadow-sm" : "text-[#686577]"}`}
-          onClick={() => setView("suggestions")}
+          disabled={status === "offline" || Boolean(controlPending)}
+          className={`min-h-9 shrink-0 rounded-md px-3 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            agentIsEnabled
+              ? "border border-[#c9c5dc] bg-white text-[#5d5b6d] hover:border-red-300 hover:text-red-700"
+              : "bg-brand-600 text-white shadow-sm hover:bg-brand-700"
+          }`}
+          onClick={agentIsEnabled ? onStopAgent : onStartAgent}
         >
-          Suggestions
+          {controlLabel}
         </button>
-        <button
-          type="button"
-          aria-current={view === "activity" ? "page" : undefined}
-          className={`min-h-9 rounded-md text-sm font-bold ${view === "activity" ? "bg-white text-brand-700 shadow-sm" : "text-[#686577]"}`}
-          onClick={() => setView("activity")}
-        >
-          Activity
-        </button>
-      </nav>
+      </div>
       {view === "activity" ? (
         <ActivityView items={activity} runtime={runtime} />
       ) : selectedEntry ? (
@@ -399,11 +427,13 @@ export function SuggestionDock({
                       ? "Considering your draft…"
                       : status === "offline"
                         ? "Agent unavailable"
-                        : status === "waiting"
-                          ? "Waiting for changes"
-                          : status === "capped"
-                            ? "Autonomous loop capped"
-                            : "Agent error"}
+                        : status === "stopped"
+                          ? "Agent stopped"
+                          : status === "waiting"
+                            ? "Waiting for changes"
+                            : status === "capped"
+                              ? "Autonomous loop capped"
+                              : "Agent error"}
                   </p>
                 </div>
               </div>
@@ -483,6 +513,8 @@ export function SuggestionDock({
                     <p className="mt-3 text-sm font-semibold text-[#5d5b6d]">
                       {status === "working"
                         ? "The agent is considering your draft"
+                        : status === "stopped"
+                          ? "Start the agent when you’re ready"
                         : "Suggestions will appear here when they arrive"}
                     </p>
                   </div>

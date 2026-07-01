@@ -61,7 +61,9 @@ The source checkout is not the writing project workspace. Electron creates and r
 
 ## What to expect after startup
 
-Electron opens the persisted writing workspace. To inject deterministic suggestions without invoking a model:
+Electron opens the persisted writing workspace with the agent stopped. Import sources and edit the draft without model activity, then choose **Start Agent** in the writing-partner toolbar when ready. **Stop Agent** immediately cancels active model work and keeps later revisions queued until the next start.
+
+To inject deterministic suggestions without invoking a model:
 
 1. Choose **Development → Mock suggestions**, or press `CmdOrCtrl+Shift+M`.
 2. Complete one of the six suggestion forms in the dedicated development window.
@@ -86,7 +88,7 @@ Launch the app once before configuring Pi so Electron creates `<userData>/`. The
 
 Credentials can either live in Pi's native `<userData>/pi/auth.json` file or be supplied as standard provider environment variables, such as `ANTHROPIC_API_KEY`, before starting Electron. Custom providers and model aliases belong in `<userData>/pi/models.json`.
 
-Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline and the reason appears in the Activity tab. A configured agent reads `draft.md` plus Markdown files in `sources/`, but it cannot edit them directly; it publishes suggestions through Scribe's suggestion tools.
+Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline, Start Agent is unavailable, and the reason appears in the Activity tab. A configured agent remains stopped until the writer starts it. It reads `draft.md` plus Markdown files in `sources/`, but it cannot edit them directly; it publishes suggestions through Scribe's suggestion tools.
 
 ## Import writing sources
 
@@ -96,7 +98,7 @@ Use the Electron app to import sources:
 2. Choose **Upload Sources**.
 3. Select a UTF-8 `.md` or `.markdown` file.
 
-Electron copies the selected file into `<userData>/projects/default-project/sources/`, records it in SQLite, adds it to the sidebar, increments the project revision, and wakes the agent. Name collisions are kept readable, for example `notes (2).md`.
+Electron copies the selected file into `<userData>/projects/default-project/sources/`, records it in SQLite, adds it to the sidebar, and increments the project revision. A running agent wakes immediately; a stopped agent retains the latest revision for the next start. Name collisions are kept readable, for example `notes (2).md`.
 
 Do not place source files directly in the `sources/` directory as the normal workflow. Direct copies bypass the SQLite source record and revision event, so the file may not appear in the app or wake the agent. The original selected file is not watched after import; import the changed Markdown file again when source content changes.
 

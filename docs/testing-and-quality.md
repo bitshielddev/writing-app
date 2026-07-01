@@ -129,6 +129,9 @@ Changes in these areas require targeted tests where practical and the manual che
 - Import `.md` and `.markdown`, including duplicate names; reject invalid UTF-8 and other extensions.
 - Restart and confirm sources, suggestions, pins, and workspace geometry hydrate from SQLite.
 - Confirm Pi `settings.json`, `auth.json`, and `models.json` load; invalid configuration leaves the agent offline without exposing credentials.
+- Confirm every app launch begins stopped and editing or importing sources does not invoke the provider before Start Agent.
+- Start after several stopped revisions and confirm only the latest revision is reviewed. Stop during streaming and confirm cancellation is immediate, no error is reported, and no new cycle begins.
+- Start again after cancellation, error, or cap and confirm the latest revision is retried; stop/start after a successful yield must not repeat unchanged work.
 - Observe multi-cycle work, a suggestion, `waiting`, and immediate wake after a new durable revision.
 - Reload the renderer and retain current-launch Activity; restart the app and confirm Activity clears while the Pi session resumes.
 - Force a storage or agent utility-process startup failure and confirm main reports the failure and exits instead of hanging without a window.

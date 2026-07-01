@@ -119,6 +119,10 @@ export default function App({ desktop }: AppProps) {
     cycleCount: 0,
   });
   const [activity, setActivity] = useState<AgentActivity[]>([]);
+  const [agentControlPending, setAgentControlPending] = useState<
+    "start" | "stop" | undefined
+  >();
+  const [agentControlError, setAgentControlError] = useState<string>();
   const documentIdRef = useRef("default-document");
   const documentRevisionRef = useRef(0);
   const documentHydratedRef = useRef(false);
@@ -341,6 +345,36 @@ export default function App({ desktop }: AppProps) {
     }
   }, [desktop]);
 
+  const handleStartAgent = useCallback(async () => {
+    setAgentControlPending("start");
+    setAgentControlError(undefined);
+    try {
+      setRuntime(await desktop.startAgent());
+    } catch (error) {
+      setAgentControlError(
+        error instanceof Error ? error.message : "The agent could not be started",
+      );
+      console.error("Agent start failed", error);
+    } finally {
+      setAgentControlPending(undefined);
+    }
+  }, [desktop]);
+
+  const handleStopAgent = useCallback(async () => {
+    setAgentControlPending("stop");
+    setAgentControlError(undefined);
+    try {
+      setRuntime(await desktop.stopAgent());
+    } catch (error) {
+      setAgentControlError(
+        error instanceof Error ? error.message : "The agent could not be stopped",
+      );
+      console.error("Agent stop failed", error);
+    } finally {
+      setAgentControlPending(undefined);
+    }
+  }, [desktop]);
+
   const handleEditorSelectionChange = () => {
     try {
       setLastActiveBlockId(editor.getTextCursorPosition().block.id);
@@ -408,9 +442,14 @@ export default function App({ desktop }: AppProps) {
       activePreviewId={inbox.activePreviewId}
       unreadCount={inbox.unreadCount}
       status={runtime.status}
-      error={runtime.error ? { message: runtime.error, recoverable: true } : inbox.error}
+      error={agentControlError
+        ? { message: agentControlError, recoverable: true }
+        : runtime.error
+          ? { message: runtime.error, recoverable: true }
+          : inbox.error}
       activity={activity}
       runtime={runtime}
+      controlPending={agentControlPending}
       onSelect={inbox.select}
       onBack={inbox.back}
       onDismiss={inbox.dismiss}
@@ -418,6 +457,8 @@ export default function App({ desktop }: AppProps) {
       onUnpin={inbox.unpin}
       onPlaceOnWorkspace={handlePlaceOnWorkspace}
       onPreview={handlePreview}
+      onStartAgent={handleStartAgent}
+      onStopAgent={handleStopAgent}
     />
   );
 

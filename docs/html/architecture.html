@@ -228,6 +228,11 @@
 <td>Project-scoped <code>.pi/sessions</code> JSONL</td>
 </tr>
 <tr>
+<td>Agent start/stop state</td>
+<td>Agent utility process</td>
+<td>Current launch only; every app launch starts stopped</td>
+</tr>
+<tr>
 <td>Activity diagnostics</td>
 <td>Electron main</td>
 <td>Current-launch 500-item memory ring</td>
@@ -255,7 +260,7 @@
 <h3 id="desktop-and-src-desktop"><code>desktop</code> and <code>src/desktop</code><a class="heading-anchor" href="#desktop-and-src-desktop" aria-label="Link to desktop and src/desktop">#</a></h3><ul>
 <li><code>desktop/main.ts</code> owns Electron lifecycle, renderer IPC, utility processes, revision forwarding, and the activity ring.</li>
 <li><code>desktop/storage.ts</code> owns schema creation, SQLite queries, managed Markdown files, and committed events.</li>
-<li><code>desktop/agent.ts</code> creates the durable Pi coding-agent session and drives autonomous cycles.</li>
+<li><code>desktop/agent.ts</code> creates the durable Pi coding-agent session and drives user-enabled autonomous cycles. Revisions continue to coalesce while the agent is stopped.</li>
 <li><code>desktop/scribe-extension.ts</code> defines suggestion/yield tools and persists extension loop state.</li>
 <li><code>desktop/preload.ts</code> exposes the typed desktop API.</li>
 <li><code>src/desktop/desktopClient.ts</code> maps desktop events into <code>SuggestionFeed</code>.</li>

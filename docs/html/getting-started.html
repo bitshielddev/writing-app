@@ -148,7 +148,8 @@ npm run dev</code></pre></div><p>Vite builds the Electron main, preload, storage
       &lt;imported-source&gt;.md
     .pi/sessions/
       *.jsonl</code></pre></div><p>The source checkout is not the writing project workspace. Electron creates and repairs <code>draft.md</code>, stores the source list and suggestions in <code>scribe.sqlite3</code>, and resumes Pi sessions from the project-specific <code>.pi/sessions/</code> directory.</p>
-<h2 id="what-to-expect-after-startup">What to expect after startup<a class="heading-anchor" href="#what-to-expect-after-startup" aria-label="Link to What to expect after startup">#</a></h2><p>Electron opens the persisted writing workspace. To inject deterministic suggestions without invoking a model:</p>
+<h2 id="what-to-expect-after-startup">What to expect after startup<a class="heading-anchor" href="#what-to-expect-after-startup" aria-label="Link to What to expect after startup">#</a></h2><p>Electron opens the persisted writing workspace with the agent stopped. Import sources and edit the draft without model activity, then choose <strong>Start Agent</strong> in the writing-partner toolbar when ready. <strong>Stop Agent</strong> immediately cancels active model work and keeps later revisions queued until the next start.</p>
+<p>To inject deterministic suggestions without invoking a model:</p>
 <ol>
 <li>Choose <strong>Development → Mock suggestions</strong>, or press <code>CmdOrCtrl+Shift+M</code>.</li>
 <li>Complete one of the six suggestion forms in the dedicated development window.</li>
@@ -162,14 +163,14 @@ npm run dev</code></pre></div><p>Vite builds the Electron main, preload, storage
   &quot;defaultProvider&quot;: &quot;anthropic&quot;,
   &quot;defaultModel&quot;: &quot;claude-sonnet-4-6&quot;
 }</code></pre></div><p>Credentials can either live in Pi&#39;s native <code>&lt;userData&gt;/pi/auth.json</code> file or be supplied as standard provider environment variables, such as <code>ANTHROPIC_API_KEY</code>, before starting Electron. Custom providers and model aliases belong in <code>&lt;userData&gt;/pi/models.json</code>.</p>
-<p>Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline and the reason appears in the Activity tab. A configured agent reads <code>draft.md</code> plus Markdown files in <code>sources/</code>, but it cannot edit them directly; it publishes suggestions through Scribe&#39;s suggestion tools.</p>
+<p>Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline, Start Agent is unavailable, and the reason appears in the Activity tab. A configured agent remains stopped until the writer starts it. It reads <code>draft.md</code> plus Markdown files in <code>sources/</code>, but it cannot edit them directly; it publishes suggestions through Scribe&#39;s suggestion tools.</p>
 <h2 id="import-writing-sources">Import writing sources<a class="heading-anchor" href="#import-writing-sources" aria-label="Link to Import writing sources">#</a></h2><p>Use the Electron app to import sources:</p>
 <ol>
 <li>Open the sidebar section labelled <strong>AI research context</strong>.</li>
 <li>Choose <strong>Upload Sources</strong>.</li>
 <li>Select a UTF-8 <code>.md</code> or <code>.markdown</code> file.</li>
 </ol>
-<p>Electron copies the selected file into <code>&lt;userData&gt;/projects/default-project/sources/</code>, records it in SQLite, adds it to the sidebar, increments the project revision, and wakes the agent. Name collisions are kept readable, for example <code>notes (2).md</code>.</p>
+<p>Electron copies the selected file into <code>&lt;userData&gt;/projects/default-project/sources/</code>, records it in SQLite, adds it to the sidebar, and increments the project revision. A running agent wakes immediately; a stopped agent retains the latest revision for the next start. Name collisions are kept readable, for example <code>notes (2).md</code>.</p>
 <p>Do not place source files directly in the <code>sources/</code> directory as the normal workflow. Direct copies bypass the SQLite source record and revision event, so the file may not appear in the app or wake the agent. The original selected file is not watched after import; import the changed Markdown file again when source content changes.</p>
 <h2 id="developer-commands">Developer commands<a class="heading-anchor" href="#developer-commands" aria-label="Link to Developer commands">#</a></h2><table>
 <thead>

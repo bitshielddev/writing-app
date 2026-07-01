@@ -100,7 +100,9 @@ On small screens the editor's inline padding is reduced. The editor remains the 
 
 ## Suggestion dock interaction
 
-The writing partner has two mutually exclusive views:
+The writing partner has two tabs, Suggestions and Activity. Its sticky toolbar also contains the lifecycle control, so **Start Agent** or **Stop Agent** remains available from either tab and suggestion detail.
+
+The Suggestions tab has two mutually exclusive views:
 
 - queue view: error, Pins, and live inbox;
 - detail view: full suggestion, sources, visual content, and actions.
@@ -111,6 +113,9 @@ The queue deliberately has no suggestion-type tabs. All kinds share one stream, 
 
 Action availability is constrained by lifecycle:
 
+- Start Agent is disabled while Pi configuration is unavailable;
+- Start and Stop are disabled while their IPC request is pending;
+- stopping preserves existing suggestions and cancels active model work;
 - only text kinds can preview;
 - any active preview disables starting another;
 - the active preview's source item cannot be dismissed or placed on the workspace;
@@ -144,6 +149,7 @@ When changing UI behavior, retain these existing properties:
 - drawers are named modal dialogs and restore focus;
 - unread state is not color-only (`Unread` is exposed to assistive technology on queue rows);
 - agent errors use readable text;
+- agent lifecycle state and the pending Start/Stop label are exposed as text;
 - a mind map has an accessible description even if rendering fails;
 - workspace cards are named regions with named move, resize, and return controls;
 - custom focus outlines are visible on buttons, links, and inputs;

@@ -25,21 +25,57 @@ export type PersistedScribeLoopState = Pick<
 export class ScribeLoopState {
   private state: ScribeLoopSnapshot;
   private yieldedInCycle = false;
+  private enabled = false;
+  private cycleInProgress = false;
 
   constructor(restored?: Partial<PersistedScribeLoopState>) {
     this.state = {
       latestRevision: restored?.latestRevision ?? -1,
       latestDocumentRevision: restored?.latestDocumentRevision ?? -1,
-      activeRevision: restored?.activeRevision,
-      activeDocumentRevision: restored?.activeDocumentRevision,
+      activeRevision: undefined,
+      activeDocumentRevision: undefined,
       yieldedRevision: restored?.yieldedRevision,
       cycleCount: restored?.cycleCount ?? 0,
-      status: restored?.status ?? "waiting",
+      status: "stopped",
     };
   }
 
   snapshot(): ScribeLoopSnapshot {
     return { ...this.state };
+  }
+
+  isEnabled() {
+    return this.enabled;
+  }
+
+  start() {
+    if (this.enabled) return false;
+    this.enabled = true;
+    this.cycleInProgress = false;
+    this.state.activeRevision = undefined;
+    this.state.activeDocumentRevision = undefined;
+    this.state.cycleCount = 0;
+    this.state.error = undefined;
+    this.state.status =
+      this.state.latestRevision > (this.state.yieldedRevision ?? -1)
+        ? "working"
+        : "waiting";
+    return true;
+  }
+
+  stop() {
+    if (!this.enabled) return false;
+    this.enabled = false;
+    if (this.cycleInProgress) {
+      this.state.cycleCount = Math.max(0, this.state.cycleCount - 1);
+    }
+    this.cycleInProgress = false;
+    this.yieldedInCycle = false;
+    this.state.activeRevision = undefined;
+    this.state.activeDocumentRevision = undefined;
+    this.state.error = undefined;
+    this.state.status = "stopped";
+    return true;
   }
 
   revision(projectRevision: number, documentRevision: number) {
@@ -54,12 +90,13 @@ export class ScribeLoopState {
       this.state.cycleCount = 0;
       this.state.error = undefined;
       this.yieldedInCycle = false;
-      this.state.status = "working";
+      this.state.status = this.enabled ? "working" : "stopped";
     }
     return isNewWork;
   }
 
   beginCycle() {
+    if (!this.enabled) return undefined;
     if (this.state.latestRevision < 0) return undefined;
     if (this.state.latestRevision <= (this.state.yieldedRevision ?? -1)) {
       this.state.status = "waiting";
@@ -74,6 +111,7 @@ export class ScribeLoopState {
     this.state.cycleCount += 1;
     this.state.status = "working";
     this.yieldedInCycle = false;
+    this.cycleInProgress = true;
     return {
       projectRevision: this.state.activeRevision,
       documentRevision: this.state.activeDocumentRevision,
@@ -82,7 +120,13 @@ export class ScribeLoopState {
   }
 
   requestYield() {
-    if (this.state.activeRevision === undefined) return false;
+    if (
+      !this.enabled ||
+      !this.cycleInProgress ||
+      this.state.activeRevision === undefined
+    ) {
+      return false;
+    }
     if (this.state.latestRevision > this.state.activeRevision) return false;
     this.state.yieldedRevision = this.state.activeRevision;
     this.yieldedInCycle = true;
@@ -90,6 +134,8 @@ export class ScribeLoopState {
   }
 
   finishCycle() {
+    if (!this.enabled || !this.cycleInProgress) return false;
+    this.cycleInProgress = false;
     if (
       this.yieldedInCycle &&
       this.state.activeRevision === this.state.latestRevision
@@ -111,6 +157,8 @@ export class ScribeLoopState {
   }
 
   fail(error: string) {
+    this.cycleInProgress = false;
+    if (!this.enabled) return;
     this.state.status = "error";
     this.state.error = error;
   }
@@ -123,7 +171,12 @@ export class ScribeLoopState {
       activeRevision: this.state.activeRevision,
       activeDocumentRevision: this.state.activeDocumentRevision,
       cycleCount: this.state.cycleCount,
-      status: this.state.status,
+      status:
+        this.state.status === "stopped"
+          ? this.state.latestRevision > (this.state.yieldedRevision ?? -1)
+            ? "working"
+            : "waiting"
+          : this.state.status,
     };
   }
 }

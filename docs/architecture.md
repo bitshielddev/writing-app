@@ -66,6 +66,7 @@ Keeping feed creation stable is important. Recreating it during a render would r
 | Documents, Markdown mirror, sources, suggestions | SQLite/storage process | Electron application data and managed project workspace |
 | Agent model/auth configuration | Pi coding-agent | Native `settings.json`, `auth.json`, and `models.json` under `<userData>/pi`; environment credentials also resolve |
 | Agent session/loop state | Pi `SessionManager` and Scribe extension | Project-scoped `.pi/sessions` JSONL |
+| Agent start/stop state | Agent utility process | Current launch only; every app launch starts stopped |
 | Activity diagnostics | Electron main | Current-launch 500-item memory ring |
 | Draft title, tab, source, and navigation data | Component constants | Static |
 
@@ -97,7 +98,7 @@ This layer is React-independent except for the `useSuggestionInbox` hook at the 
 
 - `desktop/main.ts` owns Electron lifecycle, renderer IPC, utility processes, revision forwarding, and the activity ring.
 - `desktop/storage.ts` owns schema creation, SQLite queries, managed Markdown files, and committed events.
-- `desktop/agent.ts` creates the durable Pi coding-agent session and drives autonomous cycles.
+- `desktop/agent.ts` creates the durable Pi coding-agent session and drives user-enabled autonomous cycles. Revisions continue to coalesce while the agent is stopped.
 - `desktop/scribe-extension.ts` defines suggestion/yield tools and persists extension loop state.
 - `desktop/preload.ts` exposes the typed desktop API.
 - `src/desktop/desktopClient.ts` maps desktop events into `SuggestionFeed`.

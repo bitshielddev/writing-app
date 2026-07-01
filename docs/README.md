@@ -12,7 +12,7 @@ ScribeAI is an Electron writing workspace with a React renderer. The current imp
 - desktop workspace cards for keeping references over the editor;
 - responsive navigation and writing-partner panels;
 - SQLite document, Markdown mirror, source, and suggestion persistence;
-- a durable autonomous Pi coding-agent session and launch-scoped activity diagnostics.
+- a durable Pi coding-agent session with writer-controlled autonomous work and launch-scoped activity diagnostics.
 
 Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources, and restores the workspace and Pi session after restart. Development uses the same runtime with Vite renderer HMR and a dedicated mock-suggestion window.
 
@@ -31,7 +31,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 | Area | Current behavior |
 | --- | --- |
 | Editor | Electron hydrates and autosaves the current BlockNote document. |
-| Writing partner | Electron receives committed suggestions from the Pi agent or its development-only mock controller. |
+| Writing partner | The agent starts stopped on every app launch. A persistent control starts or immediately stops autonomous work. Electron receives committed suggestions from the Pi agent or its development-only mock controller. |
 | Text suggestions | Snippets, facts, and terms can become an editable document preview, then be accepted or cancelled. |
 | Structural suggestions | Outlines and layouts render nested cards; mind maps render through Mermaid. They are references, not insertable previews. |
 | Pins | A suggestion can be frozen into the Pins section. On desktop it can then be placed, moved, resized, stacked, and returned. |
