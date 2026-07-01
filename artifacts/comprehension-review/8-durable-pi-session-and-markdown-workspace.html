@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension review: durable Pi session and Markdown workspace</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20212a;
+      --muted: #626071;
+      --soft: #f6f4fb;
+      --line: #dedbe9;
+      --code: #171923;
+      --accent: #5f4bb6;
+      --accent-soft: #eeeafd;
+      --warn: #8a5b00;
+      --warn-bg: #fff7df;
+      --ok: #166341;
+      --ok-bg: #eaf8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #ffffff 0, #faf9fe 52%, #f1eef9 100%);
+    }
+    .page { max-width: 1120px; margin: 0 auto; padding: 48px 24px 72px; }
+    header.hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 28px;
+      align-items: start;
+      padding: 34px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: rgba(255,255,255,.82);
+      box-shadow: 0 24px 60px rgba(42, 33, 84, .08);
+    }
+    .eyebrow { margin: 0 0 10px; color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 780px; font-size: clamp(2rem, 4vw, 4.2rem); line-height: 1.02; letter-spacing: -.055em; }
+    .lede { margin: 22px 0 0; max-width: 760px; color: #4e4b5c; font-size: 1.08rem; }
+    .meta-card { border-radius: 20px; background: var(--soft); border: 1px solid var(--line); padding: 18px; }
+    .meta-card p { margin: 0 0 12px; color: var(--muted); font-size: .9rem; }
+    .meta-card code { display: block; margin-top: 6px; white-space: normal; }
+    nav.toc { position: sticky; top: 0; z-index: 5; margin: 22px 0 34px; padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.92); backdrop-filter: blur(12px); }
+    nav.toc a { display: inline-block; margin: 3px 8px; color: var(--accent); font-size: .9rem; font-weight: 700; text-decoration: none; }
+    section { margin: 34px 0; }
+    .panel { border: 1px solid var(--line); border-radius: 24px; background: rgba(255,255,255,.86); padding: 26px; box-shadow: 0 12px 30px rgba(42, 33, 84, .05); }
+    h2 { margin: 0 0 14px; font-size: 1.7rem; line-height: 1.18; letter-spacing: -.025em; }
+    h3 { margin: 24px 0 8px; font-size: 1.1rem; }
+    p { margin: 0 0 14px; }
+    ul { margin: 10px 0 0 1.2rem; padding: 0; }
+    li { margin: 6px 0; }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: .92em; background: #f0edf8; border: 1px solid #e2dff0; border-radius: 6px; padding: .08rem .32rem; }
+    pre { margin: 16px 0; padding: 18px; overflow: auto; border-radius: 18px; background: var(--code); color: #f4f1ff; font-size: .86rem; line-height: 1.55; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+    pre code { background: transparent; border: 0; color: inherit; padding: 0; font-size: inherit; }
+    mark { background: rgba(255, 214, 102, .23); color: inherit; border-radius: 4px; padding: 0 .15rem; }
+    .map { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-top: 18px; }
+    .node { padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
+    .node small { display: block; color: var(--accent); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .node p { margin: 7px 0 0; color: var(--muted); font-size: .92rem; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; overflow: hidden; border-radius: 16px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 12px 14px; text-align: left; vertical-align: top; }
+    th { color: #3b3559; background: var(--accent-soft); font-size: .86rem; text-transform: uppercase; letter-spacing: .08em; }
+    .callout { margin: 18px 0; padding: 16px 18px; border-radius: 18px; border: 1px solid; }
+    .callout.warn { color: var(--warn); background: var(--warn-bg); border-color: #f0d99b; }
+    .callout.ok { color: var(--ok); background: var(--ok-bg); border-color: #b8e5cb; }
+    .callout.note { color: #413c5f; background: #f3f0ff; border-color: #d9d2ff; }
+    .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .78fr); gap: 18px; align-items: start; }
+    .timeline { border-left: 3px solid #d9d2ff; padding-left: 18px; }
+    .timeline article { margin: 0 0 18px; }
+    .timeline time { color: var(--accent); font-size: .82rem; font-weight: 800; }
+    details.quiz { border: 1px solid var(--line); border-radius: 18px; background: #fff; padding: 14px 16px; margin: 12px 0; }
+    details.quiz summary { cursor: pointer; font-weight: 800; }
+    details.quiz p { margin-top: 10px; color: var(--muted); }
+    .footer-note { color: var(--muted); font-size: .92rem; }
+    @media (max-width: 860px) {
+      header.hero, .split, .map { grid-template-columns: 1fr; }
+      nav.toc { position: static; }
+      .page { padding: 24px 14px 56px; }
+      header.hero, .panel { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Comprehension review</p>
+        <h1>Durable Pi session, managed Markdown workspace, and visible agent activity</h1>
+        <p class="lede">This change replaces the app-specific observation runner with a project-scoped Pi coding-agent session. The agent now reads real Markdown files in a managed workspace, publishes suggestions through extension tools, and reports its loop/activity state to the renderer.</p>
+      </div>
+      <aside class="meta-card" aria-label="review metadata">
+        <p>Diff context: working tree changes on top of <code>6150c37 Developing the electron runtime</code>.</p>
+        <p>Test signal: <code>npm test</code> passed, 11 files and 50 tests.</p>
+        <p>Generated/secondary files: docs HTML, search index, and package lock follow the source changes.</p>
+      </aside>
+    </header>
+
+    <nav class="toc" aria-label="Review sections">
+      <a href="#change-shape">Change shape</a>
+      <a href="#flow">Runtime flow</a>
+      <a href="#workspace">Workspace files</a>
+      <a href="#loop">Autonomous loop</a>
+      <a href="#activity">Activity</a>
+      <a href="#risks">Invariants and risks</a>
+      <a href="#questions">Check yourself</a>
+    </nav>
+
+    <section id="change-shape" class="panel">
+      <h2>The main move: from a custom observer to a Pi project session</h2>
+      <p>The previous runtime used <code>@earendil-works/pi-agent-core</code>, app-owned <code>agent.yaml</code>, extracted source text in SQLite, per-run transcript tables, and a scheduler-style observation path. The new runtime uses <code>@earendil-works/pi-coding-agent</code>, Pi's own settings/auth/model/session managers, a Scribe extension, and filesystem tools limited to reading the app-managed project workspace.</p>
+
+      <table>
+        <thead><tr><th>Area</th><th>Before this diff</th><th>After this diff</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Agent package</td>
+            <td><code>@earendil-works/pi-agent-core</code> plus local model/config resolution.</td>
+            <td><code>@earendil-works/pi-coding-agent</code>, using <code>SettingsManager</code>, <code>AuthStorage</code>, <code>ModelRegistry</code>, and <code>SessionManager</code>.</td>
+          </tr>
+          <tr>
+            <td>Project content</td>
+            <td>Storage exposed content list/read/search tools backed by SQLite/extracted text.</td>
+            <td>Storage mirrors the draft and sources as Markdown files; Pi gets <code>read</code>, <code>grep</code>, <code>find</code>, and <code>ls</code>.</td>
+          </tr>
+          <tr>
+            <td>Agent lifecycle</td>
+            <td>Runs were started for observations, transcripted in SQLite, and finished.</td>
+            <td>A durable Pi session continues recent project state. Loop state is appended as a custom Pi session entry.</td>
+          </tr>
+          <tr>
+            <td>UI feedback</td>
+            <td>The suggestion dock mostly showed suggestion status/error.</td>
+            <td>The dock has Suggestions and Activity views, and hydration includes the current launch's activity ring.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout note">
+        <p>Intent is inferred from code and docs, not an issue ticket: the app is moving toward a Pi-native autonomous writing partner that can inspect durable Markdown files while still being blocked from editing them directly.</p>
+      </div>
+    </section>
+
+    <section id="flow" class="panel">
+      <h2>Follow a document change through the new runtime</h2>
+      <p>A useful way to read this diff is to start with a user edit. The renderer saves accepted BlockNote blocks plus Markdown. Storage commits a durable revision. Main forwards that revision to the agent. The Scribe extension wakes the loop. The agent session may create, update, or retract suggestions through storage RPC.</p>
+
+      <div class="map" aria-label="Runtime map">
+        <div class="node"><small>Renderer</small><p>Debounces editor changes, saves blocks and Markdown, renders suggestions/activity.</p></div>
+        <div class="node"><small>Storage utility</small><p>Owns SQLite, <code>draft.md</code>, <code>sources/</code>, revision checks, suggestion events.</p></div>
+        <div class="node"><small>Electron main</small><p>Routes IPC/RPC, forwards durable revisions, keeps activity ring.</p></div>
+        <div class="node"><small>Agent utility</small><p>Continues Pi session, runs the autonomous loop, exposes Scribe tools.</p></div>
+      </div>
+
+      <h3>Renderer save now includes Markdown</h3>
+      <pre><code>const blocks = editor.document.filter(
+  (block) =&gt; block.type !== "suggestionPreview",
+);
+const markdown = editor.blocksToMarkdownLossy(blocks);
+saveQueueRef.current = saveQueueRef.current
+  .then(async () =&gt; {
+    const document = await desktop.saveDocument({
+      documentId: documentIdRef.current,
+      blocks,
+      markdown,
+      expectedRevision: documentRevisionRef.current,
+    });
+    documentRevisionRef.current = document.revision;
+  })</code></pre>
+      <p>The existing invariant still matters: temporary <code>suggestionPreview</code> blocks are filtered before persistence. The new piece is the lossy Markdown mirror, which is what Pi will read as <code>draft.md</code>.</p>
+
+      <h3>Main forwards durable revisions, not keystrokes</h3>
+      <pre><code>if (message.event.type === "document.saved") {
+  agent?.post({
+    kind: "project.changed",
+    projectRevision: message.event.projectRevision,
+    documentRevision: message.event.document.revision,
+  });
+} else if (message.event.type === "source.imported") {
+  void storage.call&lt;ObservationSeed&gt;("agent.seed").then((seed) =&gt; {
+    agent?.post({
+      kind: "project.changed",
+      projectRevision: seed.projectRevision,
+      documentRevision: seed.documentRevision,
+    });
+  });
+}</code></pre>
+      <p>Document saves carry the document revision directly. Source imports do not include a document snapshot, so main asks storage for a fresh observation seed and forwards the latest project/document pair.</p>
+    </section>
+
+    <section id="workspace" class="panel">
+      <h2>The managed workspace is now part of the data model</h2>
+      <p>The database schema gained a <code>markdown</code> column on documents and changed sources from extracted text to copied Markdown files with byte counts. Storage now receives a project workspace path as a process argument.</p>
+
+      <div class="split">
+        <div>
+          <pre><code>const sourcesDirectory = join(workspaceRoot, "sources");
+const piDirectory = join(workspaceRoot, ".pi");
+const draftPath = join(workspaceRoot, "draft.md");</code></pre>
+          <p>The docs describe this as <code>&lt;userData&gt;/projects/default-project/</code> containing <code>draft.md</code>, <code>sources/</code>, and <code>.pi/sessions/</code>. The code above is the storage-side boundary that makes those paths real.</p>
+        </div>
+        <div class="callout ok">
+          <p>The agent's read path is simpler now. Instead of reading source text extracted into SQLite, Pi reads the same managed files that storage repairs and owns.</p>
+        </div>
+      </div>
+
+      <h3>Startup repairs <code>draft.md</code> from SQLite</h3>
+      <pre><code>async function repairDraftMirror() {
+  await mkdir(sourcesDirectory, { recursive: true });
+  await mkdir(piDirectory, { recursive: true });
+  const markdown = getDocument().markdown;
+  let current: string | undefined;
+  try {
+    current = await readFile(draftPath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  if (current !== markdown) await atomicWrite(draftPath, markdown);
+  return { workspaceRoot, draftPath, sourcesDirectory, repaired: current !== markdown };
+}</code></pre>
+      <p>This makes SQLite the canonical source for the accepted draft while keeping a file mirror current for Pi. Storage also calls <code>await repairDraftMirror();</code> during module startup and main calls <code>workspace.repair</code> before the agent starts.</p>
+
+      <h3>Source import has narrowed to UTF-8 Markdown</h3>
+      <pre><code>function validateMarkdownSource(path: string, bytes: Uint8Array) {
+  const extension = extname(path).toLocaleLowerCase();
+  if (extension !== ".md" && extension !== ".markdown") {
+    throw new Error("Only .md and .markdown source files are supported");
+  }
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error("Markdown source must contain valid UTF-8");
+  }
+}</code></pre>
+      <p>This is a real product behavior change. PDF, DOCX, JSON, and plain text extraction code has been removed along with <code>mammoth</code>, <code>pdf-parse</code>, and canvas dependencies. A source must now be readable Markdown.</p>
+    </section>
+
+    <section id="loop" class="panel">
+      <h2>The loop decides when the agent should work, wait, or stop retrying</h2>
+      <p>The new loop is isolated in <code>desktop/scribe-loop.ts</code>. It tracks the latest durable project revision, the active cycle, yielded revision, cycle count, status, and error. That gives the extension a small state machine around a long-lived Pi session.</p>
+
+      <pre><code>beginCycle() {
+  if (this.state.latestRevision &lt; 0) return undefined;
+  if (this.state.latestRevision &lt;= (this.state.yieldedRevision ?? -1)) {
+    this.state.status = "waiting";
+    return undefined;
+  }
+  if (this.state.cycleCount &gt;= 5) {
+    this.state.status = "capped";
+    return undefined;
+  }
+  this.state.activeRevision = this.state.latestRevision;
+  this.state.activeDocumentRevision = this.state.latestDocumentRevision;
+  this.state.cycleCount += 1;
+  this.state.status = "working";
+  this.yieldedInCycle = false;
+  return {
+    projectRevision: this.state.activeRevision,
+    documentRevision: this.state.activeDocumentRevision,
+    cycleCount: this.state.cycleCount,
+  };
+}</code></pre>
+
+      <p>The cap is the guard against an agent that never calls <code>wait_for_changes</code>. The tests confirm five consecutive cycles without a yield or newer revision produce <code>capped</code>.</p>
+
+      <h3>The extension is the bridge between Pi and Scribe storage</h3>
+      <pre><code>pi.registerTool({
+  name: "create_suggestion",
+  label: "Create suggestion",
+  description: "Publish a proposed draft change without editing draft.md.",
+  parameters: suggestionSchema,
+  execute: async (_id, params) =&gt; {
+    const item = toSuggestion(params as SuggestionInput);
+    const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
+    if (expectedDocumentRevision === undefined) return toolResult("No active revision", true);
+    try {
+      return toolResult(await host.storageCall("agent.suggestion.create", {
+        item,
+        expectedDocumentRevision,
+      }));
+    } catch (error) {
+      host.wake();
+      return toolResult(error instanceof Error ? error.message : String(error), true);
+    }
+  },
+});</code></pre>
+      <p>Every suggestion mutation carries the active document revision. Storage rejects stale mutations with <code>STALE_SUGGESTION_REVISION</code>. The extension then wakes the loop so the agent can work against the newest revision instead of publishing against an old draft.</p>
+
+      <h3>Pi is configured as a read-only project agent</h3>
+      <pre><code>const created = await createAgentSession({
+  cwd: workspaceRoot,
+  agentDir,
+  authStorage,
+  modelRegistry,
+  settingsManager,
+  resourceLoader,
+  sessionManager,
+  tools: ["read", "grep", "find", "ls", ...SCRIBE_TOOL_NAMES],
+  excludeTools: ["bash", "write", "edit"],
+});</code></pre>
+      <p>The code verifies the active tool set after session creation. If the active names differ from the expected read/Scribe set, the agent is marked offline with a diagnostic. This is the main safety invariant for the new filesystem-based approach.</p>
+    </section>
+
+    <section id="activity" class="panel">
+      <h2>The developer can now inspect what the agent did during this launch</h2>
+      <p>Agent events are no longer stored as durable transcript rows. Instead, main holds a launch-scoped ring of redacted activity entries and broadcasts updates to the renderer.</p>
+
+      <pre><code>export class ActivityRing {
+  private items: AgentActivity[] = [];
+
+  add(input: Omit&lt;AgentActivity, "updatedAt" | "payload"&gt; &amp; { payload?: unknown }) {
+    const activity: AgentActivity = {
+      ...input,
+      updatedAt: Date.now(),
+      ...(input.payload === undefined ? {} : { payload: safeActivityPayload(input.payload) }),
+    };
+    const existing = this.items.findIndex((item) =&gt; item.id === activity.id);
+    if (existing &gt;= 0) {
+      this.items[existing] = {
+        ...this.items[existing],
+        ...activity,
+        timestamp: this.items[existing].timestamp,
+      };
+    } else {
+      this.items.push(activity);
+      if (this.items.length &gt; MAX_ITEMS) this.items.splice(0, this.items.length - MAX_ITEMS);
+    }
+    return existing &gt;= 0 ? this.items[existing] : this.items.at(-1)!;
+  }
+}</code></pre>
+
+      <p>Two details are worth preserving if this area changes later: streaming events aggregate by ID, and the original timestamp is retained when an entry is updated. The tests cover both aggregation and the 500-item cap.</p>
+
+      <pre><code>&lt;nav className="sticky top-0 z-20 grid grid-cols-2 ..." aria-label="Writing partner views"&gt;
+  &lt;button ...&gt;Suggestions&lt;/button&gt;
+  &lt;button ...&gt;Activity&lt;/button&gt;
+&lt;/nav&gt;
+{view === "activity" ? (
+  &lt;ActivityView items={activity} runtime={runtime} /&gt;
+) : selectedEntry ? (
+  &lt;DetailView ... /&gt;
+) : (
+  ...
+)}</code></pre>
+      <p>The renderer exposes this as a second dock view. Runtime status text is still announced with <code>aria-live</code>; the activity list itself is a readable diagnostic view rather than an interrupting stream.</p>
+    </section>
+
+    <section id="risks" class="panel">
+      <h2>What future maintainers should keep in their head</h2>
+
+      <div class="callout warn">
+        <p><strong>Schema versioning currently resets data.</strong> When <code>PRAGMA user_version</code> differs from <code>DATABASE_VERSION</code>, storage drops the old tables before creating version 2. That is fine for a development reset, but it is not a preserving migration.</p>
+      </div>
+      <pre><code>if (currentVersion.user_version !== DATABASE_VERSION) {
+  db.exec(`
+    DROP TABLE IF EXISTS agent_transcript;
+    DROP TABLE IF EXISTS agent_runs;
+    DROP TABLE IF EXISTS agent_memory;
+    DROP TABLE IF EXISTS provider_settings;
+    DROP TABLE IF EXISTS event_outbox;
+    DROP TABLE IF EXISTS suggestion_state;
+    DROP TABLE IF EXISTS sources;
+    DROP TABLE IF EXISTS documents;
+    DROP TABLE IF EXISTS projects;
+    DROP TABLE IF EXISTS app_meta;
+  `);
+}</code></pre>
+
+      <ul>
+        <li>Keep SQLite and <code>draft.md</code> synchronized. <code>saveDocument</code> writes the Markdown file before the database transaction. If the DB commit fails after the file write, startup repair should restore the mirror from SQLite.</li>
+        <li>Do not widen Pi tools without revisiting the safety model. The system prompt says never edit project files, but the hard boundary is the active tool list and <code>excludeTools</code>.</li>
+        <li>Suggestion mutations must stay revision-checked. Removing <code>expectedDocumentRevision</code> would let stale cycles publish against a draft the user has already changed.</li>
+        <li>Activity payloads can include provider requests/responses. <code>safeActivityPayload</code> redacts sensitive keys and truncates large payloads; new activity producers should keep sending raw payloads through the ring rather than bypassing it.</li>
+        <li>Docs and generated HTML were updated to match the runtime. The behavior should be verified in source files first, then docs.</li>
+      </ul>
+
+      <div class="timeline" aria-label="Relevant history">
+        <article>
+          <time>65d1cd5</time>
+          <p><code>First attempt as electron desktop persistence and adding the pi agent</code> introduced desktop storage, the agent utility process, and the first Pi-backed suggestion flow.</p>
+        </article>
+        <article>
+          <time>6150c37</time>
+          <p><code>Developing the electron runtime</code> added local <code>agent.yaml</code> handling and removed the manual agent controls. The current diff removes that local config layer and moves configuration/session behavior into Pi coding-agent.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="questions" class="panel">
+      <h2>Comprehension check</h2>
+      <p>Use these to check whether you can safely modify this code path later.</p>
+
+      <details class="quiz">
+        <summary>1. A user edits the draft. Which saved artifact does Pi read, and where is it produced?</summary>
+        <p>Pi reads <code>draft.md</code> in the managed workspace. The renderer sends lossy Markdown with <code>desktop.saveDocument</code>, and storage writes that Markdown through <code>atomicWrite(draftPath, markdown)</code> before committing the new document/project revision.</p>
+      </details>
+
+      <details class="quiz">
+        <summary>2. Why do Scribe suggestion tools include <code>expectedDocumentRevision</code>?</summary>
+        <p>It ties a create/update/retract request to the revision the active agent cycle reviewed. Storage rejects mismatches with <code>STALE_SUGGESTION_REVISION</code>, preventing stale suggestions from being applied after the user changes the draft.</p>
+      </details>
+
+      <details class="quiz">
+        <summary>3. What happens if the agent completes five cycles for the same revision without calling <code>wait_for_changes</code>?</summary>
+        <p><code>ScribeLoopState</code> sets status to <code>capped</code> and stops immediately starting another cycle. A newer project revision resets the cycle count and can wake the loop again.</p>
+      </details>
+
+      <details class="quiz">
+        <summary>4. Where would you start debugging if suggestions stop arriving but the model is still sending messages?</summary>
+        <p>Open the Activity view first to inspect message/tool/error/provider events from the launch ring. Then check whether tool calls are returning stale revision errors, whether runtime status is <code>waiting</code>, <code>capped</code>, or <code>error</code>, and whether the active tool set passed the diagnostics in <code>desktop/agent.ts</code>.</p>
+      </details>
+
+      <details class="quiz">
+        <summary>5. What behavior changed for imported source files?</summary>
+        <p>Imports now accept only <code>.md</code> and <code>.markdown</code> files that decode as UTF-8. The file is copied into <code>sources/</code> with a readable collision-safe filename, and storage records byte count rather than extracted text.</p>
+      </details>
+    </section>
+
+    <p class="footer-note">Review generated for the current working tree. Claims above are grounded in changed source, tests, docs, package metadata, or recent git history.</p>
+  </main>
+</body>
+</html>

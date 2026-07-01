@@ -19,20 +19,16 @@ export function createDesktopSuggestionFeed(
         if (event.type === "suggestion.event") {
           suggestionEvent = event.event;
         } else if (event.type === "agent.runtime") {
-          if (event.runtime.lastError) {
+          if (event.runtime.status === "error" && event.runtime.error) {
             suggestionEvent = {
               type: "agent.error",
-              message: event.runtime.lastError,
+              message: event.runtime.error,
               recoverable: true,
             };
           } else {
             suggestionEvent = {
               type: "agent.status",
-              status: event.runtime.running
-                ? "working"
-                : event.runtime.configured
-                  ? "idle"
-                  : "offline",
+              status: event.runtime.status,
             };
           }
         }

@@ -92,7 +92,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--cyan">
-            <div class="page-hero__meta"><span>Guide 02</span><span>5 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 02</span><span>6 min read</span></div>
             <h1>Architecture</h1>
             <p>Understand browser and Electron boundaries, state ownership, data direction, and module responsibilities.</p>
             <div class="page-hero__footer">
@@ -213,14 +213,24 @@
 <td><code>localStorage</code> when available</td>
 </tr>
 <tr>
-<td>Documents, sources, transcripts, memory</td>
-<td>SQLite storage process</td>
-<td>Electron application data</td>
+<td>Documents, Markdown mirror, sources, suggestions</td>
+<td>SQLite/storage process</td>
+<td>Electron application data and managed project workspace</td>
 </tr>
 <tr>
-<td>Agent model configuration</td>
+<td>Agent model/auth configuration</td>
+<td>Pi coding-agent</td>
+<td>Native <code>settings.json</code>, <code>auth.json</code>, and <code>models.json</code> under <code>&lt;userData&gt;/pi</code>; environment credentials also resolve</td>
+</tr>
+<tr>
+<td>Agent session/loop state</td>
+<td>Pi <code>SessionManager</code> and Scribe extension</td>
+<td>Project-scoped <code>.pi/sessions</code> JSONL</td>
+</tr>
+<tr>
+<td>Activity diagnostics</td>
 <td>Electron main</td>
-<td><code>agent.yaml</code> in Electron application data; credentials resolve from the environment</td>
+<td>Current-launch 500-item memory ring</td>
 </tr>
 <tr>
 <td>Draft title, tab, source, and navigation data</td>
@@ -243,9 +253,10 @@
 <h3 id="src-dev-mocksuggestions"><code>src/dev/mockSuggestions</code><a class="heading-anchor" href="#src-dev-mocksuggestions" aria-label="Link to src/dev/mockSuggestions">#</a></h3><p>This temporary directory owns the Electron-only controller view and payload builder. Main and preload expose its injection bridge only during Vite development; storage persists accepted mock suggestions exactly like agent-created suggestions.</p>
 <p>This layer is React-independent except for the <code>useSuggestionInbox</code> hook at the bottom of <code>inbox.ts</code>. The reducer itself is a pure function and is the most important unit-test boundary.</p>
 <h3 id="desktop-and-src-desktop"><code>desktop</code> and <code>src/desktop</code><a class="heading-anchor" href="#desktop-and-src-desktop" aria-label="Link to desktop and src/desktop">#</a></h3><ul>
-<li><code>desktop/main.ts</code> owns Electron lifecycle, renderer IPC, utility processes, and the 10-second scheduler.</li>
-<li><code>desktop/storage.ts</code> owns schema creation, SQLite queries, source extraction, committed events, and agent persistence.</li>
-<li><code>desktop/agent.ts</code> embeds Pi agent-core, defines domain tools, records transcripts, and coalesces observations.</li>
+<li><code>desktop/main.ts</code> owns Electron lifecycle, renderer IPC, utility processes, revision forwarding, and the activity ring.</li>
+<li><code>desktop/storage.ts</code> owns schema creation, SQLite queries, managed Markdown files, and committed events.</li>
+<li><code>desktop/agent.ts</code> creates the durable Pi coding-agent session and drives autonomous cycles.</li>
+<li><code>desktop/scribe-extension.ts</code> defines suggestion/yield tools and persists extension loop state.</li>
 <li><code>desktop/preload.ts</code> exposes the typed desktop API.</li>
 <li><code>src/desktop/desktopClient.ts</code> maps desktop events into <code>SuggestionFeed</code>.</li>
 <li><code>src/shared/desktop.ts</code> is the cross-process contract.</li>

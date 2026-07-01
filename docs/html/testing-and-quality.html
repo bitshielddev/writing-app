@@ -92,7 +92,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--green">
-            <div class="page-hero__meta"><span>Guide 06</span><span>5 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 06</span><span>6 min read</span></div>
             <h1>Testing and quality</h1>
             <p>Know what the automated suite protects, where browser checks are required, and what to run before handoff.</p>
             <div class="page-hero__footer">
@@ -114,7 +114,7 @@
 npm run test:watch
 npm run lint
 npm run build</code></pre></div><p><code>npm run build</code> is also the authoritative type and bundle check. It type-checks the renderer and Electron projects, then runs the integrated Vite build for renderer, main, preload, storage, and agent entries. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.</p>
-<h2 id="current-automated-coverage">Current automated coverage<a class="heading-anchor" href="#current-automated-coverage" aria-label="Link to Current automated coverage">#</a></h2><p>The suite currently contains 34 tests across eight files.</p>
+<h2 id="current-automated-coverage">Current automated coverage<a class="heading-anchor" href="#current-automated-coverage" aria-label="Link to Current automated coverage">#</a></h2><p>The suite currently contains unit and component coverage across renderer, storage, autonomous-loop, activity, and Pi-session boundaries.</p>
 <table>
 <thead>
 <tr>
@@ -152,7 +152,19 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 </tr>
 <tr>
 <td><a href="../../desktop/storage.test.ts"><code>desktop/storage.test.ts</code></a></td>
-<td>SQLite bootstrap and revisioned document saves, durable agent/development suggestions, transcript recording, and searchable source import.</td>
+<td>Block/Markdown saves, mirror repair, stale suggestion rejection, and Markdown-only source import.</td>
+</tr>
+<tr>
+<td><a href="../../desktop/scribe-loop.test.ts"><code>desktop/scribe-loop.test.ts</code></a></td>
+<td>Coalescing, yields, races, five-cycle cap, error sleep, wake, and restored loop state.</td>
+</tr>
+<tr>
+<td><a href="../../desktop/activity.test.ts"><code>desktop/activity.test.ts</code></a></td>
+<td>Aggregation, redaction, 50 KB cap, and 500-item eviction.</td>
+</tr>
+<tr>
+<td><a href="../../desktop/pi-session.test.ts"><code>desktop/pi-session.test.ts</code></a></td>
+<td>Project session continuation, extension entries, and the read-only tool contract.</td>
 </tr>
 </tbody></table>
 <h3 id="why-reducer-tests-matter-most">Why reducer tests matter most<a class="heading-anchor" href="#why-reducer-tests-matter-most" aria-label="Link to Why reducer tests matter most">#</a></h3><p>The inbox reducer contains the application&#39;s lifecycle invariants and is pure. Any change to dedupe, updates, retractions, selection, previewing, pins, workspace geometry, queue limits, or unread behavior should begin with a reducer case. Component tests should then verify that the correct intent is exposed to users.</p>
@@ -167,7 +179,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <li>canvas clamping through a real <code>ResizeObserver</code>;</li>
 <li>Mermaid SVG rendering and failure handling;</li>
 <li>production bundle execution, Electron readiness, and <code>file://</code> asset resolution;</li>
-<li>DOCX and PDF extraction inside the Electron utility process;</li>
+<li>real-provider autonomous behaviour and provider-specific streaming;</li>
 <li>visual layout, overflow, font fallback, or contrast.</li>
 </ul>
 <p>Changes in these areas require targeted tests where practical and the manual checks below.</p>
@@ -221,9 +233,11 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <li>Inject a suggestion, reload, and confirm it remains persisted. Confirm a production launch has no development menu or bridge.</li>
 <li>Launch the built application and confirm the renderer mounts without failed local script or stylesheet requests.</li>
 <li>Edit and restart to verify document hydration and the 650 ms autosave path.</li>
-<li>Import each supported source type; include PDF to exercise the utility-process canvas globals.</li>
+<li>Import <code>.md</code> and <code>.markdown</code>, including duplicate names; reject invalid UTF-8 and other extensions.</li>
 <li>Restart and confirm sources, suggestions, pins, and workspace geometry hydrate from SQLite.</li>
-<li>Confirm <code>agent.yaml</code> is created once, valid edits take effect after restart, invalid edits leave the agent offline, and environment-backed API keys never enter SQLite or renderer state.</li>
+<li>Confirm Pi <code>settings.json</code>, <code>auth.json</code>, and <code>models.json</code> load; invalid configuration leaves the agent offline without exposing credentials.</li>
+<li>Observe multi-cycle work, a suggestion, <code>waiting</code>, and immediate wake after a new durable revision.</li>
+<li>Reload the renderer and retain current-launch Activity; restart the app and confirm Activity clears while the Pi session resumes.</li>
 <li>Force a storage or agent utility-process startup failure and confirm main reports the failure and exits instead of hanging without a window.</li>
 </ul>
 <h2 id="adding-tests">Adding tests<a class="heading-anchor" href="#adding-tests" aria-label="Link to Adding tests">#</a></h2><p>Match the test boundary to the behavior:</p>

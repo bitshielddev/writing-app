@@ -35,11 +35,11 @@ Version the payload if a server will persist or process it independently.
 
 ## Extend persistence
 
-The desktop runtime persists through its storage process and SQLite database. Keep the existing separation between document data, suggestion projection, sources, agent records, and the separately validated `agent.yaml` model configuration rather than replacing it with one opaque React-state blob.
+The desktop runtime separates SQLite document/suggestion data, managed Markdown files, Pi-native configuration, project session JSONL, and launch-scoped activity. Preserve those ownership boundaries rather than replacing them with one opaque React-state blob.
 
 ### Document data
 
-Document saves contain BlockNote's serializable document model and metadata. Accepted content is autosaved after a short debounce, and startup hydration replaces the initial renderer seed. Preserve schema-version handling as the custom block set evolves.
+Document saves contain BlockNote's serializable model and `blocksToMarkdownLossy()` output. Storage atomically refreshes `draft.md` before publishing the committed revision. Preserve that ordering and startup repair path.
 
 Temporary `suggestionPreview` blocks are excluded from the saved accepted document. If preview recovery is added later, store it as a separate draft concept.
 
@@ -108,18 +108,18 @@ Before wiring buttons individually, introduce the missing domain/state boundary:
 
 ## Extend artifact upload or source retrieval
 
-The sidebar imports PDF, DOCX, Markdown, and text files through the main/storage boundary and shows persisted sources.
+The sidebar imports complete UTF-8 Markdown files through the main/storage boundary and shows persisted sources.
 
 That owner should distinguish:
 
 - upload state and errors;
 - stable artifact identity;
 - display metadata;
-- processing/indexing state;
+- UTF-8 validation state;
 - content availability to the agent;
 - deletion and access-control behavior.
 
-The Pi tools use stable artifact IDs to list, read, and search extracted content. Keep raw file content behind that boundary rather than pushing it into React component props.
+Pi reads the copied files through its confined read-only tools. Keep file content out of React component props and never add a mutation tool without revisiting the read-only workspace contract.
 
 ## Evolve the inbox reducer safely
 

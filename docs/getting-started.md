@@ -28,7 +28,7 @@ To build and launch the persistent desktop application:
 npm run desktop
 ```
 
-This command always builds the renderer and Electron processes before launching. The production renderer is loaded directly from `dist/index.html`, not from Vite's development server. The first desktop launch creates the default project, document, and `agent.yaml` under Electron's `userData` directory. Agent configuration is edited outside the application and loaded on restart.
+This command always builds the renderer and Electron processes before launching. The first launch creates the default project workspace under `<userData>/projects/default-project/`; Pi reads native configuration from `<userData>/pi/`.
 
 ## What to expect after startup
 
@@ -70,23 +70,20 @@ The production build currently completes with Vite's warning that some minified 
 
 ## Runtime configuration
 
-The global agent model is configured in `agent.yaml` under Electron's `userData` directory. The file is created on first launch from any legacy SQLite provider settings. Edit it while the app is closed, then restart:
+Configure Pi with `<userData>/pi/settings.json`. For example:
 
-```yaml
-version: 1
-enabled: true
-provider:
-  id: anthropic
-  apiKeyEnv: ANTHROPIC_API_KEY
-model:
-  id: claude-sonnet-4-6
+```json
+{
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-4-6"
+}
 ```
 
-Catalog models inherit their Pi metadata. Custom models must set `provider.api` and `provider.baseUrl`; optional model fields include `name`, `reasoning`, `thinkingLevelMap`, `input`, `contextWindow`, `maxTokens`, `cost`, `headers`, and `compat`. Header values may use `$ENV_VAR`. API keys are read from `provider.apiKeyEnv` or Pi's standard provider environment variable and are never stored by ScribeAI.
+Credentials may be stored in Pi's `auth.json` or supplied through standard provider environment variables such as `ANTHROPIC_API_KEY`. Custom providers/models use Pi's `models.json`. Invalid or incomplete native configuration leaves the agent offline and displays the diagnostic under Activity.
 
 - initial editor content: [`initialContent`](../src/App.tsx);
 - Electron-only mock suggestion controller: [`src/dev/mockSuggestions`](../src/dev/mockSuggestions);
-- agent model schema and resolution: [`agent-config.ts`](../desktop/agent-config.ts).
+- autonomous Pi runtime and extension: [`agent.ts`](../desktop/agent.ts) and [`scribe-extension.ts`](../desktop/scribe-extension.ts).
 
 ## Renderer preferences
 
@@ -123,8 +120,8 @@ For an Electron smoke test:
 
 1. Run `npm run desktop` and confirm the workspace, editor, and both side panels render.
 2. Edit the document, wait at least 650 ms, restart, and confirm the accepted blocks return.
-3. Import a text, Markdown, JSON, DOCX, or PDF source and confirm it appears under **AI research context**.
-4. Edit `agent.yaml`, restart, and confirm a valid enabled model begins observing while an invalid file leaves the agent offline with an error.
+3. Import `.md` and `.markdown` sources; confirm invalid UTF-8 and other extensions are rejected.
+4. Configure Pi, edit the draft, observe autonomous cycles and activity, reach `waiting`, then edit again and confirm immediate wake-up.
 
 ## Common problems
 

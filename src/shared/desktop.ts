@@ -30,11 +30,34 @@ export type PersistedSuggestionState = {
   nextZIndex: number;
 };
 
+export type AgentStatus = "offline" | "working" | "waiting" | "capped" | "error";
+
 export type AgentRuntime = {
-  running: boolean;
-  configured: boolean;
-  lastCompletedAt?: number;
-  lastError?: string;
+  status: AgentStatus;
+  sessionId?: string;
+  activeRevision?: number;
+  cycleCount: number;
+  error?: string;
+};
+
+export type AgentActivityKind =
+  | "lifecycle"
+  | "message"
+  | "reasoning"
+  | "tool"
+  | "provider"
+  | "loop"
+  | "error";
+
+export type AgentActivity = {
+  id: string;
+  kind: AgentActivityKind;
+  timestamp: number;
+  updatedAt: number;
+  title: string;
+  text?: string;
+  payload?: unknown;
+  status?: AgentStatus;
 };
 
 export type DocumentSnapshot = {
@@ -42,6 +65,7 @@ export type DocumentSnapshot = {
   projectId: string;
   title: string;
   blocks: unknown[];
+  markdown: string;
   schemaVersion: number;
   revision: number;
   updatedAt: number;
@@ -52,7 +76,7 @@ export type SourceSnapshot = {
   projectId: string;
   title: string;
   storagePath: string;
-  extractedCharacters: number;
+  bytes: number;
   updatedAt: number;
 };
 
@@ -62,20 +86,23 @@ export type WorkspaceSnapshot = {
   sources: SourceSnapshot[];
   suggestions: PersistedSuggestionState;
   agent: AgentRuntime;
+  activity: AgentActivity[];
   sequence: number;
 };
 
 export type DesktopEvent =
   | { type: "suggestion.event"; sequence: number; event: SuggestionEvent }
   | { type: "agent.runtime"; runtime: AgentRuntime }
-  | { type: "document.saved"; document: DocumentSnapshot }
-  | { type: "source.imported"; source: SourceSnapshot };
+  | { type: "agent.activity"; activity: AgentActivity }
+  | { type: "document.saved"; document: DocumentSnapshot; projectRevision: number }
+  | { type: "source.imported"; source: SourceSnapshot; projectRevision: number };
 
 export type DesktopBridge = {
   hydrate(): Promise<WorkspaceSnapshot>;
   saveDocument(input: {
     documentId: string;
     blocks: unknown[];
+    markdown: string;
     expectedRevision: number;
   }): Promise<DocumentSnapshot>;
   saveSuggestionState(state: PersistedSuggestionState): Promise<void>;
@@ -87,13 +114,6 @@ export type DesktopDevelopmentBridge = {
   createSuggestion(item: SuggestionItem): Promise<{ accepted: boolean }>;
 };
 
-export type ProjectContentItem = {
-  id: string;
-  type: "document" | "source";
-  title: string;
-  updatedAt: number;
-};
-
 export type ObservationSeed = {
   projectId: string;
   projectName: string;
@@ -101,5 +121,4 @@ export type ObservationSeed = {
   documentId: string;
   documentTitle: string;
   documentRevision: number;
-  memorySummary: string;
 };

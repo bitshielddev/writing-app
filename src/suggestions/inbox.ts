@@ -66,7 +66,7 @@ export const initialInboxState: InboxState = {
   workspacePins: [],
   seenKeys: {},
   nextZIndex: 1,
-  status: "idle",
+  status: "offline",
 };
 
 function copySuggestion(item: SuggestionItem): SuggestionItem {
@@ -131,7 +131,7 @@ export function inboxReducer(
     if (event.type === "agent.error") {
       return {
         ...state,
-        status: "idle",
+        status: "error",
         error: { message: event.message, recoverable: event.recoverable },
       };
     }

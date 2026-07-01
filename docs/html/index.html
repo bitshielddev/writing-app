@@ -110,10 +110,10 @@
 <li>an inbox for reading, dismissing, pinning, and previewing suggestions;</li>
 <li>desktop workspace cards for keeping references over the editor;</li>
 <li>responsive navigation and writing-partner panels;</li>
-<li>SQLite document, source, suggestion, transcript, and agent-memory persistence;</li>
-<li>a background Pi agent with user-configured inference providers.</li>
+<li>SQLite document, Markdown mirror, source, and suggestion persistence;</li>
+<li>a durable autonomous Pi coding-agent session and launch-scoped activity diagnostics.</li>
 </ul>
-<p>Electron owns SQLite and Pi in utility processes, imports text, Markdown, JSON, PDF, and DOCX sources, and restores the workspace after restart. Development uses the same runtime with Vite renderer HMR and a dedicated mock-suggestion window. Routing and most document-management controls remain presentation-only.</p>
+<p>Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources, and restores the workspace and Pi session after restart. Development uses the same runtime with Vite renderer HMR and a dedicated mock-suggestion window.</p>
 <h2 id="fastest-route-into-the-codebase">Fastest route into the codebase<a class="heading-anchor" href="#fastest-route-into-the-codebase" aria-label="Link to Fastest route into the codebase">#</a></h2><ol>
 <li>Follow <a href="getting-started.html">Getting started</a> and run the app and checks.</li>
 <li>Read <a href="architecture.html">Architecture</a> for state ownership and module boundaries.</li>
@@ -156,11 +156,11 @@
 </tr>
 <tr>
 <td>Persistence</td>
-<td>Electron restores the current document, sources, suggestion inbox, pins, workspace cards, transcripts, and agent memory.</td>
+<td>Electron restores the document, Markdown mirror, sources, suggestion inbox, pins, workspace cards, and Pi session.</td>
 </tr>
 <tr>
 <td>Sources</td>
-<td>Electron imports text, Markdown, JSON, PDF, and DOCX files into the active project.</td>
+<td>Electron imports complete UTF-8 <code>.md</code> and <code>.markdown</code> files into the managed project workspace.</td>
 </tr>
 <tr>
 <td>Static controls</td>

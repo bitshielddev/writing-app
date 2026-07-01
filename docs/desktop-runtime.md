@@ -2,82 +2,59 @@
 
 ## Process topology
 
-The packaged application has four cooperating runtimes:
+The packaged application has four cooperating runtimes: React owns BlockNote and presentation state; Electron main owns lifecycle, IPC, the launch-scoped activity ring, and project revision delivery; the storage utility process exclusively owns SQLite and the managed workspace; and the agent utility process owns one durable `@earendil-works/pi-coding-agent` session.
 
-1. The React renderer owns BlockNote and presentation state.
-2. Electron main owns application lifecycle, IPC routing, file-backed model configuration, and the observation timer.
-3. The storage utility process is the only SQLite owner.
-4. The agent utility process runs `@earendil-works/pi-agent-core` with application-domain tools.
+The preload exposes the typed `DesktopBridge`. The renderer never imports Electron, SQLite, filesystem, or Pi packages.
 
-The preload exposes named methods from `DesktopBridge`. The renderer never imports Electron, SQLite, or Pi packages.
+## Managed project workspace
 
-## Startup and renderer loading
+The default project uses:
 
-The Electron entry is an ES module. It registers startup with `app.whenReady().then(start)` rather than using a top-level `await app.whenReady()`: Electron does not emit `ready` until the entry module has finished evaluating, so awaiting that event during module evaluation deadlocks startup.
+```text
+<userData>/projects/default-project/
+  draft.md
+  sources/<readable-collision-safe-name>.md
+  .pi/sessions/*.jsonl
+```
 
-`start` forks both utility processes and waits for an explicit `ready` message from each before it registers IPC handlers or creates a window. If either child exits first, its readiness promise rejects and main logs `Desktop startup failed` before quitting instead of leaving a hidden process running indefinitely.
+Accepted BlockNote blocks and the lossy Markdown export are saved together in SQLite. Storage atomically replaces `draft.md` before it commits and publishes the new revision. Startup repairs a missing or damaged mirror from SQLite before the agent is woken.
 
-In a production launch, main loads `dist/index.html` with `BrowserWindow.loadFile`. Vite therefore uses `base: "./"` so scripts, styles, and lazy chunks resolve relative to that HTML file. A root-relative `/assets/...` URL resolves to `file:///assets/...` in Electron and produces a blank window. During `npm run dev`, `vite-plugin-electron` supplies `VITE_DEV_SERVER_URL`; main loads that URL inside Electron for renderer HMR.
+Source import accepts only `.md` and `.markdown`. Storage validates the complete file as UTF-8 and copies it without extraction or truncation. Existing names receive a readable suffix such as `notes (2).md`.
 
-The renderer runs with context isolation enabled and Node integration disabled. `desktop/preload.ts` is bundled as CommonJS and exposes the narrow bridge through `contextBridge`; main, storage, and agent entries are bundled as ES modules under `dist-electron/`.
+The fresh schema persists projects, block JSON plus Markdown, source metadata, suggestion projection, and the committed event outbox. It intentionally contains no provider settings, extracted-content index, agent memory, run transcript, or run-history tables. Temporary `suggestionPreview` blocks remain excluded from autosave.
 
-The application has no supported browser-only composition. If preload did not expose `window.scribe`, the renderer displays an Electron-required diagnostic instead of constructing `App`.
+## Pi configuration and session
 
-### Development suggestion window
+Pi uses native global files under `<userData>/pi/`:
 
-Vite development adds a **Development → Mock suggestions** menu command. It opens one dedicated Electron window at `/mock-suggestions`. A command-line argument enables a separate preload bridge in development windows, and main registers the corresponding IPC handler only while `VITE_DEV_SERVER_URL` is present. Valid suggestions are committed by storage and broadcast like agent-created suggestions. The menu, bridge, handler, and controller chunk are unavailable in production.
+- `settings.json` for default provider/model and Pi settings;
+- `auth.json` for Pi credentials;
+- `models.json` for custom models/providers.
 
-Development intentionally uses the normal Electron `userData` path. It therefore reads and mutates the same workspace as an installed build.
+Standard provider environment variables are also supported. Invalid settings, auth, or model files—or no usable model/credential pair—leave the runtime `offline` and expose a diagnostic in the writing-partner panel.
 
-## Persistence model
+`SessionManager.continueRecent()` targets the project-specific `.pi/sessions` directory. `DefaultResourceLoader` trusts the app-managed workspace, preserves Pi's default system prompt, appends Scribe's read-only/suggestion instructions, and registers the bundled Scribe extension factory. External extension tools are disabled. The exact active tool set is `read`, `grep`, `find`, `ls`, and Scribe's list/create/update/retract/wait tools; `bash`, `write`, and `edit` are excluded.
 
-The database is `scribe.sqlite3` under Electron's `userData` directory. Startup creates a default project and document and enables SQLite WAL mode. Schema creation is idempotent.
+## Autonomous loop
 
-The current implementation persists:
+There is no polling timer. After storage commits a document or source revision, main forwards that durable revision through Pi's shared event bus. The extension coalesces updates while Pi is busy and starts the next cycle against the latest revision.
 
-- the latest accepted BlockNote block snapshot and monotonic document/project revisions;
-- imported source metadata, app-owned file copies, and extracted text;
-- the complete visible suggestion projection, including pins and workspace geometry;
-- per-document agent memory;
-- agent runs and every Pi lifecycle/tool/message event;
-- committed desktop events in an outbox.
+`wait_for_changes` succeeds only when no newer revision arrived during the active cycle. A successful yield persists the yielded revision and loop state as a Pi custom session entry and leaves the runtime `waiting`. If Pi ends without yielding, the extension immediately starts another cycle. Five consecutive cycles without a yield or new revision produce `capped`; the next revision resets the counter and wakes `waiting`, `capped`, or recoverable `error` state.
 
-The adjacent `agent.yaml` file, rather than SQLite, owns the global model configuration. Temporary `suggestionPreview` blocks are filtered from document saves and are not restored after restart. Document history, transcript retention, automatic backups, encrypted storage, and persisted API keys are not implemented.
+Suggestion tools include the active document revision. Storage rejects stale mutations, after which the extension schedules the latest revision. Runtime state is one of `offline`, `working`, `waiting`, `capped`, or `error` and includes the Pi session ID, active revision, cycle count, and optional diagnostic.
 
-## Editor and event flow
+## Activity diagnostics
 
-On mount, `App` hydrates a `WorkspaceSnapshot`, replaces seeded BlockNote content, restores suggestions, and enables autosave. Editor changes are debounced for 650 ms. Suggestion reducer changes save a durable projection.
+Agent lifecycle, message, emitted reasoning, tool, provider, loop, and error events become `agent.activity` desktop events. Main aggregates streaming message/tool updates by ID, recursively redacts credential and header fields, caps each serialized payload at 50 KB, and keeps the latest 500 entries in memory.
 
-Storage mutations write canonical data and any desktop event in one transaction. After commit, the storage process forwards outbox events through main to every renderer. The desktop feed converts suggestion and agent runtime events into the existing `SuggestionEvent` variants.
+Hydration includes the current launch's ring, so renderer reload retains diagnostics. The ring is not persisted and starts empty on application restart. The writing-partner panel has Suggestions and Activity views. Only runtime status/error text uses live announcements; the chronological diagnostic list is not announced as it streams.
 
-## Source import
+## Startup and failure behaviour
 
-The sidebar's Upload Sources action opens the native file picker. The storage process copies the file into the application-data `sources` directory and extracts text from:
+Storage is started first, creates/repairs the workspace mirror, and reports readiness. Main then starts the Pi process, waits for its readiness diagnostic, registers renderer IPC, creates the window, and delivers the current revision. Utility process startup failure is fatal; provider/tool failures put the autonomous loop to sleep in `error` until a newer project revision arrives.
 
-- plain text, Markdown, and JSON with UTF-8 reads;
-- DOCX with Mammoth;
-- PDF with pdf-parse.
-
-Extracted text is capped at two million characters per source. Agent read results are capped separately.
-
-PDF.js does not install its normal Node canvas globals inside an Electron utility process because `process.type` is `utility`. Before `pdf-parse` is loaded, storage installs `DOMMatrix`, `ImageData`, and `Path2D` from `@napi-rs/canvas`. Keep that initialization before the dynamic `pdf-parse` import or PDF source import will fail during module evaluation.
-
-## Agent lifecycle
-
-The scheduler checks every 10 seconds while the app is open. It starts a run only when the project revision differs from the last completed observation. Only one run executes at once; newer observations are coalesced.
-
-Each run receives the active project/document IDs and revisions plus the previous document-memory summary. Its tools can list, search, and read project content; list current suggestions; create, update, or retract live suggestions; and save the next memory summary. Suggestion and memory writes fail when the document revision has changed.
-
-The provider selection is global and loaded from `agent.yaml` at startup. Built-in Pi models inherit catalog metadata; custom entries declare their API, base URL, capabilities, headers, and compatibility overrides. Credentials come from environment variables and are not persisted by the app. Invalid YAML or model metadata keeps the agent offline and surfaces the validation error in the writing-partner status.
-
-## Failure behaviour
-
-- A utility process that exits before its `ready` message rejects desktop startup; main logs the error and quits.
-- Provider or tool errors update the writing-partner error state and mark the run failed.
-- Runs time out after two minutes.
-- Storage errors reject the originating IPC or agent tool call.
-- Renderer reload hydrates canonical SQLite state rather than relying on event replay.
+Production loads `dist/index.html` through `BrowserWindow.loadFile`; Vite therefore uses `base: "./"`. Development loads `VITE_DEV_SERVER_URL` in Electron and adds the isolated mock-suggestion window. Context isolation remains enabled and Node integration disabled.
 
 ## Build and packaging
 
-`vite-plugin-electron` integrates renderer, main, preload, storage, and agent builds while preserving the `dist/` and `dist-electron/` package layout. `npm run build` type-checks both TypeScript projects before the integrated production build. `npm run desktop` performs that build before launching Electron. `npm run package` produces an unpacked electron-builder application, while `npm run dist` produces the configured platform packages. Generated `dist-electron/` and `release/` directories are not source and remain ignored by Git.
+`npm run build` type-checks both TypeScript projects and builds renderer, main, preload, storage, and agent bundles. `npm run package` produces an unpacked electron-builder application; `npm run dist` produces platform packages. Generated `dist-electron/` and `release/` directories are not source.

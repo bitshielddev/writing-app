@@ -21,6 +21,8 @@ import { writingSchema, type WritingPartialBlock } from "./editor/schema";
 import { useSuggestionInbox } from "./suggestions/inbox";
 import { getInitialWorkspacePinSize } from "./suggestions/workspacePinLayout";
 import type {
+  AgentActivity,
+  AgentRuntime,
   DesktopBridge,
   PersistedSuggestionState,
   SourceSnapshot,
@@ -112,6 +114,11 @@ export default function App({ desktop }: AppProps) {
   const resolvePreview = inbox.previewResolved;
   const hydrateInbox = inbox.hydrate;
   const [sources, setSources] = useState<SourceSnapshot[]>([]);
+  const [runtime, setRuntime] = useState<AgentRuntime>({
+    status: "offline",
+    cycleCount: 0,
+  });
+  const [activity, setActivity] = useState<AgentActivity[]>([]);
   const documentIdRef = useRef("default-document");
   const documentRevisionRef = useRef(0);
   const documentHydratedRef = useRef(false);
@@ -119,6 +126,7 @@ export default function App({ desktop }: AppProps) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [lastActiveBlockId, setLastActiveBlockId] = useState(() => {
     try {
       return editor.getTextCursorPosition().block.id;
@@ -143,6 +151,8 @@ export default function App({ desktop }: AppProps) {
         documentIdRef.current = snapshot.document.id;
         documentRevisionRef.current = snapshot.document.revision;
         setSources(snapshot.sources);
+        setRuntime(snapshot.agent);
+        setActivity(snapshot.activity);
         hydrateInbox(snapshot.suggestions);
         const finalBlock = editor.document.at(-1);
         if (finalBlock) setLastActiveBlockId(finalBlock.id);
@@ -166,6 +176,16 @@ export default function App({ desktop }: AppProps) {
           event.source,
           ...current.filter((source) => source.id !== event.source.id),
         ]);
+      } else if (event.type === "agent.runtime") {
+        setRuntime(event.runtime);
+      } else if (event.type === "agent.activity") {
+        setActivity((current) => {
+          const index = current.findIndex((item) => item.id === event.activity.id);
+          if (index < 0) return [...current, event.activity].slice(-500);
+          const next = [...current];
+          next[index] = event.activity;
+          return next;
+        });
       }
     });
   }, [desktop]);
@@ -283,13 +303,15 @@ export default function App({ desktop }: AppProps) {
     const blocks = editor.document.filter(
       (block) => block.type !== "suggestionPreview",
     );
-    void desktop
-      .saveDocument({
-        documentId: documentIdRef.current,
-        blocks,
-        expectedRevision: documentRevisionRef.current,
-      })
-      .then((document) => {
+    const markdown = editor.blocksToMarkdownLossy(blocks);
+    saveQueueRef.current = saveQueueRef.current
+      .then(async () => {
+        const document = await desktop.saveDocument({
+          documentId: documentIdRef.current,
+          blocks,
+          markdown,
+          expectedRevision: documentRevisionRef.current,
+        });
         documentRevisionRef.current = document.revision;
       })
       .catch((error: unknown) => console.error("Document save failed", error));
@@ -385,8 +407,10 @@ export default function App({ desktop }: AppProps) {
       selectedEntry={inbox.selectedEntry}
       activePreviewId={inbox.activePreviewId}
       unreadCount={inbox.unreadCount}
-      status={inbox.status}
-      error={inbox.error}
+      status={runtime.status}
+      error={runtime.error ? { message: runtime.error, recoverable: true } : inbox.error}
+      activity={activity}
+      runtime={runtime}
       onSelect={inbox.select}
       onBack={inbox.back}
       onDismiss={inbox.dismiss}

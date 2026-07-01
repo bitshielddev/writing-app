@@ -23,7 +23,7 @@ npm run build
 
 ## Current automated coverage
 
-The suite currently contains 34 tests across eight files.
+The suite currently contains unit and component coverage across renderer, storage, autonomous-loop, activity, and Pi-session boundaries.
 
 | File | What it protects |
 | --- | --- |
@@ -34,7 +34,10 @@ The suite currently contains 34 tests across eight files.
 | [`components/WorkspacePins.test.tsx`](../src/components/WorkspacePins.test.tsx) | Card content, return action, keyboard geometry, and pointer drag commit. |
 | [`components/DocumentHeader.test.tsx`](../src/components/DocumentHeader.test.tsx) | Desktop panel semantics, hidden-partner unread count, and independent mobile controls. |
 | [`components/ResponsiveDrawer.test.tsx`](../src/components/ResponsiveDrawer.test.tsx) | Escape/close behavior and focus restoration. |
-| [`desktop/storage.test.ts`](../desktop/storage.test.ts) | SQLite bootstrap and revisioned document saves, durable agent/development suggestions, transcript recording, and searchable source import. |
+| [`desktop/storage.test.ts`](../desktop/storage.test.ts) | Block/Markdown saves, mirror repair, stale suggestion rejection, and Markdown-only source import. |
+| [`desktop/scribe-loop.test.ts`](../desktop/scribe-loop.test.ts) | Coalescing, yields, races, five-cycle cap, error sleep, wake, and restored loop state. |
+| [`desktop/activity.test.ts`](../desktop/activity.test.ts) | Aggregation, redaction, 50 KB cap, and 500-item eviction. |
+| [`desktop/pi-session.test.ts`](../desktop/pi-session.test.ts) | Project session continuation, extension entries, and the read-only tool contract. |
 
 ### Why reducer tests matter most
 
@@ -59,7 +62,7 @@ The current suite does not render the full `App` or BlockNote editor. It therefo
 - canvas clamping through a real `ResizeObserver`;
 - Mermaid SVG rendering and failure handling;
 - production bundle execution, Electron readiness, and `file://` asset resolution;
-- DOCX and PDF extraction inside the Electron utility process;
+- real-provider autonomous behaviour and provider-specific streaming;
 - visual layout, overflow, font fallback, or contrast.
 
 Changes in these areas require targeted tests where practical and the manual checks below.
@@ -123,9 +126,11 @@ Changes in these areas require targeted tests where practical and the manual che
 - Inject a suggestion, reload, and confirm it remains persisted. Confirm a production launch has no development menu or bridge.
 - Launch the built application and confirm the renderer mounts without failed local script or stylesheet requests.
 - Edit and restart to verify document hydration and the 650 ms autosave path.
-- Import each supported source type; include PDF to exercise the utility-process canvas globals.
+- Import `.md` and `.markdown`, including duplicate names; reject invalid UTF-8 and other extensions.
 - Restart and confirm sources, suggestions, pins, and workspace geometry hydrate from SQLite.
-- Confirm `agent.yaml` is created once, valid edits take effect after restart, invalid edits leave the agent offline, and environment-backed API keys never enter SQLite or renderer state.
+- Confirm Pi `settings.json`, `auth.json`, and `models.json` load; invalid configuration leaves the agent offline without exposing credentials.
+- Observe multi-cycle work, a suggestion, `waiting`, and immediate wake after a new durable revision.
+- Reload the renderer and retain current-launch Activity; restart the app and confirm Activity clears while the Pi session resumes.
 - Force a storage or agent utility-process startup failure and confirm main reports the failure and exits instead of hanging without a window.
 
 ## Adding tests

@@ -38,7 +38,7 @@ function renderDock(
     entries: [entry],
     pinnedEntries: [],
     unreadCount: 1,
-    status: "idle",
+    status: "waiting",
     onSelect: vi.fn(),
     onBack: vi.fn(),
     onDismiss: vi.fn(),
@@ -60,9 +60,13 @@ describe("SuggestionDock", () => {
     expect(screen.queryByRole("button", { name: "Send direction" })).toBeNull();
   });
 
-  it("renders one unified stream without type navigation", async () => {
+  it("renders accessible Suggestions and Activity navigation", async () => {
     const props = renderDock();
-    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getByRole("navigation", { name: "Writing partner views" })).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: "Activity" }));
+    expect(screen.getByRole("heading", { name: "Agent activity" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Suggestions" }));
 
     await userEvent.click(
       screen.getByRole("button", { name: `Open ${item.title}` }),
@@ -114,4 +118,14 @@ describe("SuggestionDock", () => {
     );
     expect(props.onPlaceOnWorkspace).toHaveBeenCalledWith(item);
   });
+
+  it.each(["offline", "working", "waiting", "capped", "error"] as const)(
+    "shows the %s runtime state in Activity",
+    async (status) => {
+      renderDock({ runtime: { status, cycleCount: 2 } });
+      await userEvent.click(screen.getByRole("button", { name: "Activity" }));
+      expect(screen.getByText(new RegExp(`^${status} · cycle 2`))).toBeTruthy();
+      cleanup();
+    },
+  );
 });

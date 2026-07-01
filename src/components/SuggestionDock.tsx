@@ -11,8 +11,9 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import type { AgentActivity, AgentRuntime } from "../shared/desktop";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type {
   AgentStatus,
@@ -28,6 +29,8 @@ type SuggestionDockProps = {
   unreadCount: number;
   status: AgentStatus;
   error?: { message: string; recoverable: boolean };
+  activity?: AgentActivity[];
+  runtime?: AgentRuntime;
   onSelect: (id: string) => void;
   onBack: () => void;
   onDismiss: (id: string) => void;
@@ -36,6 +39,59 @@ type SuggestionDockProps = {
   onPlaceOnWorkspace: (item: SuggestionItem) => void;
   onPreview: (item: SuggestionItem) => void;
 };
+
+function ActivityView({
+  items,
+  runtime,
+}: {
+  items: AgentActivity[];
+  runtime?: AgentRuntime;
+}) {
+  return (
+    <div className="px-5 py-6 2xl:px-7 2xl:py-7">
+      <header>
+        <h2 className="text-lg font-extrabold text-[#1a1b22]">Agent activity</h2>
+        <p className="mt-1 text-xs font-semibold text-[#777386]">
+          {runtime?.status ?? "offline"} · cycle {runtime?.cycleCount ?? 0}
+          {runtime?.activeRevision === undefined ? "" : ` · revision ${runtime.activeRevision}`}
+        </p>
+      </header>
+      <ol className="mt-5 grid gap-3" aria-label="Agent activity log">
+        {items.map((item) => (
+          <li key={item.id} className="rounded-lg border border-[#dedbe9] bg-white/75 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-[0.65rem] font-extrabold tracking-[0.08em] text-brand-700 uppercase">
+                {item.kind}
+              </span>
+              <time className="text-[0.65rem] text-[#8b8798]" dateTime={new Date(item.timestamp).toISOString()}>
+                {new Date(item.timestamp).toLocaleTimeString()}
+              </time>
+            </div>
+            <h3 className="mt-1.5 text-sm font-bold text-[#292a34]">{item.title}</h3>
+            {item.text ? (
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-5 text-[#5d5b6d]">
+                {item.text}
+              </p>
+            ) : null}
+            {item.payload !== undefined ? (
+              <details className="mt-2 text-xs text-[#686577]">
+                <summary className="cursor-pointer font-semibold">Raw payload</summary>
+                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded bg-[#efedf7] p-2">
+                  {JSON.stringify(item.payload, null, 2)}
+                </pre>
+              </details>
+            ) : null}
+          </li>
+        ))}
+        {!items.length ? (
+          <li className="rounded-xl border border-dashed border-[#c9c5dc] bg-white/35 px-5 py-10 text-center text-sm text-[#686577]">
+            Activity from this app launch will appear here.
+          </li>
+        ) : null}
+      </ol>
+    </div>
+  );
+}
 
 function SourceLabels({ labels }: { labels: string[] }) {
   if (!labels.length) {
@@ -261,6 +317,8 @@ export function SuggestionDock({
   unreadCount,
   status,
   error,
+  activity = [],
+  runtime,
   onSelect,
   onBack,
   onDismiss,
@@ -270,6 +328,7 @@ export function SuggestionDock({
   onPreview,
 }: SuggestionDockProps) {
   const dockRef = useRef<HTMLElement>(null);
+  const [view, setView] = useState<"suggestions" | "activity">("suggestions");
 
   useEffect(() => {
     if (typeof dockRef.current?.scrollTo === "function") {
@@ -283,7 +342,32 @@ export function SuggestionDock({
       aria-label="Writing partner"
       className="h-full min-h-0 overflow-y-auto border-l border-[#d7d4e8] bg-[#f4f2fd]"
     >
-      {selectedEntry ? (
+      <p className="sr-only" aria-live="polite">
+        {runtime?.status === "error" || runtime?.status !== undefined
+          ? `Agent status: ${runtime.status}${runtime.error ? `. ${runtime.error}` : ""}`
+          : ""}
+      </p>
+      <nav className="sticky top-0 z-20 grid grid-cols-2 border-b border-[#d7d4e8] bg-[#f4f2fd]/95 p-2 backdrop-blur" aria-label="Writing partner views">
+        <button
+          type="button"
+          aria-current={view === "suggestions" ? "page" : undefined}
+          className={`min-h-9 rounded-md text-sm font-bold ${view === "suggestions" ? "bg-white text-brand-700 shadow-sm" : "text-[#686577]"}`}
+          onClick={() => setView("suggestions")}
+        >
+          Suggestions
+        </button>
+        <button
+          type="button"
+          aria-current={view === "activity" ? "page" : undefined}
+          className={`min-h-9 rounded-md text-sm font-bold ${view === "activity" ? "bg-white text-brand-700 shadow-sm" : "text-[#686577]"}`}
+          onClick={() => setView("activity")}
+        >
+          Activity
+        </button>
+      </nav>
+      {view === "activity" ? (
+        <ActivityView items={activity} runtime={runtime} />
+      ) : selectedEntry ? (
         <DetailView
           entry={selectedEntry}
           pinned={pinnedEntries.some(
@@ -315,7 +399,11 @@ export function SuggestionDock({
                       ? "Considering your draft…"
                       : status === "offline"
                         ? "Agent unavailable"
-                        : "Working alongside you"}
+                        : status === "waiting"
+                          ? "Waiting for changes"
+                          : status === "capped"
+                            ? "Autonomous loop capped"
+                            : "Agent error"}
                   </p>
                 </div>
               </div>

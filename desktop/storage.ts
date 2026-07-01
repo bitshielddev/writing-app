@@ -1,19 +1,22 @@
+import { constants } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import { copyFile, mkdir, readFile } from "node:fs/promises";
-import { basename, dirname, extname, join } from "node:path";
+import {
+  copyFile,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { basename, extname, join, parse } from "node:path";
 import { tmpdir } from "node:os";
-
-import mammoth from "mammoth";
-
-import type { LegacyProviderSettings } from "./agent-config.js";
 
 import type {
   DesktopEvent,
   DocumentSnapshot,
   ObservationSeed,
   PersistedSuggestionState,
-  ProjectContentItem,
   SourceSnapshot,
   WorkspaceSnapshot,
 } from "../src/shared/desktop.js";
@@ -28,12 +31,19 @@ type RpcResult =
 const PROJECT_ID = "default-project";
 const DOCUMENT_ID = "default-document";
 const DOCUMENT_SCHEMA_VERSION = 1;
+const DATABASE_VERSION = 2;
 const dbPath = process.parentPort ? process.argv[2] : ":memory:";
+const workspaceRoot = process.parentPort
+  ? process.argv[3]
+  : join(tmpdir(), `scribe-storage-test-${process.pid}`);
 
-if (!dbPath) {
-  throw new Error("Storage process requires a database path");
+if (!dbPath || !workspaceRoot) {
+  throw new Error("Storage process requires database and project workspace paths");
 }
 
+const sourcesDirectory = join(workspaceRoot, "sources");
+const piDirectory = join(workspaceRoot, ".pi");
+const draftPath = join(workspaceRoot, "draft.md");
 const db = new DatabaseSync(dbPath, {
   enableForeignKeyConstraints: true,
   timeout: 5_000,
@@ -41,12 +51,26 @@ const db = new DatabaseSync(dbPath, {
 
 db.exec("PRAGMA journal_mode = WAL");
 db.exec("PRAGMA synchronous = FULL");
-db.exec(`
-  CREATE TABLE IF NOT EXISTS app_meta (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  ) STRICT;
 
+const currentVersion = db.prepare("PRAGMA user_version").get() as {
+  user_version: number;
+};
+if (currentVersion.user_version !== DATABASE_VERSION) {
+  db.exec(`
+    DROP TABLE IF EXISTS agent_transcript;
+    DROP TABLE IF EXISTS agent_runs;
+    DROP TABLE IF EXISTS agent_memory;
+    DROP TABLE IF EXISTS provider_settings;
+    DROP TABLE IF EXISTS event_outbox;
+    DROP TABLE IF EXISTS suggestion_state;
+    DROP TABLE IF EXISTS sources;
+    DROP TABLE IF EXISTS documents;
+    DROP TABLE IF EXISTS projects;
+    DROP TABLE IF EXISTS app_meta;
+  `);
+}
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -60,6 +84,7 @@ db.exec(`
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     blocks_json TEXT NOT NULL,
+    markdown TEXT NOT NULL,
     schema_version INTEGER NOT NULL,
     revision INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
@@ -70,8 +95,8 @@ db.exec(`
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
-    storage_path TEXT NOT NULL DEFAULT '',
-    extracted_text TEXT NOT NULL DEFAULT '',
+    storage_path TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   ) STRICT;
@@ -82,50 +107,14 @@ db.exec(`
     updated_at INTEGER NOT NULL
   ) STRICT;
 
-  CREATE TABLE IF NOT EXISTS provider_settings (
-    id TEXT PRIMARY KEY,
-    provider TEXT NOT NULL,
-    model TEXT NOT NULL,
-    base_url TEXT NOT NULL,
-    enabled INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  ) STRICT;
-
-  CREATE TABLE IF NOT EXISTS agent_memory (
-    document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
-    summary TEXT NOT NULL,
-    document_revision INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  ) STRICT;
-
-  CREATE TABLE IF NOT EXISTS agent_runs (
-    id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
-    document_id TEXT NOT NULL,
-    project_revision INTEGER NOT NULL,
-    document_revision INTEGER NOT NULL,
-    provider TEXT NOT NULL,
-    model TEXT NOT NULL,
-    status TEXT NOT NULL,
-    started_at INTEGER NOT NULL,
-    completed_at INTEGER,
-    error TEXT
-  ) STRICT;
-
-  CREATE TABLE IF NOT EXISTS agent_transcript (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
-    event_type TEXT NOT NULL,
-    payload_json TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-  ) STRICT;
-
   CREATE TABLE IF NOT EXISTS event_outbox (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,
     event_json TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     dispatched_at INTEGER
   ) STRICT;
+
+  PRAGMA user_version = 2;
 `);
 
 const emptySuggestionState = (): PersistedSuggestionState => ({
@@ -143,15 +132,14 @@ function bootstrap() {
   ).run(PROJECT_ID, "AI-assisted drafts", now, now);
   db.prepare(
     `INSERT OR IGNORE INTO documents
-      (id, project_id, title, blocks_json, schema_version, revision, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+      (id, project_id, title, blocks_json, markdown, schema_version, revision, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
   ).run(
     DOCUMENT_ID,
     PROJECT_ID,
     "Untitled Draft",
-    JSON.stringify([
-      { type: "heading", props: { level: 1 }, content: "New Page" },
-    ]),
+    JSON.stringify([{ type: "heading", props: { level: 1 }, content: "New Page" }]),
+    "# New Page\n",
     DOCUMENT_SCHEMA_VERSION,
     now,
     now,
@@ -159,11 +147,6 @@ function bootstrap() {
   db.prepare(
     "INSERT OR IGNORE INTO suggestion_state (project_id, state_json, updated_at) VALUES (?, ?, ?)",
   ).run(PROJECT_ID, JSON.stringify(emptySuggestionState()), now);
-  db.prepare(
-    `INSERT OR IGNORE INTO provider_settings
-      (id, provider, model, base_url, enabled, updated_at)
-      VALUES ('global', 'anthropic', 'claude-sonnet-4-6', '', 0, ?)`,
-  ).run(now);
 }
 
 bootstrap();
@@ -172,32 +155,22 @@ function json<T>(value: string): T {
   return JSON.parse(value) as T;
 }
 
-function getLegacyProvider(): LegacyProviderSettings {
-  const row = db.prepare(
-    "SELECT provider, model, base_url, enabled FROM provider_settings WHERE id = 'global'",
-  ).get() as {
-    provider: string;
-    model: string;
-    base_url: string;
-    enabled: number;
-  };
-  return {
-    provider: row.provider,
-    model: row.model,
-    baseUrl: row.base_url,
-    enabled: Boolean(row.enabled),
-  };
+function getProject() {
+  return db.prepare(
+    "SELECT id, name, revision FROM projects WHERE id = ?",
+  ).get(PROJECT_ID) as { id: string; name: string; revision: number };
 }
 
 function getDocument(): DocumentSnapshot {
   const row = db.prepare(
-    `SELECT id, project_id, title, blocks_json, schema_version, revision, updated_at
+    `SELECT id, project_id, title, blocks_json, markdown, schema_version, revision, updated_at
      FROM documents WHERE id = ?`,
   ).get(DOCUMENT_ID) as {
     id: string;
     project_id: string;
     title: string;
     blocks_json: string;
+    markdown: string;
     schema_version: number;
     revision: number;
     updated_at: number;
@@ -207,6 +180,7 @@ function getDocument(): DocumentSnapshot {
     projectId: row.project_id,
     title: row.title,
     blocks: json<unknown[]>(row.blocks_json),
+    markdown: row.markdown,
     schemaVersion: row.schema_version,
     revision: row.revision,
     updatedAt: row.updated_at,
@@ -222,22 +196,22 @@ function getSuggestionState(): PersistedSuggestionState {
 
 function listSources(): SourceSnapshot[] {
   const rows = db.prepare(
-    `SELECT id, project_id, title, storage_path, length(extracted_text) AS extracted_characters, updated_at
+    `SELECT id, project_id, title, storage_path, bytes, updated_at
      FROM sources WHERE project_id = ? ORDER BY updated_at DESC`,
-  ).all(PROJECT_ID) as {
+  ).all(PROJECT_ID) as Array<{
     id: string;
     project_id: string;
     title: string;
     storage_path: string;
-    extracted_characters: number;
+    bytes: number;
     updated_at: number;
-  }[];
+  }>;
   return rows.map((row) => ({
     id: row.id,
     projectId: row.project_id,
     title: row.title,
     storagePath: row.storage_path,
-    extractedCharacters: row.extracted_characters,
+    bytes: row.bytes,
     updatedAt: row.updated_at,
   }));
 }
@@ -257,16 +231,15 @@ function queueEvent(event: DesktopEvent) {
 function flushOutbox() {
   const rows = db.prepare(
     "SELECT sequence, event_json FROM event_outbox WHERE dispatched_at IS NULL ORDER BY sequence",
-  ).all() as { sequence: number; event_json: string }[];
+  ).all() as Array<{ sequence: number; event_json: string }>;
   const mark = db.prepare(
     "UPDATE event_outbox SET dispatched_at = ? WHERE sequence = ?",
   );
   for (const row of rows) {
     const event = json<DesktopEvent>(row.event_json);
-    const payload =
-      event.type === "suggestion.event"
-        ? { ...event, sequence: row.sequence }
-        : event;
+    const payload = event.type === "suggestion.event"
+      ? { ...event, sequence: row.sequence }
+      : event;
     process.parentPort?.postMessage({ kind: "domain.event", event: payload });
     mark.run(Date.now(), row.sequence);
   }
@@ -285,119 +258,150 @@ function transaction<T>(work: () => T): T {
   }
 }
 
+async function atomicWrite(path: string, content: string) {
+  const temporary = join(workspaceRoot, `.draft-${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, content, "utf8");
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+async function repairDraftMirror() {
+  await mkdir(sourcesDirectory, { recursive: true });
+  await mkdir(piDirectory, { recursive: true });
+  const markdown = getDocument().markdown;
+  let current: string | undefined;
+  try {
+    current = await readFile(draftPath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  if (current !== markdown) await atomicWrite(draftPath, markdown);
+  return { workspaceRoot, draftPath, sourcesDirectory, repaired: current !== markdown };
+}
+
 function hydrate(): WorkspaceSnapshot {
-  const project = db.prepare(
-    "SELECT id, name, revision FROM projects WHERE id = ?",
-  ).get(PROJECT_ID) as { id: string; name: string; revision: number };
   const sequenceRow = db.prepare(
     "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM event_outbox",
   ).get() as { sequence: number };
   return {
-    project,
+    project: getProject(),
     document: getDocument(),
     sources: listSources(),
     suggestions: getSuggestionState(),
-    agent: {
-      running: false,
-      configured: false,
-    },
+    agent: { status: "offline", cycleCount: 0 },
+    activity: [],
     sequence: sequenceRow.sequence,
   };
 }
 
-async function extractSourceText(path: string) {
+function validateMarkdownSource(path: string, bytes: Uint8Array) {
   const extension = extname(path).toLocaleLowerCase();
-  if (extension === ".docx") {
-    const result = await mammoth.extractRawText({ path });
-    return result.value;
+  if (extension !== ".md" && extension !== ".markdown") {
+    throw new Error("Only .md and .markdown source files are supported");
   }
-  if (extension === ".pdf") {
-    // PDF.js deliberately skips its Node canvas polyfills in Electron utility
-    // processes, where process.type is "utility" rather than "browser".
-    const canvas = await import("@napi-rs/canvas");
-    for (const name of ["DOMMatrix", "ImageData", "Path2D"] as const) {
-      if (!(name in globalThis)) {
-        Object.defineProperty(globalThis, name, {
-          configurable: true,
-          value: canvas[name],
-          writable: true,
-        });
-      }
-    }
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: new Uint8Array(await readFile(path)) });
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error("Markdown source must contain valid UTF-8");
+  }
+}
+
+async function copyWithReadableCollisionName(sourcePath: string) {
+  const original = basename(sourcePath);
+  const parsed = parse(original);
+  for (let index = 1; ; index += 1) {
+    const filename = index === 1
+      ? original
+      : `${parsed.name} (${index})${parsed.ext}`;
+    const destination = join(sourcesDirectory, filename);
     try {
-      return (await parser.getText()).text;
-    } finally {
-      await parser.destroy();
+      await copyFile(sourcePath, destination, constants.COPYFILE_EXCL);
+      return { filename, destination };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
     }
   }
-  return readFile(path, "utf8");
 }
 
 async function importSource(params: unknown): Promise<SourceSnapshot> {
-  const sourcePath = (params as { path: string }).path;
+  const sourcePath = (params as { path?: unknown }).path;
+  if (typeof sourcePath !== "string") throw new Error("Invalid source import request");
+  const bytes = await readFile(sourcePath);
+  validateMarkdownSource(sourcePath, bytes);
+  await mkdir(sourcesDirectory, { recursive: true });
+  const copied = await copyWithReadableCollisionName(sourcePath);
   const id = randomUUID();
-  const extension = extname(sourcePath).toLocaleLowerCase();
-  const sourceDirectory =
-    dbPath === ":memory:"
-      ? join(tmpdir(), "scribe-storage-test-sources")
-      : join(dirname(dbPath), "sources");
-  await mkdir(sourceDirectory, { recursive: true });
-  const storagePath = join(sourceDirectory, `${id}${extension}`);
-  const extractedText = (await extractSourceText(sourcePath)).slice(0, 2_000_000);
-  await copyFile(sourcePath, storagePath);
-  return transaction(() => {
-    const now = Date.now();
-    db.prepare(
-      `INSERT INTO sources
-        (id, project_id, title, storage_path, extracted_text, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      id,
-      PROJECT_ID,
-      basename(sourcePath),
-      storagePath,
-      extractedText,
-      now,
-      now,
-    );
-    db.prepare(
-      "UPDATE projects SET revision = revision + 1, updated_at = ? WHERE id = ?",
-    ).run(now, PROJECT_ID);
-    const source = listSources().find((candidate) => candidate.id === id);
-    if (!source) throw new Error("Imported source was not persisted");
-    queueEvent({ type: "source.imported", source });
-    return source;
-  });
+  try {
+    return transaction(() => {
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO sources
+          (id, project_id, title, storage_path, bytes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(id, PROJECT_ID, copied.filename, copied.destination, bytes.byteLength, now, now);
+      db.prepare(
+        "UPDATE projects SET revision = revision + 1, updated_at = ? WHERE id = ?",
+      ).run(now, PROJECT_ID);
+      const source = listSources().find((candidate) => candidate.id === id);
+      if (!source) throw new Error("Imported source was not persisted");
+      queueEvent({
+        type: "source.imported",
+        source,
+        projectRevision: getProject().revision,
+      });
+      return source;
+    });
+  } catch (error) {
+    await rm(copied.destination, { force: true });
+    throw error;
+  }
 }
 
-function saveDocument(params: unknown): DocumentSnapshot {
+async function saveDocument(params: unknown): Promise<DocumentSnapshot> {
   const input = params as {
-    documentId: string;
-    blocks: unknown[];
-    expectedRevision: number;
+    documentId?: unknown;
+    blocks?: unknown;
+    markdown?: unknown;
+    expectedRevision?: unknown;
   };
-  if (input.documentId !== DOCUMENT_ID || !Array.isArray(input.blocks)) {
+  if (
+    input.documentId !== DOCUMENT_ID ||
+    !Array.isArray(input.blocks) ||
+    typeof input.markdown !== "string" ||
+    !Number.isInteger(input.expectedRevision)
+  ) {
     throw new Error("Invalid document save request");
   }
   const current = getDocument();
+  if (input.expectedRevision !== current.revision) {
+    throw new Error("DOCUMENT_REVISION_CONFLICT");
+  }
   const blocksJson = JSON.stringify(input.blocks);
-  if (blocksJson === JSON.stringify(current.blocks)) {
+  if (blocksJson === JSON.stringify(current.blocks) && input.markdown === current.markdown) {
     return current;
   }
+
+  const markdown = input.markdown;
+  await atomicWrite(draftPath, markdown);
   return transaction(() => {
     const now = Date.now();
     db.prepare(
       `UPDATE documents
-       SET blocks_json = ?, revision = revision + 1, updated_at = ?
+       SET blocks_json = ?, markdown = ?, revision = revision + 1, updated_at = ?
        WHERE id = ?`,
-    ).run(blocksJson, now, DOCUMENT_ID);
+    ).run(blocksJson, markdown, now, DOCUMENT_ID);
     db.prepare(
       "UPDATE projects SET revision = revision + 1, updated_at = ? WHERE id = ?",
     ).run(now, PROJECT_ID);
     const document = getDocument();
-    queueEvent({ type: "document.saved", document });
+    queueEvent({
+      type: "document.saved",
+      document,
+      projectRevision: getProject().revision,
+    });
     return document;
   });
 }
@@ -411,13 +415,8 @@ function saveSuggestionState(params: unknown) {
 }
 
 function getObservationSeed(): ObservationSeed {
-  const project = db.prepare(
-    "SELECT id, name, revision FROM projects WHERE id = ?",
-  ).get(PROJECT_ID) as { id: string; name: string; revision: number };
+  const project = getProject();
   const document = getDocument();
-  const memory = db.prepare(
-    "SELECT summary FROM agent_memory WHERE document_id = ?",
-  ).get(DOCUMENT_ID) as { summary: string } | undefined;
   return {
     projectId: project.id,
     projectName: project.name,
@@ -425,86 +424,7 @@ function getObservationSeed(): ObservationSeed {
     documentId: document.id,
     documentTitle: document.title,
     documentRevision: document.revision,
-    memorySummary: memory?.summary ?? "",
   };
-}
-
-function listProjectContent(): ProjectContentItem[] {
-  const documents = db.prepare(
-    "SELECT id, title, updated_at FROM documents WHERE project_id = ?",
-  ).all(PROJECT_ID) as { id: string; title: string; updated_at: number }[];
-  const sources = db.prepare(
-    "SELECT id, title, updated_at FROM sources WHERE project_id = ?",
-  ).all(PROJECT_ID) as { id: string; title: string; updated_at: number }[];
-  return [
-    ...documents.map((item) => ({
-      id: item.id,
-      type: "document" as const,
-      title: item.title,
-      updatedAt: item.updated_at,
-    })),
-    ...sources.map((item) => ({
-      id: item.id,
-      type: "source" as const,
-      title: item.title,
-      updatedAt: item.updated_at,
-    })),
-  ];
-}
-
-function textFromValue(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.map(textFromValue).filter(Boolean).join("\n");
-  if (value && typeof value === "object") {
-    return Object.values(value as Record<string, unknown>)
-      .map(textFromValue)
-      .filter(Boolean)
-      .join(" ");
-  }
-  return "";
-}
-
-function readProjectContent(params: unknown) {
-  const input = params as { id: string; type: "document" | "source" };
-  if (input.type === "document") {
-    const row = db.prepare(
-      "SELECT title, blocks_json, revision FROM documents WHERE id = ? AND project_id = ?",
-    ).get(input.id, PROJECT_ID) as
-      | { title: string; blocks_json: string; revision: number }
-      | undefined;
-    if (!row) throw new Error("Document not found");
-    return {
-      id: input.id,
-      type: input.type,
-      title: row.title,
-      revision: row.revision,
-      text: textFromValue(json<unknown[]>(row.blocks_json)).slice(0, 60_000),
-    };
-  }
-  const row = db.prepare(
-    "SELECT title, extracted_text FROM sources WHERE id = ? AND project_id = ?",
-  ).get(input.id, PROJECT_ID) as
-    | { title: string; extracted_text: string }
-    | undefined;
-  if (!row) throw new Error("Source not found");
-  return {
-    id: input.id,
-    type: input.type,
-    title: row.title,
-    text: row.extracted_text.slice(0, 60_000),
-  };
-}
-
-function searchProjectContent(params: unknown) {
-  const query = (params as { query: string }).query.trim().toLocaleLowerCase();
-  if (!query) return [];
-  return listProjectContent()
-    .map((item) => ({ item, content: readProjectContent(item) as { text: string } }))
-    .filter(({ item, content }) =>
-      `${item.title}\n${content.text}`.toLocaleLowerCase().includes(query),
-    )
-    .slice(0, 12)
-    .map(({ item, content }) => ({ ...item, excerpt: content.text.slice(0, 1_200) }));
 }
 
 function listSuggestions() {
@@ -527,22 +447,21 @@ function enforceSuggestionLimit(state: PersistedSuggestionState) {
     .slice(-30);
 }
 
+function assertCurrentRevision(expectedDocumentRevision: number) {
+  if (expectedDocumentRevision !== getDocument().revision) {
+    throw new Error("STALE_SUGGESTION_REVISION");
+  }
+}
+
 function createSuggestion(params: unknown) {
   const input = params as { item: SuggestionItem; expectedDocumentRevision: number };
-  const document = getDocument();
-  if (input.expectedDocumentRevision !== document.revision) {
-    throw new Error("The target document changed; start a new observation");
-  }
+  if (!isSuggestionItem(input.item)) throw new Error("Invalid suggestion");
+  assertCurrentRevision(input.expectedDocumentRevision);
   return transaction(() => {
     const state = getSuggestionState();
     if (state.seenKeys[input.item.dedupeKey]) return { accepted: false };
     state.seenKeys[input.item.dedupeKey] = true;
-    state.entries.push({
-      item: input.item,
-      viewed: false,
-      stale: false,
-      withdrawn: false,
-    });
+    state.entries.push({ item: input.item, viewed: false, stale: false, withdrawn: false });
     enforceSuggestionLimit(state);
     putSuggestionState(state);
     emitSuggestion({ type: "suggestion.added", item: input.item });
@@ -552,20 +471,14 @@ function createSuggestion(params: unknown) {
 
 function createDevelopmentSuggestion(params: unknown) {
   const item = (params as { item?: unknown }).item;
-  if (!isSuggestionItem(item)) {
-    throw new Error("Invalid development suggestion");
-  }
-  return createSuggestion({
-    item,
-    expectedDocumentRevision: getDocument().revision,
-  });
+  if (!isSuggestionItem(item)) throw new Error("Invalid development suggestion");
+  return createSuggestion({ item, expectedDocumentRevision: getDocument().revision });
 }
 
 function updateSuggestion(params: unknown) {
   const input = params as { item: SuggestionItem; expectedDocumentRevision: number };
-  if (getDocument().revision !== input.expectedDocumentRevision) {
-    throw new Error("The target document changed; start a new observation");
-  }
+  if (!isSuggestionItem(input.item)) throw new Error("Invalid suggestion");
+  assertCurrentRevision(input.expectedDocumentRevision);
   return transaction(() => {
     const state = getSuggestionState();
     const entry = state.entries.find((candidate) => candidate.item.id === input.item.id);
@@ -579,9 +492,7 @@ function updateSuggestion(params: unknown) {
 
 function retractSuggestion(params: unknown) {
   const input = params as { id: string; expectedDocumentRevision: number };
-  if (getDocument().revision !== input.expectedDocumentRevision) {
-    throw new Error("The target document changed; start a new observation");
-  }
+  assertCurrentRevision(input.expectedDocumentRevision);
   return transaction(() => {
     const state = getSuggestionState();
     const exists = state.entries.some((entry) => entry.item.id === input.id);
@@ -593,87 +504,24 @@ function retractSuggestion(params: unknown) {
   });
 }
 
-function startRun(params: unknown) {
-  const input = params as {
-    id: string;
-    seed: ObservationSeed;
-    provider: string;
-    model: string;
-  };
-  db.prepare(
-    `INSERT INTO agent_runs
-      (id, project_id, document_id, project_revision, document_revision,
-       provider, model, status, started_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'working', ?)`,
-  ).run(
-    input.id,
-    input.seed.projectId,
-    input.seed.documentId,
-    input.seed.projectRevision,
-    input.seed.documentRevision,
-    input.provider,
-    input.model,
-    Date.now(),
-  );
-}
-
-function appendTranscript(params: unknown) {
-  const input = params as { runId: string; eventType: string; payload: unknown };
-  db.prepare(
-    `INSERT INTO agent_transcript (run_id, event_type, payload_json, created_at)
-     VALUES (?, ?, ?, ?)`,
-  ).run(input.runId, input.eventType, JSON.stringify(input.payload), Date.now());
-}
-
-function finishRun(params: unknown) {
-  const input = params as { runId: string; status: string; error?: string };
-  db.prepare(
-    "UPDATE agent_runs SET status = ?, completed_at = ?, error = ? WHERE id = ?",
-  ).run(input.status, Date.now(), input.error ?? null, input.runId);
-}
-
-function saveMemory(params: unknown) {
-  const input = params as {
-    documentId: string;
-    documentRevision: number;
-    summary: string;
-  };
-  if (input.documentId !== DOCUMENT_ID || getDocument().revision !== input.documentRevision) {
-    throw new Error("Cannot save memory for an outdated document revision");
-  }
-  db.prepare(
-    `INSERT INTO agent_memory (document_id, summary, document_revision, updated_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(document_id) DO UPDATE SET
-       summary = excluded.summary,
-       document_revision = excluded.document_revision,
-       updated_at = excluded.updated_at`,
-  ).run(input.documentId, input.summary.slice(0, 8_000), input.documentRevision, Date.now());
-}
-
 export async function handleStorageRequest(method: string, params?: unknown) {
   switch (method) {
     case "hydrate": return hydrate();
+    case "workspace.repair": return repairDraftMirror();
     case "document.save": return saveDocument(params);
     case "suggestions.save": return saveSuggestionState(params);
     case "source.import": return importSource(params);
-    case "provider.get": return getLegacyProvider();
     case "agent.seed": return getObservationSeed();
-    case "agent.content.list": return listProjectContent();
-    case "agent.content.read": return readProjectContent(params);
-    case "agent.content.search": return searchProjectContent(params);
     case "agent.suggestions.list": return listSuggestions();
     case "agent.suggestion.create": return createSuggestion(params);
-    case "development.suggestion.create": return createDevelopmentSuggestion(params);
     case "agent.suggestion.update": return updateSuggestion(params);
     case "agent.suggestion.retract": return retractSuggestion(params);
-    case "agent.run.start": return startRun(params);
-    case "agent.run.transcript": return appendTranscript(params);
-    case "agent.run.finish": return finishRun(params);
-    case "agent.memory.save": return saveMemory(params);
+    case "development.suggestion.create": return createDevelopmentSuggestion(params);
     default: throw new Error(`Unknown storage method: ${method}`);
   }
 }
+
+await repairDraftMirror();
 
 process.parentPort?.on("message", async ({ data }: { data: RpcRequest }) => {
   if (data.kind !== "rpc") return;
@@ -697,6 +545,11 @@ process.parentPort?.on("message", async ({ data }: { data: RpcRequest }) => {
 process.parentPort?.postMessage({ kind: "ready" });
 flushOutbox();
 
-export function closeStorageForTest() {
+export function getWorkspacePathsForTest() {
+  return { workspaceRoot, draftPath, sourcesDirectory, piDirectory };
+}
+
+export async function closeStorageForTest() {
   db.close();
+  if (!process.parentPort) await rm(workspaceRoot, { recursive: true, force: true });
 }

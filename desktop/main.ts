@@ -14,13 +14,9 @@ import {
   type WebContents,
 } from "electron";
 
-import {
-  loadAgentConfig,
-  resolveAgentModel,
-  type AgentModelConfig,
-  type LegacyProviderSettings,
-} from "./agent-config.js";
+import { ActivityRing } from "./activity.js";
 import type {
+  AgentActivity,
   AgentRuntime,
   DesktopEvent,
   ObservationSeed,
@@ -35,7 +31,7 @@ type ChildMessage =
   | { kind: "domain.event"; event: DesktopEvent }
   | { kind: "storage.request"; id: string; method: string; params?: unknown }
   | { kind: "agent.runtime"; runtime: Partial<AgentRuntime> }
-  | { kind: "agent.complete"; projectRevision: number };
+  | { kind: "agent.activity"; activity: Omit<AgentActivity, "updatedAt"> };
 
 class ChildRpc {
   private readonly child: UtilityProcess;
@@ -124,13 +120,11 @@ let storage: ChildRpc;
 let agent: ChildRpc;
 let workspaceWindow: BrowserWindow | undefined;
 let mockSuggestionWindow: BrowserWindow | undefined;
-let agentConfig: AgentModelConfig | undefined;
-let lastCompletedProjectRevision = -1;
 let runtime: AgentRuntime = {
-  running: false,
-  configured: false,
+  status: "offline",
+  cycleCount: 0,
 };
-let scheduler: ReturnType<typeof setInterval> | undefined;
+const activity = new ActivityRing();
 
 function broadcast(event: DesktopEvent) {
   for (const window of BrowserWindow.getAllWindows()) {
@@ -149,17 +143,6 @@ function validateSender(contents: WebContents) {
   );
 }
 
-async function observe(force = false) {
-  const config = agentConfig;
-  if (!config?.enabled) {
-    setRuntime({ configured: false, running: false });
-    return;
-  }
-  const seed = await storage.call<ObservationSeed>("agent.seed");
-  if (!force && seed.projectRevision === lastCompletedProjectRevision) return;
-  agent.post({ kind: "observe", seed, config, force });
-}
-
 function registerIpc() {
   ipcMain.handle("scribe:hydrate", async (event) => {
     if (!validateSender(event.sender)) throw new Error("Unknown renderer");
@@ -168,7 +151,7 @@ function registerIpc() {
       ...snapshot.agent,
       ...runtime,
     };
-    return { ...snapshot, agent: runtime };
+    return { ...snapshot, agent: runtime, activity: activity.snapshot() };
   });
 
   ipcMain.handle("scribe:document.save", (event, input) => {
@@ -189,7 +172,7 @@ function registerIpc() {
       filters: [
         {
           name: "Writing sources",
-          extensions: ["txt", "md", "markdown", "json", "pdf", "docx"],
+          extensions: ["md", "markdown"],
         },
       ],
     };
@@ -292,64 +275,65 @@ function installDevelopmentMenu() {
 async function start() {
   const userDataPath = app.getPath("userData");
   const dbPath = join(userDataPath, "scribe.sqlite3");
-  const agentConfigPath = join(userDataPath, "agent.yaml");
-  storage = new ChildRpc(join(here, "storage.js"), [dbPath], (message) => {
-    if (message.kind === "domain.event") broadcast(message.event);
-  });
-  agent = new ChildRpc(join(here, "agent.js"), [], (message) => {
-    if (message.kind === "storage.request") {
-      void storage
-        .call(message.method, message.params)
-        .then((result) =>
-          agent.post({ kind: "storage.result", id: message.id, result }),
-        )
-        .catch((error: unknown) =>
-          agent.post({
-            kind: "storage.result",
-            id: message.id,
-            error: error instanceof Error ? error.message : String(error),
-          }),
-        );
-    } else if (message.kind === "agent.runtime") {
-      setRuntime(message.runtime);
-    } else if (message.kind === "agent.complete") {
-      lastCompletedProjectRevision = message.projectRevision;
+  const projectWorkspace = join(userDataPath, "projects", "default-project");
+  const agentDir = join(userDataPath, "pi");
+  const sessionDirectory = join(projectWorkspace, ".pi", "sessions");
+  storage = new ChildRpc(join(here, "storage.js"), [dbPath, projectWorkspace], (message) => {
+    if (message.kind !== "domain.event") return;
+    broadcast(message.event);
+    if (message.event.type === "document.saved") {
+      agent?.post({
+        kind: "project.changed",
+        projectRevision: message.event.projectRevision,
+        documentRevision: message.event.document.revision,
+      });
+    } else if (message.event.type === "source.imported") {
+      void storage.call<ObservationSeed>("agent.seed").then((seed) => {
+        agent?.post({
+          kind: "project.changed",
+          projectRevision: seed.projectRevision,
+          documentRevision: seed.documentRevision,
+        });
+      });
     }
   });
-  await Promise.all([storage.ready, agent.ready]);
-  const legacy = await storage.call<LegacyProviderSettings>("provider.get");
-  const loadedConfig = await loadAgentConfig(agentConfigPath, legacy);
-  if (loadedConfig.config) {
-    try {
-      resolveAgentModel(loadedConfig.config);
-      agentConfig = loadedConfig.config;
-      runtime = {
-        ...runtime,
-        configured: loadedConfig.config.enabled,
-        lastError: undefined,
-      };
-    } catch (error) {
-      runtime = {
-        ...runtime,
-        configured: false,
-        lastError: error instanceof Error ? error.message : String(error),
-      };
-    }
-  } else {
-    runtime = {
-      ...runtime,
-      configured: false,
-      lastError: loadedConfig.error,
-    };
-  }
-  console.info(
-    `${loadedConfig.created ? "Created" : "Loaded"} agent configuration: ${agentConfigPath}`,
+  await storage.ready;
+  await storage.call("workspace.repair");
+  agent = new ChildRpc(
+    join(here, "agent.js"),
+    [projectWorkspace, agentDir, sessionDirectory],
+    (message) => {
+      if (message.kind === "storage.request") {
+        void storage
+          .call(message.method, message.params)
+          .then((result) =>
+            agent.post({ kind: "storage.result", id: message.id, result }),
+          )
+          .catch((error: unknown) =>
+            agent.post({
+              kind: "storage.result",
+              id: message.id,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          );
+      } else if (message.kind === "agent.runtime") {
+        setRuntime(message.runtime);
+      } else if (message.kind === "agent.activity") {
+        const item = activity.add(message.activity);
+        broadcast({ type: "agent.activity", activity: item });
+      }
+    },
   );
+  await agent.ready;
   registerIpc();
   installDevelopmentMenu();
   createWindow();
-  scheduler = setInterval(() => void observe(), 10_000);
-  void observe();
+  const seed = await storage.call<ObservationSeed>("agent.seed");
+  agent.post({
+    kind: "project.changed",
+    projectRevision: seed.projectRevision,
+    documentRevision: seed.documentRevision,
+  });
 }
 
 app.whenReady().then(start).catch((error: unknown) => {
@@ -366,7 +350,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  if (scheduler) clearInterval(scheduler);
+  agent?.post({ kind: "shutdown" });
   agent?.kill();
   storage?.kill();
 });

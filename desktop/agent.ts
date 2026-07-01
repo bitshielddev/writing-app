@@ -1,32 +1,49 @@
 import { randomUUID } from "node:crypto";
-
-import { Agent, type AgentEvent, type AgentTool } from "@earendil-works/pi-agent-core";
-import { Type } from "typebox";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 
 import {
-  resolveAgentModel,
-  resolveConfiguredApiKey,
-  type AgentModelConfig,
-} from "./agent-config.js";
-import type {
-  ObservationSeed,
-  ProjectContentItem,
-} from "../src/shared/desktop.js";
-import type { SuggestionItem, SuggestionKind } from "../src/suggestions/types.js";
+  AuthStorage,
+  createAgentSession,
+  createEventBus,
+  DefaultResourceLoader,
+  ModelRegistry,
+  SessionManager,
+  SettingsManager,
+  type AgentSession,
+  type AgentSessionEvent,
+} from "@earendil-works/pi-coding-agent";
+
+import {
+  createScribeExtension,
+  SCRIBE_REVISION_EVENT,
+  SCRIBE_TOOL_NAMES,
+  type ScribeExtensionHost,
+  type ScribeRevision,
+} from "./scribe-extension.js";
+import { ScribeLoopState } from "./scribe-loop.js";
+import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
 
 type ParentMessage =
-  | { kind: "observe"; seed: ObservationSeed; config: AgentModelConfig; force: boolean }
-  | { kind: "storage.result"; id: string; result?: unknown; error?: string };
+  | ({ kind: "project.changed" } & ScribeRevision)
+  | { kind: "storage.result"; id: string; result?: unknown; error?: string }
+  | { kind: "shutdown" };
 
-type ObservationRequest = Extract<ParentMessage, { kind: "observe" }>;
+const workspaceRoot = process.argv[2];
+const agentDir = process.argv[3];
+const sessionDirectory = process.argv[4];
+if (!workspaceRoot || !agentDir || !sessionDirectory) {
+  throw new Error("Agent process requires workspace, Pi config, and session paths");
+}
 
 const pendingStorage = new Map<
   string,
   { resolve: (value: unknown) => void; reject: (error: Error) => void }
 >();
-let running = false;
-let queued: ObservationRequest | undefined;
-let lastCompletedRevision = -1;
+const eventBus = createEventBus();
+let session: AgentSession | undefined;
+let configured = false;
+let draining = false;
 
 function storageCall<T>(method: string, params?: unknown): Promise<T> {
   const id = randomUUID();
@@ -35,285 +52,269 @@ function storageCall<T>(method: string, params?: unknown): Promise<T> {
       resolve: (value) => resolve(value as T),
       reject,
     });
-    process.parentPort?.postMessage({
-      kind: "storage.request",
-      id,
-      method,
-      params,
-    });
+    process.parentPort?.postMessage({ kind: "storage.request", id, method, params });
   });
 }
 
-function runtime(update: Record<string, unknown>) {
-  process.parentPort?.postMessage({ kind: "agent.runtime", runtime: update });
+function postRuntime(value: AgentRuntime) {
+  process.parentPort?.postMessage({ kind: "agent.runtime", runtime: value });
 }
 
-const suggestionSchema = Type.Object({
-  kind: Type.Union([
-    Type.Literal("snippet"),
-    Type.Literal("fact"),
-    Type.Literal("term"),
-    Type.Literal("outline"),
-    Type.Literal("layout"),
-    Type.Literal("mindMap"),
-  ]),
-  dedupeKey: Type.String({ minLength: 1, maxLength: 200 }),
-  title: Type.String({ minLength: 1, maxLength: 200 }),
-  summary: Type.String({ minLength: 1, maxLength: 1_000 }),
-  body: Type.String({ minLength: 1, maxLength: 8_000 }),
-  sourceLabels: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 12 }),
-  insertText: Type.Optional(Type.String({ maxLength: 20_000 })),
-  nodes: Type.Optional(Type.Array(Type.Unknown(), { maxItems: 100 })),
-  mermaidSource: Type.Optional(Type.String({ maxLength: 20_000 })),
-  accessibleDescription: Type.Optional(Type.String({ maxLength: 4_000 })),
-});
+function postActivity(value: Omit<AgentActivity, "updatedAt">) {
+  process.parentPort?.postMessage({ kind: "agent.activity", activity: value });
+}
 
-type SuggestionInput = {
-  kind: SuggestionKind;
-  dedupeKey: string;
-  title: string;
-  summary: string;
-  body: string;
-  sourceLabels: string[];
-  insertText?: string;
-  nodes?: unknown[];
-  mermaidSource?: string;
-  accessibleDescription?: string;
+const host: ScribeExtensionHost = {
+  loop: new ScribeLoopState(),
+  storageCall,
+  runtime(update) {
+    if (!configured) return;
+    postRuntime({ ...update, sessionId: session?.sessionId });
+  },
+  activity: postActivity,
+  wake() {
+    setTimeout(() => void drain(), 0);
+  },
+  persist() {},
 };
 
-function toSuggestion(
-  input: SuggestionInput,
-  id: string = randomUUID(),
-): SuggestionItem {
-  const base = {
-    id,
-    dedupeKey: input.dedupeKey,
-    title: input.title,
-    summary: input.summary,
-    body: input.body,
-    sourceLabels: input.sourceLabels,
-    createdAt: Date.now(),
-  };
-  if (input.kind === "snippet" || input.kind === "fact" || input.kind === "term") {
-    if (!input.insertText) throw new Error("Text suggestions require insertText");
-    return { ...base, kind: input.kind, insertText: input.insertText };
-  }
-  if (input.kind === "outline" || input.kind === "layout") {
-    if (!input.nodes) throw new Error("Structure suggestions require nodes");
-    return { ...base, kind: input.kind, nodes: input.nodes as never[] };
-  }
-  if (!input.mermaidSource || !input.accessibleDescription) {
-    throw new Error("Mind maps require Mermaid source and an accessible description");
-  }
-  return {
-    ...base,
-    kind: "mindMap",
-    mermaidSource: input.mermaidSource,
-    accessibleDescription: input.accessibleDescription,
-  };
-}
-
-function createTools(seed: ObservationSeed): AgentTool[] {
-  const list: AgentTool = {
-    name: "list_project_content",
-    label: "List project content",
-    description: "List the documents and imported sources available in the current project.",
-    parameters: Type.Object({}),
-    execute: async () => ({
-      content: [{ type: "text", text: JSON.stringify(await storageCall("agent.content.list")) }],
-      details: {},
-    }),
-  };
-  const read: AgentTool = {
-    name: "read_project_content",
-    label: "Read project content",
-    description: "Read one project document or source by the stable ID returned by list_project_content.",
-    parameters: Type.Object({
-      id: Type.String(),
-      type: Type.Union([Type.Literal("document"), Type.Literal("source")]),
-    }),
-    execute: async (_id, params) => ({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(await storageCall("agent.content.read", params)),
-        },
-      ],
-      details: {},
-    }),
-  };
-  const search: AgentTool = {
-    name: "search_project_content",
-    label: "Search project content",
-    description: "Search all documents and imported source text in the current project.",
-    parameters: Type.Object({ query: Type.String({ minLength: 1, maxLength: 500 }) }),
-    execute: async (_id, params) => ({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(await storageCall("agent.content.search", params)),
-        },
-      ],
-      details: {},
-    }),
-  };
-  const listSuggestions: AgentTool = {
-    name: "list_suggestions",
-    label: "List suggestions",
-    description: "List existing live, pinned, and workspace suggestions for this project.",
-    parameters: Type.Object({}),
-    execute: async () => ({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(await storageCall("agent.suggestions.list")),
-        },
-      ],
-      details: {},
-    }),
-  };
-  const create: AgentTool<typeof suggestionSchema> = {
-    name: "create_suggestion",
-    label: "Create suggestion",
-    description: "Create a useful suggestion for the active document. This does not edit the document.",
-    parameters: suggestionSchema,
-    execute: async (_id, params) => {
-      const item = toSuggestion(params as SuggestionInput);
-      const result = await storageCall("agent.suggestion.create", {
-        item,
-        expectedDocumentRevision: seed.documentRevision,
-      });
-      return { content: [{ type: "text", text: JSON.stringify(result) }], details: { item } };
-    },
-  };
-  const update: AgentTool = {
-    name: "update_suggestion",
-    label: "Update suggestion",
-    description: "Refine an existing live suggestion by ID.",
-    parameters: Type.Intersect([
-      suggestionSchema,
-      Type.Object({ id: Type.String({ minLength: 1 }) }),
-    ]),
-    execute: async (_id, params) => {
-      const input = params as SuggestionInput & { id: string };
-      const item = toSuggestion(input, input.id);
-      const result = await storageCall("agent.suggestion.update", {
-        item,
-        expectedDocumentRevision: seed.documentRevision,
-      });
-      return { content: [{ type: "text", text: JSON.stringify(result) }], details: { item } };
-    },
-  };
-  const retract: AgentTool = {
-    name: "retract_suggestion",
-    label: "Retract suggestion",
-    description: "Retract an existing live suggestion by ID.",
-    parameters: Type.Object({ id: Type.String({ minLength: 1 }) }),
-    execute: async (_id, params) => {
-      const result = await storageCall("agent.suggestion.retract", {
-        id: (params as { id: string }).id,
-        expectedDocumentRevision: seed.documentRevision,
-      });
-      return { content: [{ type: "text", text: JSON.stringify(result) }], details: {} };
-    },
-  };
-  const memory: AgentTool = {
-    name: "save_document_memory",
-    label: "Save document memory",
-    description: "Save a concise durable summary of the active document and useful project context for the next observation.",
-    parameters: Type.Object({ summary: Type.String({ minLength: 1, maxLength: 8_000 }) }),
-    execute: async (_id, params) => {
-      await storageCall("agent.memory.save", {
-        documentId: seed.documentId,
-        documentRevision: seed.documentRevision,
-        summary: (params as { summary: string }).summary,
-      });
-      return { content: [{ type: "text", text: "Memory saved." }], details: {} };
-    },
-  };
-  return [list, read, search, listSuggestions, create, update, retract, memory];
-}
-
-function serializable(event: AgentEvent) {
+function serializable(value: unknown): unknown {
   try {
-    return JSON.parse(JSON.stringify(event)) as unknown;
+    return JSON.parse(JSON.stringify(value)) as unknown;
   } catch {
-    return { type: event.type };
+    return { unavailable: true };
   }
 }
 
-async function perform(request: ObservationRequest) {
-  const { seed } = request;
-  const settings = request.config;
-  const runId = randomUUID();
-  running = true;
-  runtime({ running: true, configured: true, lastError: undefined });
-  try {
-    const model = resolveAgentModel(settings);
-    const apiKey = resolveConfiguredApiKey(settings);
-    await storageCall("agent.run.start", {
-      id: runId,
-      seed,
-      provider: settings.provider.id,
-      model: settings.model.id,
-    });
-    const agent = new Agent({
-      initialState: {
-        model,
-        thinkingLevel: "low",
-        tools: createTools(seed),
-        systemPrompt: `You are ScribeAI's background writing partner. Analyze the active document in the context of its project. Use project tools to read relevant material. Create only concrete, high-value suggestions; do not edit document content. Avoid duplicating existing suggestions. Before finishing, call save_document_memory with a concise summary for the next observation.\n\nPrevious document memory:\n${seed.memorySummary || "No previous memory."}`,
-      },
-      getApiKey: () => apiKey,
-      toolExecution: "sequential",
-    });
-    agent.subscribe(async (event) => {
-      await storageCall("agent.run.transcript", {
-        runId,
-        eventType: event.type,
-        payload: serializable(event),
-      });
-    });
-    const timeout = setTimeout(() => agent.abort(), 120_000);
-    try {
-      const index = await storageCall<ProjectContentItem[]>("agent.content.list");
-      await agent.prompt(
-        `Observe project "${seed.projectName}" at project revision ${seed.projectRevision}. The active target is "${seed.documentTitle}" (document ID ${seed.documentId}, revision ${seed.documentRevision}). Project content index: ${JSON.stringify(index)}. Read the active document and any useful project sources, then manage suggestions.`,
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
-    await storageCall("agent.run.finish", { runId, status: "completed" });
-    lastCompletedRevision = seed.projectRevision;
-    process.parentPort?.postMessage({
-      kind: "agent.complete",
-      projectRevision: seed.projectRevision,
-    });
-    runtime({ running: false, lastCompletedAt: Date.now(), lastError: undefined });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await storageCall("agent.run.finish", {
-      runId,
-      status: "failed",
-      error: message,
-    }).catch(() => undefined);
-    runtime({ running: false, lastError: message });
-  } finally {
-    running = false;
-  }
+function messageParts(message: unknown) {
+  const record = message as {
+    role?: string;
+    timestamp?: number;
+    content?: string | Array<{ type?: string; text?: string; thinking?: string }>;
+    errorMessage?: string;
+  };
+  const content = typeof record.content === "string" ? [] : (record.content ?? []);
+  return {
+    role: record.role ?? "message",
+    timestamp: record.timestamp ?? Date.now(),
+    text: typeof record.content === "string"
+      ? record.content
+      : content.filter((part) => part.type === "text").map((part) => part.text ?? "").join(""),
+    reasoning: content
+      .filter((part) => part.type === "thinking")
+      .map((part) => part.thinking ?? "")
+      .join(""),
+    error: record.errorMessage,
+  };
 }
 
-async function drain(request: ObservationRequest) {
-  if (running) {
-    queued = request;
+function observeSessionEvent(event: AgentSessionEvent) {
+  const now = Date.now();
+  if (event.type === "agent_start" || event.type === "agent_end") {
+    postActivity({
+      id: `lifecycle:${event.type}:${now}`,
+      kind: "lifecycle",
+      timestamp: now,
+      title: event.type === "agent_start" ? "Agent cycle started" : "Agent cycle ended",
+      payload: serializable(event),
+    });
     return;
   }
-  if (!request.force && request.seed.projectRevision === lastCompletedRevision) return;
-  await perform(request);
-  const next = queued;
-  queued = undefined;
-  if (next && next.seed.projectRevision !== lastCompletedRevision) {
-    await drain(next);
+  if (event.type === "message_start" || event.type === "message_update" || event.type === "message_end") {
+    const parts = messageParts(event.message);
+    const key = `${parts.role}:${parts.timestamp}`;
+    if (parts.text) {
+      postActivity({
+        id: `message:${key}`,
+        kind: "message",
+        timestamp: parts.timestamp,
+        title: `${parts.role} message`,
+        text: parts.text,
+        payload: serializable(event),
+      });
+    }
+    if (parts.reasoning) {
+      postActivity({
+        id: `reasoning:${key}`,
+        kind: "reasoning",
+        timestamp: parts.timestamp,
+        title: "Model reasoning",
+        text: parts.reasoning,
+        payload: serializable(event),
+      });
+    }
+    if (parts.error) {
+      postActivity({
+        id: `error:${key}`,
+        kind: "error",
+        timestamp: parts.timestamp,
+        title: "Provider error",
+        text: parts.error,
+        payload: serializable(event),
+        status: "error",
+      });
+    }
+    return;
+  }
+  if (
+    event.type === "tool_execution_start" ||
+    event.type === "tool_execution_update" ||
+    event.type === "tool_execution_end"
+  ) {
+    postActivity({
+      id: `tool:${event.toolCallId}`,
+      kind: "tool",
+      timestamp: now,
+      title: `${event.toolName} ${event.type === "tool_execution_end" ? "completed" : "running"}`,
+      payload: serializable(event),
+    });
+  }
+}
+
+function runtime() {
+  const state = host.loop.snapshot();
+  return {
+    status: state.status,
+    sessionId: session?.sessionId,
+    activeRevision: state.activeRevision,
+    cycleCount: state.cycleCount,
+    error: state.error,
+  } satisfies AgentRuntime;
+}
+
+async function drain() {
+  if (!configured || !session || draining || session.isStreaming) return;
+  const cycle = host.loop.beginCycle();
+  if (!cycle) {
+    host.persist();
+    postRuntime(runtime());
+    return;
+  }
+  draining = true;
+  host.persist();
+  postRuntime(runtime());
+  postActivity({
+    id: `loop:cycle:${cycle.projectRevision}:${cycle.cycleCount}`,
+    kind: "loop",
+    timestamp: Date.now(),
+    title: `Autonomous cycle ${cycle.cycleCount}`,
+    text: `Reviewing project revision ${cycle.projectRevision}`,
+    payload: cycle,
+    status: "working",
+  });
+  try {
+    await session.prompt(
+      `Review the durable Scribe project revision ${cycle.projectRevision} (draft revision ${cycle.documentRevision}). Read draft.md and relevant Markdown files in sources/. Manage only concrete, high-value suggestions. If no useful work remains for this revision, call wait_for_changes.`,
+    );
+    const continueRunning = host.loop.finishCycle();
+    host.persist();
+    postRuntime(runtime());
+    if (!continueRunning) {
+      const state = host.loop.snapshot();
+      postActivity({
+        id: `loop:${state.status}:${state.latestRevision}`,
+        kind: "loop",
+        timestamp: Date.now(),
+        title: state.status === "capped" ? "Autonomous loop capped" : "Waiting for changes",
+        text: state.status === "capped"
+          ? "Five consecutive cycles completed without a yield or newer revision."
+          : `Yielded project revision ${state.yieldedRevision}.`,
+        payload: state,
+        status: state.status,
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    host.loop.fail(message);
+    host.persist();
+    postRuntime(runtime());
+    postActivity({
+      id: `error:cycle:${Date.now()}`,
+      kind: "error",
+      timestamp: Date.now(),
+      title: "Agent cycle failed",
+      text: message,
+      payload: serializable(error),
+      status: "error",
+    });
+  } finally {
+    draining = false;
+  }
+  if (host.loop.snapshot().status === "working") setTimeout(() => void drain(), 0);
+}
+
+async function initialize() {
+  await Promise.all([
+    mkdir(agentDir, { recursive: true }),
+    mkdir(sessionDirectory, { recursive: true }),
+  ]);
+  const settingsManager = SettingsManager.create(workspaceRoot, agentDir, {
+    projectTrusted: true,
+  });
+  const authStorage = AuthStorage.create(join(agentDir, "auth.json"));
+  const modelRegistry = ModelRegistry.create(authStorage, join(agentDir, "models.json"));
+  const resourceLoader = new DefaultResourceLoader({
+    cwd: workspaceRoot,
+    agentDir,
+    settingsManager,
+    eventBus,
+    extensionFactories: [createScribeExtension(host)],
+    noExtensions: true,
+    appendSystemPrompt: [
+      "You are Scribe's autonomous writing partner. Treat draft.md and every file in sources/ as read-only. Never edit project files. Publish proposed changes only through Scribe suggestion tools. Cite the exact source filename for sourced claims. Call wait_for_changes when useful work for the current durable revision is exhausted.",
+    ],
+  });
+  await resourceLoader.reload({ resolveProjectTrust: async () => true });
+  const sessionManager = SessionManager.continueRecent(workspaceRoot, sessionDirectory);
+  const created = await createAgentSession({
+    cwd: workspaceRoot,
+    agentDir,
+    authStorage,
+    modelRegistry,
+    settingsManager,
+    resourceLoader,
+    sessionManager,
+    tools: ["read", "grep", "find", "ls", ...SCRIBE_TOOL_NAMES],
+    excludeTools: ["bash", "write", "edit"],
+  });
+  session = created.session;
+  session.subscribe(observeSessionEvent);
+
+  const diagnostics = [
+    ...settingsManager.drainErrors().map((item) => item.error.message),
+    ...authStorage.drainErrors().map((error) => error.message),
+    modelRegistry.getError(),
+    ...created.extensionsResult.errors.map((item) => item.error),
+  ].filter((item): item is string => Boolean(item));
+  const activeTools = session.getActiveToolNames().sort();
+  const expectedTools = ["find", "grep", "ls", "read", ...SCRIBE_TOOL_NAMES].sort();
+  if (JSON.stringify(activeTools) !== JSON.stringify(expectedTools)) {
+    diagnostics.push(`Unsafe or incomplete Pi tool set: ${activeTools.join(", ")}`);
+  }
+  if (!session.model) diagnostics.push("No Pi model is configured in settings.json or models.json");
+  else if (!modelRegistry.hasConfiguredAuth(session.model)) {
+    diagnostics.push(`No credentials are configured for ${session.model.provider}`);
+  }
+
+  if (diagnostics.length) {
+    configured = false;
+    postRuntime({
+      status: "offline",
+      sessionId: session.sessionId,
+      cycleCount: host.loop.snapshot().cycleCount,
+      error: diagnostics.join("; "),
+    });
+    postActivity({
+      id: "configuration:offline",
+      kind: "error",
+      timestamp: Date.now(),
+      title: "Pi configuration unavailable",
+      text: diagnostics.join("; "),
+      status: "offline",
+    });
+  } else {
+    configured = true;
+    postRuntime(runtime());
   }
 }
 
@@ -326,9 +327,27 @@ process.parentPort?.on("message", ({ data }: { data: ParentMessage }) => {
     else request.resolve(data.result);
     return;
   }
-  if (data.kind === "observe") {
-    void drain(data);
+  if (data.kind === "project.changed") {
+    eventBus.emit(SCRIBE_REVISION_EVENT, {
+      projectRevision: data.projectRevision,
+      documentRevision: data.documentRevision,
+    } satisfies ScribeRevision);
+    return;
   }
+  session?.dispose();
 });
 
-process.parentPort?.postMessage({ kind: "ready" });
+initialize()
+  .catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    postRuntime({ status: "offline", cycleCount: 0, error: message });
+    postActivity({
+      id: "configuration:failure",
+      kind: "error",
+      timestamp: Date.now(),
+      title: "Pi failed to start",
+      text: message,
+      status: "offline",
+    });
+  })
+  .finally(() => process.parentPort?.postMessage({ kind: "ready" }));
