@@ -50,6 +50,10 @@ function ActivityView({
   items: AgentActivity[];
   runtime?: AgentRuntime;
 }) {
+  const orderedItems = [...items].sort(
+    (left, right) => right.timestamp - left.timestamp,
+  );
+
   return (
     <div className="px-5 py-6 2xl:px-7 2xl:py-7">
       <header>
@@ -60,7 +64,7 @@ function ActivityView({
         </p>
       </header>
       <ol className="mt-5 grid gap-3" aria-label="Agent activity log">
-        {items.map((item) => (
+        {orderedItems.map((item) => (
           <li key={item.id} className="rounded-lg border border-[#dedbe9] bg-white/75 p-3">
             <div className="flex items-start justify-between gap-3">
               <span className="text-[0.65rem] font-extrabold tracking-[0.08em] text-brand-700 uppercase">

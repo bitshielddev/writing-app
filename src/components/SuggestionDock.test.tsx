@@ -76,6 +76,40 @@ describe("SuggestionDock", () => {
     expect(props.onSelect).toHaveBeenCalledWith(item.id);
   });
 
+  it("orders agent activity from newest to oldest", async () => {
+    renderDock({
+      activity: [
+        {
+          id: "middle",
+          kind: "message",
+          timestamp: 200,
+          updatedAt: 200,
+          title: "Middle message",
+        },
+        {
+          id: "oldest",
+          kind: "message",
+          timestamp: 100,
+          updatedAt: 100,
+          title: "Oldest message",
+        },
+        {
+          id: "newest",
+          kind: "message",
+          timestamp: 300,
+          updatedAt: 300,
+          title: "Newest message",
+        },
+      ],
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Activity" }));
+
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
+    ).toEqual(["Newest message", "Middle message", "Oldest message"]);
+  });
+
   it("starts and stops the agent from the persistent toolbar", async () => {
     const stoppedProps = renderDock({ status: "stopped" });
     await userEvent.click(screen.getByRole("button", { name: "Start Agent" }));

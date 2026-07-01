@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension review: agent activity newest first</title>
+  <style>
+    :root {
+      --bg: #f7f5fb;
+      --paper: #ffffff;
+      --ink: #20212a;
+      --muted: #666276;
+      --line: #dcd7ea;
+      --accent: #6547d2;
+      --accent-soft: #eee9ff;
+      --code-bg: #1f2330;
+      --code-ink: #f2f4ff;
+      --warn-bg: #fff7e8;
+      --warn-line: #e8c981;
+      --ok-bg: #edf9f1;
+      --ok-line: #a9d9b8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #f0ecff 0, var(--bg) 32rem);
+      color: var(--ink);
+      font: 16px/1.58 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .shell { max-width: 1120px; margin: 0 auto; padding: 44px 22px 64px; }
+    header.hero {
+      background: rgba(255,255,255,.78);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 34px;
+      box-shadow: 0 24px 80px rgba(50, 36, 99, .10);
+    }
+    .eyebrow { margin: 0 0 10px; color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 820px; font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.06; letter-spacing: -.04em; }
+    .hero p { max-width: 780px; margin: 18px 0 0; color: var(--muted); font-size: 1.05rem; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; margin-top: 22px; align-items: start; }
+    main, aside.card { min-width: 0; }
+    section, .card {
+      background: rgba(255,255,255,.86);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 26px;
+      margin-bottom: 18px;
+      box-shadow: 0 16px 50px rgba(50, 36, 99, .06);
+    }
+    h2 { margin: 0 0 14px; font-size: 1.35rem; line-height: 1.2; letter-spacing: -.02em; }
+    h3 { margin: 22px 0 8px; font-size: 1.02rem; }
+    p { margin: 0 0 14px; }
+    ul { margin: 10px 0 0 1.1rem; padding: 0; }
+    li { margin: 7px 0; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+    pre {
+      margin: 14px 0 0;
+      padding: 16px;
+      overflow-x: auto;
+      border-radius: 14px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font-size: .86rem;
+      line-height: 1.55;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .mark { background: rgba(145, 116, 255, .20); color: #fff; border-radius: 4px; padding: 0 2px; }
+    .note, .risk, .test {
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin: 18px 0;
+      border: 1px solid var(--line);
+    }
+    .note { background: var(--accent-soft); }
+    .risk { background: var(--warn-bg); border-color: var(--warn-line); }
+    .test { background: var(--ok-bg); border-color: var(--ok-line); }
+    .small { color: var(--muted); font-size: .92rem; }
+    .map { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 14px; }
+    .map div { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fbfaff; }
+    .map strong { display: block; margin-bottom: 4px; }
+    .timeline { list-style: none; margin: 12px 0 0; padding: 0; border-left: 2px solid var(--line); }
+    .timeline li { margin: 0 0 14px; padding-left: 16px; position: relative; }
+    .timeline li:before { content: ""; width: 10px; height: 10px; border-radius: 999px; background: var(--accent); position: absolute; left: -6px; top: .45rem; }
+    .compare { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: .94rem; }
+    .compare th, .compare td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 10px 8px; }
+    .compare th { color: var(--accent); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+    .toc { position: sticky; top: 18px; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; padding: 7px 0; border-bottom: 1px solid #eeeaf6; }
+    .toc a:hover { color: var(--accent); }
+    details { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-top: 12px; background: #fbfaff; }
+    summary { cursor: pointer; font-weight: 750; }
+    .quiz details { background: #fff; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .toc { position: static; } header.hero { padding: 26px; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <p class="eyebrow">Comprehension review</p>
+      <h1>Agent activity now reads in reverse chronological order</h1>
+      <p>The staged change is small and targeted: the Activity tab in <code>SuggestionDock</code> no longer trusts the order of the incoming activity array. It displays the newest activity first, and a component test now locks that behaviour down.</p>
+    </header>
+
+    <div class="grid">
+      <main>
+        <section id="where-this-fits">
+          <h2>Why this change fits the recent work</h2>
+          <p>The recent history shows the app has been moving toward a writer-controlled agent runtime. The latest committed change, <code>6e874eb Writer controlled agent process</code>, added a visible activity stream, runtime state, start/stop controls, and related desktop-agent plumbing. This staged change adjusts one user-facing detail of that new surface: the order in which activity cards appear.</p>
+          <ol class="timeline">
+            <li><code>6150c37</code> developed the Electron runtime, which is part of the desktop foundation this feature uses.</li>
+            <li><code>fba985f</code> introduced the full pi agent with a markdown file workspace.</li>
+            <li><code>6e874eb</code> added the writer-controlled agent process and the Activity tab that renders <code>AgentActivity[]</code>.</li>
+            <li>The current staged diff sorts that Activity tab from newest to oldest and adds a regression test.</li>
+          </ol>
+          <p class="small">Intent is partly inferred from the code and test name. There is no issue text in the available context, but the test explicitly names the desired behaviour: "orders agent activity from newest to oldest".</p>
+        </section>
+
+        <section id="path">
+          <h2>The path that changed</h2>
+          <div class="map">
+            <div>
+              <strong><code>src/App.tsx</code></strong>
+              Owns the <code>activity</code> state. Hydration seeds it from the desktop snapshot, and <code>agent.activity</code> events append or replace entries by id. This file was not changed in this staged diff, but it explains why input order may not be the display order a reader expects.
+            </div>
+            <div>
+              <strong><code>src/components/SuggestionDock.tsx</code></strong>
+              Renders the Suggestions and Activity views. The staged code changes only <code>ActivityView</code>: it creates an ordered copy of the items before rendering.
+            </div>
+            <div>
+              <strong><code>src/components/SuggestionDock.test.tsx</code></strong>
+              Adds a focused test that gives the component activity in non-chronological order, opens the Activity tab, and checks the rendered headings.</div>
+          </div>
+        </section>
+
+        <section id="implementation">
+          <h2>The display order is now computed inside <code>ActivityView</code></h2>
+          <p>Previously, <code>ActivityView</code> mapped over <code>items</code> directly. The new code derives <code>orderedItems</code> first:</p>
+          <pre><code>function ActivityView({
+  items,
+  runtime,
+}: {
+  items: AgentActivity[];
+  runtime?: AgentRuntime;
+}) {
+  const orderedItems = [...items].sort(
+    (left, right) =&gt; right.timestamp - left.timestamp,
+  );
+
+  return (
+    ...
+    &lt;ol className="mt-5 grid gap-3" aria-label="Agent activity log"&gt;
+      {orderedItems.map((item) =&gt; (
+        &lt;li key={item.id} ...&gt;
+          ...
+        &lt;/li&gt;
+      ))}
+      {!items.length ? (
+        &lt;li ...&gt;Activity from this app launch will appear here.&lt;/li&gt;
+      ) : null}
+    &lt;/ol&gt;
+  );
+}</code></pre>
+          <div class="note">
+            <p><strong>Line to notice:</strong> <code>[...items]</code> matters. JavaScript <code>sort</code> mutates the array it is called on. Cloning first keeps the React prop unchanged, so <code>ActivityView</code> does not reorder state owned by <code>App</code>.</p>
+          </div>
+          <p>The comparator sorts by <code>timestamp</code> descending, so a larger timestamp renders earlier. The empty-state condition still checks <code>items.length</code>, which is equivalent for this purpose because <code>orderedItems</code> is a copy of the same entries.</p>
+
+          <h3>Before and after</h3>
+          <table class="compare">
+            <thead><tr><th>Case</th><th>Before staged change</th><th>After staged change</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Activity array arrives as <code>[middle, oldest, newest]</code></td>
+                <td>The UI renders <code>middle</code>, then <code>oldest</code>, then <code>newest</code>.</td>
+                <td>The UI renders <code>newest</code>, then <code>middle</code>, then <code>oldest</code>.</td>
+              </tr>
+              <tr>
+                <td>No activity items</td>
+                <td>Shows the existing empty-state message.</td>
+                <td>Same behaviour.</td>
+              </tr>
+              <tr>
+                <td>An existing activity item is updated</td>
+                <td>The display position followed the array position maintained by <code>App</code>.</td>
+                <td>The display position follows the original <code>timestamp</code>, not <code>updatedAt</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="data-flow">
+          <h2>Follow one activity event to the screen</h2>
+          <p>The staged diff does not change event storage, but the sorting decision is easier to reason about with the surrounding data flow in view.</p>
+          <pre><code>// src/App.tsx
+} else if (event.type === "agent.activity") {
+  setActivity((current) =&gt; {
+    const index = current.findIndex((item) =&gt; item.id === event.activity.id);
+    if (index &lt; 0) return [...current, event.activity].slice(-500);
+    const next = [...current];
+    next[index] = event.activity;
+    return next;
+  });
+}</code></pre>
+          <p>New activity is appended. Existing activity is replaced in place. That means the state array is a storage/update structure, not a guaranteed presentation order. The new <code>ActivityView</code> makes the presentation rule explicit at render time.</p>
+          <pre><code>// desktop/activity.ts
+if (existing &gt;= 0) {
+  this.items[existing] = {
+    ...this.items[existing],
+    ...activity,
+    timestamp: this.items[existing].timestamp,
+  };
+} else {
+  this.items.push(activity);
+  if (this.items.length &gt; MAX_ITEMS) this.items.splice(0, this.items.length - MAX_ITEMS);
+}</code></pre>
+          <p>The activity ring preserves the original <code>timestamp</code> when an item with the same id is updated. Combined with the staged UI change, an updated item keeps its chronological position by creation time. If future product behaviour should instead move recently updated items to the top, the sort key would need to become <code>updatedAt</code> or use a two-key policy.</p>
+        </section>
+
+        <section id="test">
+          <h2>The new test captures the behaviour at the UI boundary</h2>
+          <p>The test does not call <code>ActivityView</code> directly. It renders the dock, switches to the Activity tab through the same accessible button a user would use, then reads the visible activity card headings.</p>
+          <pre><code>it("orders agent activity from newest to oldest", async () =&gt; {
+  renderDock({
+    activity: [
+      { id: "middle", kind: "message", timestamp: 200, updatedAt: 200, title: "Middle message" },
+      { id: "oldest", kind: "message", timestamp: 100, updatedAt: 100, title: "Oldest message" },
+      { id: "newest", kind: "message", timestamp: 300, updatedAt: 300, title: "Newest message" },
+    ],
+  });
+
+  await userEvent.click(screen.getByRole("button", { name: "Activity" }));
+
+  expect(
+    screen.getAllByRole("heading", { level: 3 }).map((heading) =&gt; heading.textContent),
+  ).toEqual(["Newest message", "Middle message", "Oldest message"]);
+});</code></pre>
+          <div class="test">
+            <p>Verification run: <code>npm test -- --run src/components/SuggestionDock.test.tsx</code></p>
+            <p class="small">Result: 1 test file passed, 14 tests passed.</p>
+          </div>
+        </section>
+
+        <section id="risks">
+          <h2>Maintenance notes for this small sort</h2>
+          <ul>
+            <li>The UI sorts by <code>timestamp</code>, not by <code>updatedAt</code>. That matches the staged test, but it is a product choice. Updated streaming activity will not jump to the top if its original timestamp is older.</li>
+            <li>There is no explicit tie-breaker for equal timestamps. If several events share the same millisecond timestamp, their relative order is not specified by this component's comparator.</li>
+            <li>The test uses all level-3 headings after opening Activity. If future markup adds another <code>h3</code> inside the Activity view, the test may need to scope the query to <code>aria-label="Agent activity log"</code>.</li>
+            <li>The clone before sort is an invariant worth keeping. Removing it would mutate the incoming prop array during render.</li>
+          </ul>
+          <div class="risk">
+            <p>Debugging prompt: if a user reports that the Activity tab "keeps moving old items," first check whether the unexpected movement is based on <code>timestamp</code> data from the agent event. If the report is about updated items not moving to the top, this implementation currently explains that behaviour.</p>
+          </div>
+        </section>
+
+        <section id="quiz" class="quiz">
+          <h2>Comprehension check</h2>
+          <details>
+            <summary>1. Why does the component use <code>[...items].sort(...)</code> instead of <code>items.sort(...)</code>?</summary>
+            <p>Because <code>sort</code> mutates its receiver. <code>items</code> is a React prop owned by the parent, so cloning first lets the view compute presentation order without mutating parent state during render.</p>
+          </details>
+          <details>
+            <summary>2. An activity item has <code>timestamp: 100</code> and later receives an update with a newer <code>updatedAt</code>. Does this staged change move it above an item with <code>timestamp: 300</code>?</summary>
+            <p>No. The comparator only reads <code>timestamp</code>. The surrounding activity ring also preserves the original timestamp when replacing an existing id.</p>
+          </details>
+          <details>
+            <summary>3. What user path does the test exercise before checking order?</summary>
+            <p>It renders the full <code>SuggestionDock</code>, clicks the accessible "Activity" button, then reads the rendered activity headings. That verifies the behaviour at the tab boundary rather than only testing a helper function.</p>
+          </details>
+          <details>
+            <summary>4. What would be the likely symptom if the clone were removed and <code>items.sort</code> were used directly?</summary>
+            <p>The Activity tab would still appear sorted, but the prop array passed from the parent could be mutated during render. That can make parent-owned state order harder to reason about and can create surprising effects if other code relies on the original array order.</p>
+          </details>
+        </section>
+      </main>
+
+      <aside class="card toc" aria-label="Review navigation">
+        <p class="eyebrow">Reading path</p>
+        <a href="#where-this-fits">Recent history</a>
+        <a href="#path">Changed path</a>
+        <a href="#implementation">Sort implementation</a>
+        <a href="#data-flow">Activity data flow</a>
+        <a href="#test">Test impact</a>
+        <a href="#risks">Risks and invariants</a>
+        <a href="#quiz">Comprehension check</a>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
