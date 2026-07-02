@@ -82,6 +82,29 @@ Current presentation-only controls:
 - Share;
 - overflow menu.
 
+## Keyboard shortcuts
+
+Application shortcuts use `Ctrl+;` as a leader so normal document typing, BlockNote commands, and common operating-system modifier combinations remain available. The leader and each continuation have a two-second timeout. Invalid continuations cancel the sequence without consuming the typed character.
+
+| Sequence | Action |
+| --- | --- |
+| `Ctrl+; ?` | Open keyboard shortcut help |
+| `Ctrl+; h` / `Ctrl+; l` | Reveal and focus project navigation / writing partner |
+| `Ctrl+; i` | Close drawers and focus the editor |
+| `Ctrl+; H` / `Ctrl+; L` | Toggle project navigation / writing partner |
+| `Ctrl+; j` / `Ctrl+; k` | Move to the next / previous suggestion |
+| `Ctrl+; Enter` | Open the targeted suggestion |
+| `Ctrl+; b` | Return from suggestion detail |
+| `Ctrl+; p` | Pin or unpin the targeted suggestion |
+| `Ctrl+; v` | Preview the targeted suggestion |
+| `Ctrl+; d d` | Dismiss the targeted suggestion |
+
+While a sequence is pending, a bottom command strip shows only valid continuation keys. Context failures such as an empty inbox or active preview are announced in the same polite status region. The complete reference is available through `Ctrl+; ?` and the existing Help item in project navigation.
+
+Suggestion keyboard order is Pins followed by the live inbox. Movement stops at the ends. When detail is open, `j` and `k` move directly between detail views. The target follows pointer and Tab focus, remains stable when an item is pinned or unpinned, and moves to the nearest remaining item after dismissal.
+
+The shortcut reference is a modal dialog with initial close-button focus, Tab wrapping, Escape and backdrop dismissal, and focus restoration. Bare `?` remains editor input. Bindings are fixed and apply only to the main workspace in this iteration.
+
 ## Editor surface
 
 [`DocumentEditor`](../src/components/DocumentEditor.tsx) is the only vertically scrolling center-region surface. It renders:

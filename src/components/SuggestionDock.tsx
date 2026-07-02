@@ -11,7 +11,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 import type { AgentActivity, AgentRuntime } from "../shared/desktop";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
@@ -32,6 +32,11 @@ type SuggestionDockProps = {
   activity?: AgentActivity[];
   runtime?: AgentRuntime;
   controlPending?: "start" | "stop";
+  view: "suggestions" | "activity";
+  keyboardTargetId?: string;
+  regionRef?: RefObject<HTMLElement | null>;
+  onViewChange: (view: "suggestions" | "activity") => void;
+  onKeyboardTargetChange: (id: string) => void;
   onSelect: (id: string) => void;
   onBack: () => void;
   onDismiss: (id: string) => void;
@@ -122,17 +127,29 @@ function SourceLabels({ labels }: { labels: string[] }) {
 function QueueRow({
   entry,
   pinned,
+  keyboardActive,
+  openButtonRef,
   onSelect,
   onPinToggle,
+  onTarget,
 }: {
   entry: InboxEntry;
   pinned: boolean;
+  keyboardActive: boolean;
+  openButtonRef: (element: HTMLButtonElement | null) => void;
   onSelect: () => void;
   onPinToggle: () => void;
+  onTarget: () => void;
 }) {
   const { item } = entry;
   return (
-    <article className="group relative rounded-xl border border-[#dedbe9] bg-white/75 shadow-sm shadow-slate-900/5 transition hover:border-brand-300 hover:bg-white">
+    <article
+      className={`group relative rounded-xl border bg-white/75 shadow-sm shadow-slate-900/5 transition hover:border-brand-300 hover:bg-white ${
+        keyboardActive
+          ? "border-brand-400 ring-2 ring-brand-500/25"
+          : "border-[#dedbe9]"
+      }`}
+    >
       {!entry.viewed ? (
         <span
           className="absolute top-5 right-14 z-10 size-2 rounded-full bg-brand-500"
@@ -140,10 +157,15 @@ function QueueRow({
         />
       ) : null}
       <button
+        ref={openButtonRef}
         type="button"
         aria-label={`Open ${item.title}`}
         className="w-full rounded-xl px-4 py-4 pr-12 text-left"
-        onClick={onSelect}
+        onClick={() => {
+          onTarget();
+          onSelect();
+        }}
+        onFocus={onTarget}
       >
         <KindBadge kind={item.kind} />
         <h3 className="mt-3 text-sm font-bold leading-5 text-[#20212a]">
@@ -172,6 +194,7 @@ function QueueRow({
             : "text-[#777386] hover:bg-brand-50 hover:text-brand-700"
         }`}
         onClick={onPinToggle}
+        onFocus={onTarget}
       >
         {pinned ? (
           <PinOff className="size-4" aria-hidden="true" />
@@ -327,6 +350,11 @@ export function SuggestionDock({
   activity = [],
   runtime,
   controlPending,
+  view,
+  keyboardTargetId,
+  regionRef,
+  onViewChange,
+  onKeyboardTargetChange,
   onSelect,
   onBack,
   onDismiss,
@@ -337,8 +365,9 @@ export function SuggestionDock({
   onStartAgent,
   onStopAgent,
 }: SuggestionDockProps) {
-  const dockRef = useRef<HTMLElement>(null);
-  const [view, setView] = useState<"suggestions" | "activity">("suggestions");
+  const localDockRef = useRef<HTMLElement>(null);
+  const dockRef = regionRef ?? localDockRef;
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
   const agentIsEnabled = status !== "offline" && status !== "stopped";
   const controlLabel = controlPending === "start"
     ? "Starting…"
@@ -352,11 +381,19 @@ export function SuggestionDock({
     if (typeof dockRef.current?.scrollTo === "function") {
       dockRef.current.scrollTo({ top: 0 });
     }
-  }, [selectedEntry?.item.id]);
+  }, [dockRef, selectedEntry?.item.id]);
+
+  useEffect(() => {
+    if (!keyboardTargetId || selectedEntry || view !== "suggestions") return;
+    const row = rowRefs.current.get(keyboardTargetId);
+    row?.focus();
+    row?.scrollIntoView?.({ block: "nearest" });
+  }, [keyboardTargetId, selectedEntry, view]);
 
   return (
     <aside
       ref={dockRef}
+      tabIndex={regionRef ? -1 : undefined}
       aria-label="Writing partner"
       className="h-full min-h-0 overflow-y-auto border-l border-[#d7d4e8] bg-[#f4f2fd]"
     >
@@ -371,7 +408,7 @@ export function SuggestionDock({
             type="button"
             aria-current={view === "suggestions" ? "page" : undefined}
             className={`min-h-9 rounded-md text-sm font-bold ${view === "suggestions" ? "bg-white text-brand-700 shadow-sm" : "text-[#686577]"}`}
-            onClick={() => setView("suggestions")}
+            onClick={() => onViewChange("suggestions")}
           >
             Suggestions
           </button>
@@ -379,7 +416,7 @@ export function SuggestionDock({
             type="button"
             aria-current={view === "activity" ? "page" : undefined}
             className={`min-h-9 rounded-md text-sm font-bold ${view === "activity" ? "bg-white text-brand-700 shadow-sm" : "text-[#686577]"}`}
-            onClick={() => setView("activity")}
+            onClick={() => onViewChange("activity")}
           >
             Activity
           </button>
@@ -475,8 +512,14 @@ export function SuggestionDock({
                     key={entry.item.id}
                     entry={entry}
                     pinned
+                    keyboardActive={keyboardTargetId === entry.item.id}
+                    openButtonRef={(element) => {
+                      if (element) rowRefs.current.set(entry.item.id, element);
+                      else rowRefs.current.delete(entry.item.id);
+                    }}
                     onSelect={() => onSelect(entry.item.id)}
                     onPinToggle={() => onUnpin(entry.item.id)}
+                    onTarget={() => onKeyboardTargetChange(entry.item.id)}
                   />
                 ))}
               </div>
@@ -502,8 +545,14 @@ export function SuggestionDock({
                   key={entry.item.id}
                   entry={entry}
                   pinned={false}
+                  keyboardActive={keyboardTargetId === entry.item.id}
+                  openButtonRef={(element) => {
+                    if (element) rowRefs.current.set(entry.item.id, element);
+                    else rowRefs.current.delete(entry.item.id);
+                  }}
                   onSelect={() => onSelect(entry.item.id)}
                   onPinToggle={() => onPin(entry.item.id)}
+                  onTarget={() => onKeyboardTargetChange(entry.item.id)}
                 />
               ))}
               {!entries.length ? (

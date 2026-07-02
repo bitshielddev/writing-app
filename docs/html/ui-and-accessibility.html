@@ -92,7 +92,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--rose">
-            <div class="page-hero__meta"><span>Guide 05</span><span>6 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 05</span><span>7 min read</span></div>
             <h1>UI and accessibility</h1>
             <p>Work confidently with responsive panels, editor layout, keyboard input, focus, and visual conventions.</p>
             <div class="page-hero__footer">
@@ -204,6 +204,58 @@
 <li>Share;</li>
 <li>overflow menu.</li>
 </ul>
+<h2 id="keyboard-shortcuts">Keyboard shortcuts<a class="heading-anchor" href="#keyboard-shortcuts" aria-label="Link to Keyboard shortcuts">#</a></h2><p>Application shortcuts use <code>Ctrl+;</code> as a leader so normal document typing, BlockNote commands, and common operating-system modifier combinations remain available. The leader and each continuation have a two-second timeout. Invalid continuations cancel the sequence without consuming the typed character.</p>
+<table>
+<thead>
+<tr>
+<th>Sequence</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Ctrl+; ?</code></td>
+<td>Open keyboard shortcut help</td>
+</tr>
+<tr>
+<td><code>Ctrl+; h</code> / <code>Ctrl+; l</code></td>
+<td>Reveal and focus project navigation / writing partner</td>
+</tr>
+<tr>
+<td><code>Ctrl+; i</code></td>
+<td>Close drawers and focus the editor</td>
+</tr>
+<tr>
+<td><code>Ctrl+; H</code> / <code>Ctrl+; L</code></td>
+<td>Toggle project navigation / writing partner</td>
+</tr>
+<tr>
+<td><code>Ctrl+; j</code> / <code>Ctrl+; k</code></td>
+<td>Move to the next / previous suggestion</td>
+</tr>
+<tr>
+<td><code>Ctrl+; Enter</code></td>
+<td>Open the targeted suggestion</td>
+</tr>
+<tr>
+<td><code>Ctrl+; b</code></td>
+<td>Return from suggestion detail</td>
+</tr>
+<tr>
+<td><code>Ctrl+; p</code></td>
+<td>Pin or unpin the targeted suggestion</td>
+</tr>
+<tr>
+<td><code>Ctrl+; v</code></td>
+<td>Preview the targeted suggestion</td>
+</tr>
+<tr>
+<td><code>Ctrl+; d d</code></td>
+<td>Dismiss the targeted suggestion</td>
+</tr>
+</tbody></table>
+<p>While a sequence is pending, a bottom command strip shows only valid continuation keys. Context failures such as an empty inbox or active preview are announced in the same polite status region. The complete reference is available through <code>Ctrl+; ?</code> and the existing Help item in project navigation.</p>
+<p>Suggestion keyboard order is Pins followed by the live inbox. Movement stops at the ends. When detail is open, <code>j</code> and <code>k</code> move directly between detail views. The target follows pointer and Tab focus, remains stable when an item is pinned or unpinned, and moves to the nearest remaining item after dismissal.</p>
+<p>The shortcut reference is a modal dialog with initial close-button focus, Tab wrapping, Escape and backdrop dismissal, and focus restoration. Bare <code>?</code> remains editor input. Bindings are fixed and apply only to the main workspace in this iteration.</p>
 <h2 id="editor-surface">Editor surface<a class="heading-anchor" href="#editor-surface" aria-label="Link to Editor surface">#</a></h2><p><a href="../../src/components/DocumentEditor.tsx"><code>DocumentEditor</code></a> is the only vertically scrolling center-region surface. It renders:</p>
 <ul>
 <li>a centered BlockNote editor with a maximum content width of 55rem;</li>
@@ -279,7 +331,7 @@
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#page-regions">Page regions</a><a class="toc-link toc-link--2" href="#responsive-layout">Responsive layout</a><a class="toc-link toc-link--2" href="#desktop-column-resizing">Desktop column resizing</a><a class="toc-link toc-link--3" href="#limits">Limits</a><a class="toc-link toc-link--3" href="#input-behavior">Input behavior</a><a class="toc-link toc-link--2" href="#responsive-drawers">Responsive drawers</a><a class="toc-link toc-link--2" href="#header-controls">Header controls</a><a class="toc-link toc-link--2" href="#editor-surface">Editor surface</a><a class="toc-link toc-link--2" href="#suggestion-dock-interaction">Suggestion dock interaction</a><a class="toc-link toc-link--2" href="#workspace-card-input-and-bounds">Workspace card input and bounds</a><a class="toc-link toc-link--2" href="#focus-and-semantics-checklist">Focus and semantics checklist</a><a class="toc-link toc-link--2" href="#styling-conventions">Styling conventions</a><a class="toc-link toc-link--2" href="#static-prototype-surfaces">Static prototype surfaces</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#page-regions">Page regions</a><a class="toc-link toc-link--2" href="#responsive-layout">Responsive layout</a><a class="toc-link toc-link--2" href="#desktop-column-resizing">Desktop column resizing</a><a class="toc-link toc-link--3" href="#limits">Limits</a><a class="toc-link toc-link--3" href="#input-behavior">Input behavior</a><a class="toc-link toc-link--2" href="#responsive-drawers">Responsive drawers</a><a class="toc-link toc-link--2" href="#header-controls">Header controls</a><a class="toc-link toc-link--2" href="#keyboard-shortcuts">Keyboard shortcuts</a><a class="toc-link toc-link--2" href="#editor-surface">Editor surface</a><a class="toc-link toc-link--2" href="#suggestion-dock-interaction">Suggestion dock interaction</a><a class="toc-link toc-link--2" href="#workspace-card-input-and-bounds">Workspace card input and bounds</a><a class="toc-link toc-link--2" href="#focus-and-semantics-checklist">Focus and semantics checklist</a><a class="toc-link toc-link--2" href="#styling-conventions">Styling conventions</a><a class="toc-link toc-link--2" href="#static-prototype-surfaces">Static prototype surfaces</a></nav>
             <a class="toc-source" href="../ui-and-accessibility.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>

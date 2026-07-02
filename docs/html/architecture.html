@@ -161,7 +161,7 @@
 <li><code>useCreateBlockNote</code> creates the editor from <code>writingSchema</code> and seeded content.</li>
 <li><code>createDesktopSuggestionFeed</code> creates the Electron event adapter and is memoized for the component lifetime.</li>
 <li><code>useSuggestionInbox</code> subscribes to the feed and owns the suggestion lifecycle reducer.</li>
-<li><code>App</code> creates editor preview blocks, translates preview resolution events back into inbox actions, and controls responsive panels.</li>
+<li><code>App</code> creates editor preview blocks and composes the layout, navigation, and keybinding controllers with inbox actions.</li>
 </ol>
 <p>Keeping feed creation stable is important. Recreating it during a render would resubscribe the inbox to desktop events.</p>
 <h2 id="state-ownership">State ownership<a class="heading-anchor" href="#state-ownership" aria-label="Link to State ownership">#</a></h2><table>
@@ -193,24 +193,19 @@
 <td>Persists in Electron</td>
 </tr>
 <tr>
-<td>Desktop panel open/closed state</td>
-<td><code>App</code> React state</td>
-<td>Current page only</td>
-</tr>
-<tr>
-<td>Mobile drawer open/closed state</td>
-<td><code>App</code> React state</td>
-<td>Current page only</td>
-</tr>
-<tr>
 <td>Last editor block with a text cursor</td>
 <td><code>App</code> React state</td>
 <td>Current page only</td>
 </tr>
 <tr>
-<td>Desktop column widths</td>
-<td><code>App</code> React state</td>
-<td><code>localStorage</code> when available</td>
+<td>Workspace panels, drawers, and column widths</td>
+<td><code>useWorkspaceLayout</code></td>
+<td>Panel state is in-memory; widths use <code>localStorage</code></td>
+</tr>
+<tr>
+<td>Keyboard sequence and suggestion target</td>
+<td>Keybinding and suggestion navigation hooks</td>
+<td>Current page only</td>
 </tr>
 <tr>
 <td>Documents, Markdown mirror, sources, suggestions</td>
@@ -249,6 +244,13 @@
 <li><a href="../../src/editor/previewEvents.ts"><code>previewEvents.ts</code></a> is a small in-process event bridge from the custom block renderer back to <code>App</code>.</li>
 </ul>
 <p>The editor layer knows suggestion IDs, but it does not import or mutate inbox state.</p>
+<h3 id="src-keybindings-and-src-workspace"><code>src/keybindings</code> and <code>src/workspace</code><a class="heading-anchor" href="#src-keybindings-and-src-workspace" aria-label="Link to src/keybindings and src/workspace">#</a></h3><ul>
+<li><code>commands.ts</code> defines stable semantic command IDs independently of keys and handlers.</li>
+<li><code>defaultKeymap.ts</code> contains the fixed <code>Ctrl+;</code> keymap; <code>sequenceMatcher.ts</code> resolves partial and complete sequences without React or DOM dependencies.</li>
+<li><code>useKeybindingController.ts</code> owns global keyboard capture and timing. <code>useWorkspaceKeybindings.ts</code> is the only adapter allowed to coordinate editor, layout, and suggestion actions.</li>
+<li><code>useWorkspaceLayout.ts</code> owns responsive panels, drawers, widths, and their shared imperative operations.</li>
+</ul>
+<p>The command strip and shortcut dialog read the same command catalog and default keymap used for execution. This prevents discoverability copy from drifting away from the active bindings and leaves a clean keymap-replacement seam for future configurability.</p>
 <h3 id="src-suggestions"><code>src/suggestions</code><a class="heading-anchor" href="#src-suggestions" aria-label="Link to src/suggestions">#</a></h3><ul>
 <li><a href="../../src/suggestions/types.ts"><code>types.ts</code></a> defines suggestion data and the feed interface.</li>
 <li><a href="../../src/suggestions/validation.ts"><code>validation.ts</code></a> validates suggestion payloads at runtime before development IPC reaches storage.</li>
@@ -354,7 +356,7 @@ components  ← props/callbacks → App composition root</code></pre></div><p>Pr
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#system-boundary">System boundary</a><a class="toc-link toc-link--2" href="#composition-root">Composition root</a><a class="toc-link toc-link--2" href="#state-ownership">State ownership</a><a class="toc-link toc-link--2" href="#module-boundaries">Module boundaries</a><a class="toc-link toc-link--3" href="#src-editor">src/editor</a><a class="toc-link toc-link--3" href="#src-suggestions">src/suggestions</a><a class="toc-link toc-link--3" href="#src-dev-mocksuggestions">src/dev/mockSuggestions</a><a class="toc-link toc-link--3" href="#desktop-and-src-desktop">desktop and src/desktop</a><a class="toc-link toc-link--3" href="#src-components">src/components</a><a class="toc-link toc-link--2" href="#renderer-bootstrap-sequence">Renderer bootstrap sequence</a><a class="toc-link toc-link--2" href="#data-direction-and-dependency-rules">Data direction and dependency rules</a><a class="toc-link toc-link--2" href="#styling-architecture">Styling architecture</a><a class="toc-link toc-link--2" href="#build-and-runtime-assumptions">Build and runtime assumptions</a><a class="toc-link toc-link--2" href="#architectural-invariants">Architectural invariants</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#system-boundary">System boundary</a><a class="toc-link toc-link--2" href="#composition-root">Composition root</a><a class="toc-link toc-link--2" href="#state-ownership">State ownership</a><a class="toc-link toc-link--2" href="#module-boundaries">Module boundaries</a><a class="toc-link toc-link--3" href="#src-editor">src/editor</a><a class="toc-link toc-link--3" href="#src-keybindings-and-src-workspace">src/keybindings and src/workspace</a><a class="toc-link toc-link--3" href="#src-suggestions">src/suggestions</a><a class="toc-link toc-link--3" href="#src-dev-mocksuggestions">src/dev/mockSuggestions</a><a class="toc-link toc-link--3" href="#desktop-and-src-desktop">desktop and src/desktop</a><a class="toc-link toc-link--3" href="#src-components">src/components</a><a class="toc-link toc-link--2" href="#renderer-bootstrap-sequence">Renderer bootstrap sequence</a><a class="toc-link toc-link--2" href="#data-direction-and-dependency-rules">Data direction and dependency rules</a><a class="toc-link toc-link--2" href="#styling-architecture">Styling architecture</a><a class="toc-link toc-link--2" href="#build-and-runtime-assumptions">Build and runtime assumptions</a><a class="toc-link toc-link--2" href="#architectural-invariants">Architectural invariants</a></nav>
             <a class="toc-source" href="../architecture.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>

@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
@@ -39,6 +40,9 @@ function renderDock(
     pinnedEntries: [],
     unreadCount: 1,
     status: "waiting",
+    view: "suggestions",
+    onViewChange: vi.fn(),
+    onKeyboardTargetChange: vi.fn(),
     onSelect: vi.fn(),
     onBack: vi.fn(),
     onDismiss: vi.fn(),
@@ -50,7 +54,21 @@ function renderDock(
     onStopAgent: vi.fn(),
     ...overrides,
   };
-  render(<SuggestionDock {...props} />);
+  function DockHarness() {
+    const [view, setView] = useState(props.view);
+    return (
+      <SuggestionDock
+        {...props}
+        view={view}
+        onViewChange={(nextView) => {
+          props.onViewChange(nextView);
+          setView(nextView);
+        }}
+      />
+    );
+  }
+
+  render(<DockHarness />);
   return props;
 }
 

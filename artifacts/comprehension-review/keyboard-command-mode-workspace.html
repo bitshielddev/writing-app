@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension review: keyboard command mode for the workspace</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #171822;
+      --muted: #62606f;
+      --soft: #f5f3fb;
+      --paper: #fffdfb;
+      --line: #ddd8ea;
+      --brand: #6357d8;
+      --brand-soft: #ece9ff;
+      --warn: #7a3f00;
+      --warn-bg: #fff6e6;
+      --code: #232230;
+      --ok: #246b49;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #fbfaff 0%, #f7f5fc 42%, #ffffff 100%);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    .shell { max-width: 1120px; margin: 0 auto; padding: 44px 24px 64px; }
+    header.hero {
+      display: grid;
+      gap: 18px;
+      padding: 34px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: rgba(255,255,255,.78);
+      box-shadow: 0 24px 70px rgba(45, 38, 86, .10);
+    }
+    .eyebrow { color: var(--brand); font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 780px; font-size: clamp(2rem, 4vw, 4rem); line-height: 1.02; letter-spacing: -.045em; }
+    .lead { max-width: 790px; margin: 0; color: #454251; font-size: 1.08rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+    .pill { border: 1px solid var(--line); background: var(--soft); color: #444151; border-radius: 999px; padding: 6px 10px; font-size: .82rem; font-weight: 700; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; margin-top: 26px; }
+    @media (min-width: 900px) { .grid.two { grid-template-columns: .96fr 1.04fr; } }
+    section, .card {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.82);
+      border-radius: 22px;
+      padding: 26px;
+      box-shadow: 0 16px 44px rgba(36, 31, 66, .06);
+    }
+    h2 { margin: 0 0 14px; font-size: 1.48rem; line-height: 1.15; letter-spacing: -.025em; }
+    h3 { margin: 22px 0 9px; font-size: 1.02rem; }
+    p { margin: 0 0 12px; }
+    ul { margin: 10px 0 0; padding-left: 1.2rem; }
+    li + li { margin-top: 6px; }
+    code, kbd { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    pre {
+      margin: 14px 0 0;
+      overflow-x: auto;
+      background: var(--code);
+      color: #f1efff;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: .86rem;
+      line-height: 1.5;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
+    }
+    .caption { color: var(--muted); font-size: .9rem; margin-top: 8px; }
+    .map { display: grid; gap: 12px; }
+    .step { border-left: 4px solid var(--brand); padding: 10px 0 10px 14px; background: linear-gradient(90deg, rgba(99,87,216,.08), transparent); border-radius: 10px; }
+    .step strong { display: block; }
+    .callout { border: 1px solid #efd29d; background: var(--warn-bg); color: var(--warn); border-radius: 16px; padding: 16px; margin-top: 16px; }
+    .ok { border-color: #b8dec9; background: #eefaf3; color: var(--ok); }
+    .files { display: grid; gap: 10px; }
+    .file { display: grid; gap: 3px; padding: 12px 14px; border-radius: 14px; background: var(--soft); border: 1px solid #e5e0f0; }
+    .file span { color: var(--muted); font-size: .88rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: .94rem; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: #3b374b; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
+    details { margin-top: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+    summary { cursor: pointer; font-weight: 800; }
+    .quiz details { background: #fbfaff; }
+    .history { display: grid; gap: 10px; margin-top: 8px; }
+    .history div { padding: 11px 14px; border-left: 4px solid #c9c2ef; background: #faf8ff; border-radius: 12px; }
+    .small { color: var(--muted); font-size: .9rem; }
+    mark { background: #fff0a8; padding: 0 .18em; border-radius: .2em; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div class="eyebrow">Comprehension review</div>
+      <h1>A command mode has been wired through the writing workspace</h1>
+      <p class="lead">This change adds a fixed <kbd>Ctrl</kbd>+<kbd>;</kbd> keyboard layer, moves layout ownership out of <code>App.tsx</code>, and gives the suggestion dock an externally controlled target so keyboard movement and visual focus agree.</p>
+      <div class="meta">
+        <span class="pill">26 files changed</span>
+        <span class="pill">new <code>src/keybindings</code> feature area</span>
+        <span class="pill">targeted tests: 7 files, 26 passed</span>
+      </div>
+    </header>
+
+    <div class="grid two">
+      <section>
+        <h2>The path a shortcut now takes</h2>
+        <div class="map">
+          <div class="step"><strong>1. Capture</strong><span><code>useKeybindingController</code> listens on <code>document</code> during capture and only arms on <code>Ctrl+;</code>.</span></div>
+          <div class="step"><strong>2. Match</strong><span><code>sequenceMatcher</code> compares the typed continuation against <code>DEFAULT_KEYMAP</code>.</span></div>
+          <div class="step"><strong>3. Adapt</strong><span><code>useWorkspaceKeybindings</code> translates a semantic command into editor, layout, inbox, or suggestion-navigation operations.</span></div>
+          <div class="step"><strong>4. Reflect</strong><span><code>KeybindingCommandStrip</code>, <code>SuggestionDock</code>, and <code>KeybindingHelpDialog</code> expose pending commands, target movement, and reference help.</span></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Why this had to touch layout</h2>
+        <p>The shortcut handlers need operations such as "open the writing partner", "focus project navigation", and "close drawers before returning to the editor". Those operations were previously spread through <code>App.tsx</code>. The new <code>useWorkspaceLayout</code> hook centralizes panel and drawer state, refs, width persistence, and breakpoint handling so keyboard commands can call the same operations as header buttons.</p>
+        <p class="small">Evidence: <code>App.tsx</code> removes inline width/drawer code and now destructures the layout controller returned by <code>useWorkspaceLayout</code>.</p>
+      </section>
+    </div>
+
+    <section class="grid" style="margin-top:26px">
+      <h2>Files to keep in your head</h2>
+      <div class="files">
+        <div class="file"><code>src/keybindings/commands.ts</code><span>Semantic command IDs, catalog text, and command result helpers.</span></div>
+        <div class="file"><code>src/keybindings/defaultKeymap.ts</code> <span>The fixed keymap. Every sequence is interpreted after the <code>Ctrl+;</code> leader.</span></div>
+        <div class="file"><code>src/keybindings/useKeybindingController.ts</code><span>Global keyboard capture, timeout state, partial/exact/invalid matching, and command-strip messages.</span></div>
+        <div class="file"><code>src/keybindings/useWorkspaceKeybindings.ts</code><span>The workspace adapter that knows about editor focus, drawers/panels, preview safety, and suggestion actions.</span></div>
+        <div class="file"><code>src/suggestions/keyboardNavigation.ts</code><span>The ordered suggestion target model: Pins first, then live inbox.</span></div>
+        <div class="file"><code>src/workspace/useWorkspaceLayout.ts</code><span>Responsive layout owner extracted from <code>App.tsx</code>.</span></div>
+        <div class="file"><code>src/components/useModalFocus.ts</code><span>Shared modal focus trap used by drawers and the new shortcut-help dialog.</span></div>
+      </div>
+    </section>
+
+    <div class="grid two">
+      <section>
+        <h2>The keymap is documented and executable from one source</h2>
+        <p>The binding table is data, not hard-coded in the dialog. The help dialog renders <code>COMMAND_CATALOG</code> with <code>DEFAULT_KEYMAP</code>, while the controller matches against that same map.</p>
+        <pre><code>export const DEFAULT_KEYMAP = {
+  "help.open": ["?"],
+  "region.navigation.focus": ["h"],
+  "region.partner.focus": ["l"],
+  "region.editor.focus": ["i"],
+  "region.navigation.toggle": ["H"],
+  "region.partner.toggle": ["L"],
+  "suggestion.next": ["j"],
+  "suggestion.previous": ["k"],
+  "suggestion.open": ["Enter"],
+  "suggestion.back": ["b"],
+  "suggestion.pin.toggle": ["p"],
+  "suggestion.preview": ["v"],
+  "suggestion.dismiss": ["d", "d"],
+} as const satisfies Keymap;</code></pre>
+        <p class="caption">The double <code>d</code> for dismiss is deliberate in the code and covered by tests.</p>
+      </section>
+
+      <section>
+        <h2>Partial sequences are first-class</h2>
+        <p><code>matchSequence</code> returns <code>partial</code>, <code>exact</code>, or <code>invalid</code>. This lets the command strip display the next valid keys before a command has executed.</p>
+        <pre><code>const matches = Object.entries(keymap).filter(([, sequence]) =&gt;
+  isPrefix(strokes, sequence),
+) as [AppCommandId, KeySequence][];
+
+if (!matches.length) return { status: "invalid" };
+
+const exact = matches.find(([, sequence]) =&gt; sequence.length === strokes.length);
+if (exact) return { status: "exact", commandId: exact[0] };</code></pre>
+        <div class="callout">
+          <strong>Maintenance note.</strong> Exact matches currently win before longer continuations. Do not add both <code>["d"]</code> and <code>["d", "d"]</code> unless the matcher is changed, because the one-stroke command would run immediately.
+        </div>
+      </section>
+    </div>
+
+    <section style="margin-top:26px">
+      <h2>Where normal typing is protected</h2>
+      <p>The controller only arms when <code>Ctrl+;</code> is pressed without Alt, Meta, Shift, or repeat. After arming, it ignores modifier combinations and repeat keys. If a continuation is invalid, it cancels and shows "Unknown shortcut" before calling <code>preventDefault</code>, so the typed character is not consumed.</p>
+      <pre><code>if (isLeader(event)) {
+  event.preventDefault();
+  event.stopPropagation();
+  setMessage(undefined);
+  setPending(true);
+  setSequence([]);
+  return;
+}
+
+if (!pending) return;
+
+const stroke = normalizeStroke(event);
+if (!stroke) {
+  cancelSequence();
+  return;
+}
+
+const nextSequence = [...sequence, stroke];
+const match = matchSequence(nextSequence, DEFAULT_KEYMAP);
+if (match.status === "invalid") {
+  cancelSequence();
+  showMessage("Unknown shortcut");
+  return;
+}</code></pre>
+      <p class="caption">This supports the documentation claim that ordinary typing remains unchanged unless a valid pending sequence is being completed.</p>
+    </section>
+
+    <div class="grid two">
+      <section>
+        <h2>Suggestion movement has a separate target from selection</h2>
+        <p>The new navigation hook keeps a target ID for the queue. If a detail page is open, <code>selectedId</code> becomes the effective target. The ordering is explicit: pinned entries first, then live entries.</p>
+        <pre><code>const orderedEntries = useMemo(
+  () =&gt; [...pinnedEntries, ...entries],
+  [entries, pinnedEntries],
+);
+
+const effectiveTargetId =
+  selectedId ??
+  (targetId && orderedEntries.some((entry) =&gt; entry.item.id === targetId)
+    ? targetId
+    : undefined);</code></pre>
+        <p>When movement starts without a current target, <code>j</code> lands on the first item and <code>k</code> lands on the last. Boundaries return a status instead of wrapping.</p>
+      </section>
+
+      <section>
+        <h2>The dock now renders keyboard state instead of owning tab state</h2>
+        <p><code>SuggestionDock</code> no longer owns the Suggestions/Activity tab itself. <code>App</code> owns <code>partnerView</code> so keyboard commands can force the visible tab to Suggestions before moving or opening an item.</p>
+        <pre><code>view={partnerView}
+keyboardTargetId={
+  keyboardNavigationActive ? suggestionNavigator.targetId : undefined
+}
+regionRef={regionRef}
+onViewChange={setPartnerView}
+onKeyboardTargetChange={suggestionNavigator.setTargetId}</code></pre>
+        <p>Inside the dock, the target ID maps to an open button ref. The dock only focuses a row when the queue is visible and detail is not open.</p>
+        <pre><code>useEffect(() =&gt; {
+  if (!keyboardTargetId || selectedEntry || view !== "suggestions") return;
+  const row = rowRefs.current.get(keyboardTargetId);
+  row?.focus();
+  row?.scrollIntoView?.({ block: "nearest" });
+}, [keyboardTargetId, selectedEntry, view]);</code></pre>
+      </section>
+    </div>
+
+    <section style="margin-top:26px">
+      <h2>Command handlers are where the invariants live</h2>
+      <p><code>useWorkspaceKeybindings</code> is the safety layer. It checks whether a command makes sense before mutating inbox or editor state, then returns either <code>executed()</code> or <code>unavailable(message)</code>. The status message is shown in the same command strip.</p>
+      <pre><code>"suggestion.preview": () =&gt; {
+  if (!targetEntry) return unavailable("No suggestion selected");
+  if (!isTextSuggestion(targetEntry.item)) {
+    return unavailable("This suggestion cannot be previewed in the document");
+  }
+  if (targetEntry.withdrawn) {
+    return unavailable("This suggestion was withdrawn");
+  }
+  if (activePreviewId) return unavailable("Finish the active preview first");
+  onPreview(targetEntry.item);
+  return executed();
+},</code></pre>
+      <pre><code>"suggestion.dismiss": () =&gt; {
+  if (!targetEntry) return unavailable("No suggestion selected");
+  const id = targetEntry.item.id;
+  if (activePreviewId === id) {
+    return unavailable("Finish this suggestion's preview first");
+  }
+  const neighborId = navigator.neighborAfterRemoval(id);
+  const keepDetailOpen = selectedEntry?.item.id === id && Boolean(neighborId);
+  onDismiss(id);
+  navigator.setTargetId(neighborId);
+  if (keepDetailOpen && neighborId) onSelect(neighborId);
+  return executed();
+},</code></pre>
+      <p class="caption">The important invariant is preserved: an active preview blocks starting another preview and blocks dismissing that preview's source item.</p>
+    </section>
+
+    <div class="grid two">
+      <section>
+        <h2>Modal focus is now shared</h2>
+        <p>The drawer focus logic was extracted into <code>useModalFocus</code> and reused by the shortcut reference dialog. It records the previously focused element, moves initial focus on the next animation frame, traps Tab inside known focusable elements, handles Escape, and restores focus on cleanup.</p>
+        <pre><code>const previouslyFocused = document.activeElement as HTMLElement | null;
+const focusFrame = window.requestAnimationFrame(() =&gt;
+  initialFocusRef.current?.focus(),
+);
+
+if (event.key === "Escape") {
+  event.preventDefault();
+  event.stopPropagation();
+  onClose();
+  return;
+}</code></pre>
+        <p class="caption">Because the keybinding controller is disabled while help is open, Escape goes to the modal close path rather than the shortcut-sequence cancel path.</p>
+      </section>
+
+      <section>
+        <h2>Layout state has a named owner now</h2>
+        <p>The extracted hook preserves the previous responsive contract while making it callable from shortcuts. Desktop toggles affect panels. Below desktop, opening one drawer closes the other. Crossing into desktop closes drawers.</p>
+        <pre><code>const openContext = useCallback(() =&gt; {
+  if (isDesktop()) {
+    setContextPanelOpen(true);
+  } else {
+    setContextDrawerOpen(true);
+    setNavigationDrawerOpen(false);
+  }
+}, [isDesktop]);
+
+const closeDrawersAtDesktop = (event: MediaQueryListEvent) =&gt; {
+  setDesktop(event.matches);
+  if (event.matches) closeDrawers();
+};</code></pre>
+        <div class="callout ok">
+          <strong>Confirmed by tests.</strong> <code>useWorkspaceLayout.test.ts</code> covers below-desktop drawer exclusivity, closing drawers at the desktop breakpoint, and desktop panel toggles that do not open drawers.
+        </div>
+      </section>
+    </div>
+
+    <section style="margin-top:26px">
+      <h2>How this fits the recent history</h2>
+      <div class="history">
+        <div><code>65d1cd5</code> and <code>6150c37</code> added desktop persistence/runtime work and responsive panel behavior in <code>App.tsx</code> and docs.</div>
+        <div><code>fba985f</code> and <code>6e874eb</code> made the Pi-backed writing partner and agent lifecycle visible in the dock.</div>
+        <div><code>92ea9c6</code> changed activity ordering in <code>SuggestionDock</code>. The current diff builds on that dock by externalizing its view state and adding keyboard-target highlighting.</div>
+      </div>
+      <p class="small" style="margin-top:12px">This history matters because the new shortcuts do not introduce a separate workflow. They drive the existing dock, layout, preview, and agent-control surfaces.</p>
+    </section>
+
+    <section style="margin-top:26px">
+      <h2>Tests and documentation changed with the behavior</h2>
+      <table>
+        <thead><tr><th>Area</th><th>What is covered</th></tr></thead>
+        <tbody>
+          <tr><td><code>sequenceMatcher.test.ts</code></td><td>Command catalog and keymap exhaustiveness, partial <code>d</code>, exact <code>d d</code>, invalid sequences.</td></tr>
+          <tr><td><code>useKeybindingController.test.tsx</code></td><td>Leader arming, command execution, double-d dismissal, invalid continuation behavior, timeout expiry.</td></tr>
+          <tr><td><code>keyboardNavigation.test.ts</code></td><td>Pins-before-live ordering, boundary stops, detail movement, removal neighbors.</td></tr>
+          <tr><td><code>KeybindingHelpDialog.test.tsx</code> and <code>Sidebar.test.tsx</code></td><td>Shortcut reference opens, Escape closes it, focus restores, Help item opens the same dialog.</td></tr>
+          <tr><td><code>docs/ui-and-accessibility.md</code> and <code>docs/architecture.md</code></td><td>Documented leader-key behavior, command list, ownership of layout and keyboard state, and module boundaries.</td></tr>
+        </tbody>
+      </table>
+      <p class="caption">Validation run used: <code>npm test -- src/keybindings/sequenceMatcher.test.ts src/keybindings/useKeybindingController.test.tsx src/keybindings/KeybindingHelpDialog.test.tsx src/suggestions/keyboardNavigation.test.ts src/workspace/useWorkspaceLayout.test.ts src/components/Sidebar.test.tsx src/components/SuggestionDock.test.tsx</code>. It passed 26 tests across 7 files.</p>
+    </section>
+
+    <section style="margin-top:26px">
+      <h2>Risks worth remembering during maintenance</h2>
+      <ul>
+        <li><strong>Prefix collisions:</strong> the matcher cannot currently represent a command that is both complete and a prefix for a longer command.</li>
+        <li><strong>Global capture:</strong> the controller listens at document capture phase. Keep the <code>disabled</code> path correct for modal or editing states that should own keys.</li>
+        <li><strong>Browser globals:</strong> <code>useWorkspaceLayout</code> reads <code>window.matchMedia</code> during initial state. This matches the app's no-SSR assumption, but tests must stub it.</li>
+        <li><strong>Target versus selection:</strong> queue targeting and selected detail are related but not identical. Future dock changes should keep the target stable across pin/unpin/dismiss transitions.</li>
+        <li><strong>Modal scope:</strong> <code>useModalFocus</code> is a local focus trap. The docs still say it does not set background <code>inert</code>, hide the app from assistive tech, or lock body scroll.</li>
+      </ul>
+    </section>
+
+    <section class="quiz" style="margin-top:26px">
+      <h2>Check your mental model</h2>
+      <details>
+        <summary>1. Why does the change introduce command IDs instead of binding handlers directly to keys?</summary>
+        <p>The command IDs separate meaning from keystrokes. <code>commands.ts</code> defines stable actions and catalog text; <code>defaultKeymap.ts</code> binds keys; <code>useWorkspaceKeybindings.ts</code> supplies handlers. This lets the help dialog, matcher, and handlers share one model.</p>
+      </details>
+      <details>
+        <summary>2. What happens when the user presses <code>Ctrl+; d</code>?</summary>
+        <p>The controller enters a partial sequence, because <code>["d"]</code> is a prefix of <code>["d", "d"]</code>. It does not dismiss yet. The command strip can show "Dismiss suggestion" as the continuation. The second <code>d</code> executes <code>suggestion.dismiss</code>.</p>
+      </details>
+      <details>
+        <summary>3. If detail is open and <code>j</code> moves to another suggestion, why does <code>onSelect</code> run?</summary>
+        <p><code>useSuggestionKeyboardNavigation</code> treats <code>selectedId</code> as the effective target. In <code>move</code>, after setting the next target, it calls <code>onSelect(nextId)</code> only when <code>selectedId</code> exists. That keeps detail view moving through entries instead of only moving the queue highlight.</p>
+      </details>
+      <details>
+        <summary>4. What would break if the dock kept its own Suggestions/Activity state?</summary>
+        <p>Keyboard commands could not reliably force the Suggestions view before moving or opening a target. <code>App</code> now owns <code>partnerView</code> and passes <code>onViewChange</code>, so both pointer tab clicks and shortcut handlers operate on the same state.</p>
+      </details>
+      <details>
+        <summary>5. Where would you start debugging if <code>Ctrl+; v</code> says a preview is unavailable?</summary>
+        <p>Start in the <code>suggestion.preview</code> handler in <code>useWorkspaceKeybindings.ts</code>. It has the context checks: no target, non-text suggestion, withdrawn entry, or existing <code>activePreviewId</code>. If those pass, then debug <code>handlePreview</code> in <code>App.tsx</code>.</p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>

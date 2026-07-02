@@ -1,6 +1,5 @@
 import { useCreateBlockNote } from "@blocknote/react";
 import {
-  type CSSProperties,
   useCallback,
   useEffect,
   useMemo,
@@ -18,7 +17,11 @@ import {
 } from "./desktop/desktopClient";
 import { subscribeToPreviewResolutions } from "./editor/previewEvents";
 import { writingSchema, type WritingPartialBlock } from "./editor/schema";
+import { KeybindingCommandStrip } from "./keybindings/KeybindingCommandStrip";
+import { KeybindingHelpDialog } from "./keybindings/KeybindingHelpDialog";
+import { useWorkspaceKeybindings } from "./keybindings/useWorkspaceKeybindings";
 import { useSuggestionInbox } from "./suggestions/inbox";
+import { useSuggestionKeyboardNavigation } from "./suggestions/keyboardNavigation";
 import { getInitialWorkspacePinSize } from "./suggestions/workspacePinLayout";
 import type {
   AgentActivity,
@@ -28,6 +31,11 @@ import type {
   SourceSnapshot,
 } from "./shared/desktop";
 import type { SuggestionItem, TextSuggestion } from "./suggestions/types";
+import {
+  MIN_CONTEXT_WIDTH,
+  MIN_NAVIGATION_WIDTH,
+  useWorkspaceLayout,
+} from "./workspace/useWorkspaceLayout";
 
 const initialContent: WritingPartialBlock[] = [
   {
@@ -36,36 +44,6 @@ const initialContent: WritingPartialBlock[] = [
     content: "New Page",
   },
 ];
-
-const MIN_NAVIGATION_WIDTH = 220;
-const MAX_NAVIGATION_WIDTH = 380;
-const MIN_CONTEXT_WIDTH = 280;
-const MAX_CONTEXT_WIDTH = 720;
-const MIN_EDITOR_WIDTH = 520;
-const NAVIGATION_WIDTH_KEY = "scribe-navigation-column-width";
-const CONTEXT_WIDTH_KEY = "scribe-context-column-width";
-function readSavedWidth(key: string, min: number, max: number) {
-  try {
-    const width = Number(window.localStorage.getItem(key));
-    return Number.isFinite(width) && width >= min && width <= max
-      ? width
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveWidth(key: string, width: number | null) {
-  try {
-    if (width === null) {
-      window.localStorage.removeItem(key);
-    } else {
-      window.localStorage.setItem(key, String(width));
-    }
-  } catch {
-    // Column resizing remains available when storage is blocked.
-  }
-}
 
 function isTextSuggestion(item: SuggestionItem): item is TextSuggestion {
   return (
@@ -78,26 +56,32 @@ type AppProps = {
 };
 
 export default function App({ desktop }: AppProps) {
-  const workspaceRef = useRef<HTMLElement>(null);
-  const navigationColumnRef = useRef<HTMLDivElement>(null);
-  const contextColumnRef = useRef<HTMLDivElement>(null);
-  const [navigationDrawerOpen, setNavigationDrawerOpen] = useState(false);
-  const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
-  const [navigationPanelOpen, setNavigationPanelOpen] = useState(true);
-  const [contextPanelOpen, setContextPanelOpen] = useState(true);
-  const [navigationColumnWidth, setNavigationColumnWidth] = useState<
-    number | null
-  >(() =>
-    readSavedWidth(
-      NAVIGATION_WIDTH_KEY,
-      MIN_NAVIGATION_WIDTH,
-      MAX_NAVIGATION_WIDTH,
-    ),
-  );
-  const [contextColumnWidth, setContextColumnWidth] = useState<number | null>(
-    () =>
-      readSavedWidth(CONTEXT_WIDTH_KEY, MIN_CONTEXT_WIDTH, MAX_CONTEXT_WIDTH),
-  );
+  const layout = useWorkspaceLayout();
+  const {
+    workspaceRef,
+    navigationColumnRef,
+    contextColumnRef,
+    navigationRegionRef,
+    contextRegionRef,
+    desktop: desktopLayout,
+    navigationDrawerOpen,
+    contextDrawerOpen,
+    navigationPanelOpen,
+    contextPanelOpen,
+    columnStyles,
+    openNavigation,
+    openContext,
+    toggleNavigation,
+    toggleContext,
+    closeNavigationDrawer,
+    closeContextDrawer,
+    getMaximumNavigationWidth,
+    getMaximumContextWidth,
+    resizeNavigationColumn,
+    resizeContextColumn,
+    resetNavigationColumn,
+    resetContextColumn,
+  } = layout;
   const editor = useCreateBlockNote({ schema: writingSchema, initialContent });
   const feed = useMemo(() => createDesktopSuggestionFeed(desktop), [desktop]);
   const saveSuggestionState = useCallback(
@@ -111,6 +95,15 @@ export default function App({ desktop }: AppProps) {
     [saveSuggestionState],
   );
   const inbox = useSuggestionInbox(feed, inboxOptions);
+  const [partnerView, setPartnerView] = useState<"suggestions" | "activity">(
+    "suggestions",
+  );
+  const suggestionNavigator = useSuggestionKeyboardNavigation({
+    entries: inbox.entries,
+    pinnedEntries: inbox.pinnedEntries,
+    selectedId: inbox.selectedEntry?.item.id,
+    onSelect: inbox.select,
+  });
   const resolvePreview = inbox.previewResolved;
   const hydrateInbox = inbox.hydrate;
   const [sources, setSources] = useState<SourceSnapshot[]>([]);
@@ -193,101 +186,6 @@ export default function App({ desktop }: AppProps) {
       }
     });
   }, [desktop]);
-
-  const getMaximumNavigationWidth = useCallback(() => {
-    const workspaceWidth =
-      workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
-    const contextWidth = contextPanelOpen
-      ? (contextColumnRef.current?.getBoundingClientRect().width ??
-        MIN_CONTEXT_WIDTH)
-      : 0;
-    return Math.max(
-      MIN_NAVIGATION_WIDTH,
-      Math.min(
-        MAX_NAVIGATION_WIDTH,
-        workspaceWidth - contextWidth - MIN_EDITOR_WIDTH,
-      ),
-    );
-  }, [contextPanelOpen]);
-
-  const getMaximumContextWidth = useCallback(() => {
-    const workspaceWidth =
-      workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
-    const navigationWidth = navigationPanelOpen
-      ? (navigationColumnRef.current?.getBoundingClientRect().width ??
-        MIN_NAVIGATION_WIDTH)
-      : 0;
-    return Math.max(
-      MIN_CONTEXT_WIDTH,
-      Math.min(
-        MAX_CONTEXT_WIDTH,
-        workspaceWidth - navigationWidth - MIN_EDITOR_WIDTH,
-      ),
-    );
-  }, [navigationPanelOpen]);
-
-  const resizeNavigationColumn = useCallback((width: number) => {
-    setNavigationColumnWidth(width);
-    saveWidth(NAVIGATION_WIDTH_KEY, width);
-  }, []);
-
-  const resizeContextColumn = useCallback((width: number) => {
-    setContextColumnWidth(width);
-    saveWidth(CONTEXT_WIDTH_KEY, width);
-  }, []);
-
-  const resetNavigationColumn = useCallback(() => {
-    setNavigationColumnWidth(null);
-    saveWidth(NAVIGATION_WIDTH_KEY, null);
-  }, []);
-
-  const resetContextColumn = useCallback(() => {
-    setContextColumnWidth(null);
-    saveWidth(CONTEXT_WIDTH_KEY, null);
-  }, []);
-
-  useEffect(() => {
-    const constrainSavedWidths = () => {
-      if (!window.matchMedia("(min-width: 1280px)").matches) {
-        return;
-      }
-
-      setNavigationColumnWidth((width) => {
-        if (width === null) {
-          return null;
-        }
-        const constrained = Math.min(width, getMaximumNavigationWidth());
-        saveWidth(NAVIGATION_WIDTH_KEY, constrained);
-        return constrained;
-      });
-      setContextColumnWidth((width) => {
-        if (width === null) {
-          return null;
-        }
-        const constrained = Math.min(width, getMaximumContextWidth());
-        saveWidth(CONTEXT_WIDTH_KEY, constrained);
-        return constrained;
-      });
-    };
-
-    constrainSavedWidths();
-    window.addEventListener("resize", constrainSavedWidths);
-    return () => window.removeEventListener("resize", constrainSavedWidths);
-  }, [getMaximumContextWidth, getMaximumNavigationWidth]);
-
-  useEffect(() => {
-    const desktopQuery = window.matchMedia("(min-width: 1280px)");
-    const closeDrawersAtDesktop = (event: MediaQueryListEvent) => {
-      if (event.matches) {
-        setNavigationDrawerOpen(false);
-        setContextDrawerOpen(false);
-      }
-    };
-
-    desktopQuery.addEventListener("change", closeDrawersAtDesktop);
-    return () =>
-      desktopQuery.removeEventListener("change", closeDrawersAtDesktop);
-  }, []);
 
   useEffect(
     () =>
@@ -383,58 +281,79 @@ export default function App({ desktop }: AppProps) {
     }
   };
 
-  const handlePreview = (item: SuggestionItem) => {
-    if (inbox.activePreviewId || !isTextSuggestion(item)) {
-      return;
-    }
+  const handlePreview = useCallback(
+    (item: SuggestionItem) => {
+      if (inbox.activePreviewId || !isTextSuggestion(item)) return;
 
-    const acceptedBlocks = editor.document.filter(
-      (block) => block.type !== "suggestionPreview",
-    );
-    const referenceBlock =
-      acceptedBlocks.find((block) => block.id === lastActiveBlockId) ??
-      acceptedBlocks.at(-1);
-    if (!referenceBlock) {
-      return;
-    }
+      const acceptedBlocks = editor.document.filter(
+        (block) => block.type !== "suggestionPreview",
+      );
+      const referenceBlock =
+        acceptedBlocks.find((block) => block.id === lastActiveBlockId) ??
+        acceptedBlocks.at(-1);
+      if (!referenceBlock) return;
 
-    const preview = editor.insertBlocks(
-      [
-        {
-          type: "suggestionPreview",
-          props: {
-            suggestionId: item.id,
-            targetBlockId: referenceBlock.id,
+      const preview = editor.insertBlocks(
+        [
+          {
+            type: "suggestionPreview",
+            props: {
+              suggestionId: item.id,
+              targetBlockId: referenceBlock.id,
+            },
+            content: item.insertText,
           },
-          content: item.insertText,
-        },
-      ],
-      referenceBlock,
-      "after",
-    )[0];
+        ],
+        referenceBlock,
+        "after",
+      )[0];
 
-    if (preview) {
-      inbox.previewStarted(item.id);
-      editor.setTextCursorPosition(preview.id, "end");
-      window.requestAnimationFrame(() => {
-        document
-          .querySelector(
-            `[data-content-type="suggestionPreview"][data-suggestion-id="${item.id}"]`,
-          )
-          ?.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (preview) {
+        inbox.previewStarted(item.id);
+        editor.setTextCursorPosition(preview.id, "end");
+        window.requestAnimationFrame(() => {
+          document
+            .querySelector(
+              `[data-content-type="suggestionPreview"][data-suggestion-id="${item.id}"]`,
+            )
+            ?.scrollIntoView({ block: "center", behavior: "smooth" });
+        });
+      }
+    },
+    [editor, inbox, lastActiveBlockId],
+  );
+
+  const handlePlaceOnWorkspace = useCallback(
+    (item: SuggestionItem) => {
+      inbox.placeOnWorkspace(item.id, {
+        x: 16,
+        y: 16,
+        ...getInitialWorkspacePinSize(item),
       });
-    }
-  };
+    },
+    [inbox],
+  );
 
-  const handlePlaceOnWorkspace = (item: SuggestionItem) => {
-    inbox.placeOnWorkspace(item.id, {
-      x: 16,
-      y: 16,
-      ...getInitialWorkspacePinSize(item),
-    });
-  };
+  const keybindings = useWorkspaceKeybindings({
+    editor,
+    layout,
+    navigator: suggestionNavigator,
+    pinnedEntries: inbox.pinnedEntries,
+    selectedEntry: inbox.selectedEntry,
+    activePreviewId: inbox.activePreviewId,
+    setPartnerView,
+    onSelect: inbox.select,
+    onBack: inbox.back,
+    onDismiss: inbox.dismiss,
+    onPin: inbox.pin,
+    onUnpin: inbox.unpin,
+    onPreview: handlePreview,
+  });
 
-  const dock = (
+  const renderDock = (
+    keyboardNavigationActive: boolean,
+    regionRef?: typeof contextRegionRef,
+  ) => (
     <SuggestionDock
       entries={inbox.entries}
       pinnedEntries={inbox.pinnedEntries}
@@ -450,6 +369,13 @@ export default function App({ desktop }: AppProps) {
       activity={activity}
       runtime={runtime}
       controlPending={agentControlPending}
+      view={partnerView}
+      keyboardTargetId={
+        keyboardNavigationActive ? suggestionNavigator.targetId : undefined
+      }
+      regionRef={regionRef}
+      onViewChange={setPartnerView}
+      onKeyboardTargetChange={suggestionNavigator.setTargetId}
       onSelect={inbox.select}
       onBack={inbox.back}
       onDismiss={inbox.dismiss}
@@ -462,15 +388,6 @@ export default function App({ desktop }: AppProps) {
     />
   );
 
-  const workspaceColumnStyles = {
-    ...(navigationColumnWidth === null
-      ? {}
-      : { "--navigation-column-width": `${navigationColumnWidth}px` }),
-    ...(contextColumnWidth === null
-      ? {}
-      : { "--context-column-width": `${contextColumnWidth}px` }),
-  } as CSSProperties;
-
   return (
     <div className="min-h-dvh bg-white">
       <main
@@ -481,7 +398,7 @@ export default function App({ desktop }: AppProps) {
         } ${
           navigationPanelOpen ? "" : "workspace-grid--navigation-closed"
         } ${contextPanelOpen ? "" : "workspace-grid--context-closed"}`}
-        style={workspaceColumnStyles}
+        style={columnStyles}
       >
         <div
           ref={navigationColumnRef}
@@ -492,7 +409,12 @@ export default function App({ desktop }: AppProps) {
               : "hidden"
           }
         >
-          <Sidebar sources={sources} onUploadSource={handleUploadSource} />
+          <Sidebar
+            sources={sources}
+            regionRef={navigationRegionRef}
+            onOpenKeybindingHelp={keybindings.openHelp}
+            onUploadSource={handleUploadSource}
+          />
           {navigationPanelOpen ? (
             <ColumnResizeHandle
               controls="project-navigation-column"
@@ -515,12 +437,10 @@ export default function App({ desktop }: AppProps) {
           navigationDrawerOpen={navigationDrawerOpen}
           contextDrawerOpen={contextDrawerOpen}
           contextUnreadCount={inbox.unreadCount}
-          onOpenNavigationDrawer={() => setNavigationDrawerOpen(true)}
-          onOpenContextDrawer={() => setContextDrawerOpen(true)}
-          onToggleNavigationPanel={() =>
-            setNavigationPanelOpen((open) => !open)
-          }
-          onToggleContextPanel={() => setContextPanelOpen((open) => !open)}
+          onOpenNavigationDrawer={openNavigation}
+          onOpenContextDrawer={openContext}
+          onToggleNavigationPanel={toggleNavigation}
+          onToggleContextPanel={toggleContext}
           onEditorSelectionChange={handleEditorSelectionChange}
           onEditorChange={handleEditorChange}
           onWorkspacePinGeometryChange={inbox.updateWorkspaceGeometry}
@@ -549,7 +469,7 @@ export default function App({ desktop }: AppProps) {
               onResize={resizeContextColumn}
             />
           ) : null}
-          {dock}
+          {renderDock(desktopLayout, contextRegionRef)}
         </div>
       </main>
 
@@ -558,9 +478,13 @@ export default function App({ desktop }: AppProps) {
         title="Project navigation"
         side="left"
         open={navigationDrawerOpen}
-        onClose={() => setNavigationDrawerOpen(false)}
+        onClose={closeNavigationDrawer}
       >
-        <Sidebar sources={sources} onUploadSource={handleUploadSource} />
+        <Sidebar
+          sources={sources}
+          onOpenKeybindingHelp={keybindings.openHelp}
+          onUploadSource={handleUploadSource}
+        />
       </ResponsiveDrawer>
 
       <ResponsiveDrawer
@@ -569,10 +493,16 @@ export default function App({ desktop }: AppProps) {
         side="right"
         wide
         open={contextDrawerOpen}
-        onClose={() => setContextDrawerOpen(false)}
+        onClose={closeContextDrawer}
       >
-        {dock}
+        {renderDock(!desktopLayout)}
       </ResponsiveDrawer>
+
+      <KeybindingCommandStrip state={keybindings.stripState} />
+      <KeybindingHelpDialog
+        open={keybindings.helpOpen}
+        onClose={keybindings.closeHelp}
+      />
     </div>
   );
 }

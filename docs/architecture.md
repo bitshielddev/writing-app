@@ -47,7 +47,7 @@ The `SuggestionFeed` remains transport-neutral, while its only application adapt
 1. `useCreateBlockNote` creates the editor from `writingSchema` and seeded content.
 2. `createDesktopSuggestionFeed` creates the Electron event adapter and is memoized for the component lifetime.
 3. `useSuggestionInbox` subscribes to the feed and owns the suggestion lifecycle reducer.
-4. `App` creates editor preview blocks, translates preview resolution events back into inbox actions, and controls responsive panels.
+4. `App` creates editor preview blocks and composes the layout, navigation, and keybinding controllers with inbox actions.
 
 Keeping feed creation stable is important. Recreating it during a render would resubscribe the inbox to desktop events.
 
@@ -59,10 +59,9 @@ Keeping feed creation stable is important. Recreating it during a render would r
 | Feed subscribers | `createDesktopSuggestionFeed` closure | Renderer lifetime |
 | Inbox, pins, preview id, agent status, errors | `useSuggestionInbox` / `inboxReducer` | Visible suggestion projection persists in Electron; preview/status stay ephemeral |
 | Workspace pin geometry and z-order | Inbox reducer | Persists in Electron |
-| Desktop panel open/closed state | `App` React state | Current page only |
-| Mobile drawer open/closed state | `App` React state | Current page only |
 | Last editor block with a text cursor | `App` React state | Current page only |
-| Desktop column widths | `App` React state | `localStorage` when available |
+| Workspace panels, drawers, and column widths | `useWorkspaceLayout` | Panel state is in-memory; widths use `localStorage` |
+| Keyboard sequence and suggestion target | Keybinding and suggestion navigation hooks | Current page only |
 | Documents, Markdown mirror, sources, suggestions | SQLite/storage process | Electron application data and managed project workspace |
 | Agent model/auth configuration | Pi coding-agent | Native `settings.json`, `auth.json`, and `models.json` under `<userData>/pi`; environment credentials also resolve |
 | Agent session/loop state | Pi `SessionManager` and Scribe extension | Project-scoped `.pi/sessions` JSONL |
@@ -80,6 +79,15 @@ There is intentionally one owner for each lifecycle. Components such as `Suggest
 - [`previewEvents.ts`](../src/editor/previewEvents.ts) is a small in-process event bridge from the custom block renderer back to `App`.
 
 The editor layer knows suggestion IDs, but it does not import or mutate inbox state.
+
+### `src/keybindings` and `src/workspace`
+
+- `commands.ts` defines stable semantic command IDs independently of keys and handlers.
+- `defaultKeymap.ts` contains the fixed `Ctrl+;` keymap; `sequenceMatcher.ts` resolves partial and complete sequences without React or DOM dependencies.
+- `useKeybindingController.ts` owns global keyboard capture and timing. `useWorkspaceKeybindings.ts` is the only adapter allowed to coordinate editor, layout, and suggestion actions.
+- `useWorkspaceLayout.ts` owns responsive panels, drawers, widths, and their shared imperative operations.
+
+The command strip and shortcut dialog read the same command catalog and default keymap used for execution. This prevents discoverability copy from drifting away from the active bindings and leaves a clean keymap-replacement seam for future configurability.
 
 ### `src/suggestions`
 

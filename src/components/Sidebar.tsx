@@ -11,6 +11,7 @@ import {
   Upload,
   type LucideIcon,
 } from "lucide-react";
+import type { Ref } from "react";
 
 import type { SourceSnapshot } from "../shared/desktop";
 
@@ -35,10 +36,17 @@ const footerItems: NavigationItem[] = [
 
 type SidebarProps = {
   sources?: SourceSnapshot[];
+  regionRef?: Ref<HTMLElement>;
+  onOpenKeybindingHelp?: () => void;
   onUploadSource?: () => void;
 };
 
-function NavigationButton({ active, icon: Icon, label }: NavigationItem) {
+function NavigationButton({
+  active,
+  icon: Icon,
+  label,
+  onClick,
+}: NavigationItem & { onClick?: () => void }) {
   return (
     <button
       type="button"
@@ -48,6 +56,7 @@ function NavigationButton({ active, icon: Icon, label }: NavigationItem) {
           ? "bg-[#e8e7f1] font-bold text-brand-700"
           : "text-[#5d5b6d] hover:bg-[#eceaf4] hover:text-brand-700"
       }`}
+      onClick={onClick}
     >
       <Icon className="size-5 shrink-0" aria-hidden="true" />
       <span>{label}</span>
@@ -55,9 +64,16 @@ function NavigationButton({ active, icon: Icon, label }: NavigationItem) {
   );
 }
 
-export function Sidebar({ sources = [], onUploadSource }: SidebarProps) {
+export function Sidebar({
+  sources = [],
+  regionRef,
+  onOpenKeybindingHelp,
+  onUploadSource,
+}: SidebarProps) {
   return (
     <aside
+      ref={regionRef}
+      tabIndex={regionRef ? -1 : undefined}
       aria-label="Project navigation"
       className="h-full min-h-0 overflow-y-auto border-r border-[#d7d4e8] bg-[#f4f2fd]"
     >
@@ -121,7 +137,11 @@ export function Sidebar({ sources = [], onUploadSource }: SidebarProps) {
 
         <nav aria-label="Secondary sections" className="grid gap-1 border-t border-[#d7d4e8] pt-4">
           {footerItems.map((item) => (
-            <NavigationButton key={item.label} {...item} />
+            <NavigationButton
+              key={item.label}
+              {...item}
+              onClick={item.label === "Help" ? onOpenKeybindingHelp : undefined}
+            />
           ))}
         </nav>
       </div>
