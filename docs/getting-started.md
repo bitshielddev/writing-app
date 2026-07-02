@@ -202,7 +202,7 @@ Workspace cards render only at the desktop `xl` breakpoint (`80rem` and above). 
 
 ### Suggestion behavior seems duplicated in development
 
-Check that a new feed is not being created on every render. [`App.tsx`](../src/App.tsx) memoizes it. Also ensure every `SuggestionFeed.subscribe` implementation fully cleans up when the last subscriber leaves; React `StrictMode` will exercise that path.
+Check that a new feed is not being created on every render. [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts) memoizes it. Also ensure every `SuggestionFeed.subscribe` implementation fully cleans up when the last subscriber leaves; React `StrictMode` will exercise that path.
 
 ### A manually sent suggestion does not appear
 

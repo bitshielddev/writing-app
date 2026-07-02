@@ -1,10 +1,36 @@
-export type SuggestionKind =
-  | "snippet"
-  | "fact"
-  | "term"
-  | "outline"
-  | "layout"
-  | "mindMap";
+export const SUGGESTION_KINDS = [
+  "snippet",
+  "fact",
+  "term",
+  "outline",
+  "layout",
+  "mindMap",
+] as const;
+export const TEXT_SUGGESTION_KINDS = ["snippet", "fact", "term"] as const;
+export const STRUCTURE_SUGGESTION_KINDS = ["outline", "layout"] as const;
+
+export type SuggestionKind = (typeof SUGGESTION_KINDS)[number];
+export type TextSuggestionKind = (typeof TEXT_SUGGESTION_KINDS)[number];
+export type StructureSuggestionKind =
+  (typeof STRUCTURE_SUGGESTION_KINDS)[number];
+
+function includes<T extends string>(values: readonly T[], value: unknown): value is T {
+  return typeof value === "string" && values.includes(value as T);
+}
+
+export function isSuggestionKind(value: unknown): value is SuggestionKind {
+  return includes(SUGGESTION_KINDS, value);
+}
+
+export function isTextSuggestionKind(value: unknown): value is TextSuggestionKind {
+  return includes(TEXT_SUGGESTION_KINDS, value);
+}
+
+export function isStructureSuggestionKind(
+  value: unknown,
+): value is StructureSuggestionKind {
+  return includes(STRUCTURE_SUGGESTION_KINDS, value);
+}
 
 type SuggestionBase = {
   id: string;
@@ -18,7 +44,7 @@ type SuggestionBase = {
 };
 
 export type TextSuggestion = SuggestionBase & {
-  kind: "snippet" | "fact" | "term";
+  kind: TextSuggestionKind;
   insertText: string;
 };
 
@@ -30,7 +56,7 @@ export type StructureNode = {
 };
 
 export type StructureSuggestion = SuggestionBase & {
-  kind: "outline" | "layout";
+  kind: StructureSuggestionKind;
   nodes: StructureNode[];
 };
 
@@ -45,20 +71,32 @@ export type SuggestionItem =
   | StructureSuggestion
   | MindMapSuggestion;
 
-export type AgentStatus =
-  | "offline"
-  | "stopped"
-  | "working"
-  | "waiting"
-  | "capped"
-  | "error";
+export function isTextSuggestion(item: SuggestionItem): item is TextSuggestion {
+  return isTextSuggestionKind(item.kind);
+}
+
+export function isStructureSuggestion(
+  item: SuggestionItem,
+): item is StructureSuggestion {
+  return isStructureSuggestionKind(item.kind);
+}
+
+export function isMindMapSuggestion(
+  item: SuggestionItem,
+): item is MindMapSuggestion {
+  return item.kind === "mindMap";
+}
+
+export function isVisualSuggestion(
+  item: SuggestionItem,
+): item is StructureSuggestion | MindMapSuggestion {
+  return isStructureSuggestion(item) || isMindMapSuggestion(item);
+}
 
 export type SuggestionEvent =
   | { type: "suggestion.added"; item: SuggestionItem }
   | { type: "suggestion.updated"; item: SuggestionItem }
-  | { type: "suggestion.retracted"; id: string }
-  | { type: "agent.status"; status: AgentStatus }
-  | { type: "agent.error"; message: string; recoverable: boolean };
+  | { type: "suggestion.retracted"; id: string };
 
 export interface SuggestionFeed {
   subscribe(listener: (event: SuggestionEvent) => void): () => void;

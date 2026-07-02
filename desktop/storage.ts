@@ -16,10 +16,14 @@ import type {
   DesktopEvent,
   DocumentSnapshot,
   ObservationSeed,
-  PersistedSuggestionState,
   SourceSnapshot,
   WorkspaceSnapshot,
 } from "../src/shared/desktop.js";
+import {
+  createEmptySuggestionState,
+  trimSuggestionEntries,
+  type PersistedSuggestionState,
+} from "../src/suggestions/state.js";
 import type { SuggestionEvent, SuggestionItem } from "../src/suggestions/types.js";
 import { isSuggestionItem } from "../src/suggestions/validation.js";
 
@@ -117,14 +121,6 @@ db.exec(`
   PRAGMA user_version = 2;
 `);
 
-const emptySuggestionState = (): PersistedSuggestionState => ({
-  entries: [],
-  pinnedEntries: [],
-  workspacePins: [],
-  seenKeys: {},
-  nextZIndex: 1,
-});
-
 function bootstrap() {
   const now = Date.now();
   db.prepare(
@@ -146,7 +142,7 @@ function bootstrap() {
   );
   db.prepare(
     "INSERT OR IGNORE INTO suggestion_state (project_id, state_json, updated_at) VALUES (?, ?, ?)",
-  ).run(PROJECT_ID, JSON.stringify(emptySuggestionState()), now);
+  ).run(PROJECT_ID, JSON.stringify(createEmptySuggestionState()), now);
 }
 
 bootstrap();
@@ -237,10 +233,7 @@ function flushOutbox() {
   );
   for (const row of rows) {
     const event = json<DesktopEvent>(row.event_json);
-    const payload = event.type === "suggestion.event"
-      ? { ...event, sequence: row.sequence }
-      : event;
-    process.parentPort?.postMessage({ kind: "domain.event", event: payload });
+    process.parentPort?.postMessage({ kind: "domain.event", event });
     mark.run(Date.now(), row.sequence);
   }
 }
@@ -283,9 +276,6 @@ async function repairDraftMirror() {
 }
 
 function hydrate(): WorkspaceSnapshot {
-  const sequenceRow = db.prepare(
-    "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM event_outbox",
-  ).get() as { sequence: number };
   return {
     project: getProject(),
     document: getDocument(),
@@ -293,7 +283,6 @@ function hydrate(): WorkspaceSnapshot {
     suggestions: getSuggestionState(),
     agent: { status: "offline", cycleCount: 0 },
     activity: [],
-    sequence: sequenceRow.sequence,
   };
 }
 
@@ -411,7 +400,10 @@ function saveSuggestionState(params: unknown) {
   if (!Array.isArray(state.entries) || !Array.isArray(state.pinnedEntries)) {
     throw new Error("Invalid suggestion projection");
   }
-  putSuggestionState(state);
+  putSuggestionState({
+    ...state,
+    entries: trimSuggestionEntries(state.entries),
+  });
 }
 
 function getObservationSeed(): ObservationSeed {
@@ -437,14 +429,7 @@ function listSuggestions() {
 }
 
 function emitSuggestion(event: SuggestionEvent) {
-  queueEvent({ type: "suggestion.event", sequence: 0, event });
-}
-
-function enforceSuggestionLimit(state: PersistedSuggestionState) {
-  if (state.entries.length <= 30) return;
-  state.entries = [...state.entries]
-    .sort((a, b) => a.item.createdAt - b.item.createdAt)
-    .slice(-30);
+  queueEvent({ type: "suggestion.event", event });
 }
 
 function assertCurrentRevision(expectedDocumentRevision: number) {
@@ -462,7 +447,7 @@ function createSuggestion(params: unknown) {
     if (state.seenKeys[input.item.dedupeKey]) return { accepted: false };
     state.seenKeys[input.item.dedupeKey] = true;
     state.entries.push({ item: input.item, viewed: false, stale: false, withdrawn: false });
-    enforceSuggestionLimit(state);
+    state.entries = trimSuggestionEntries(state.entries);
     putSuggestionState(state);
     emitSuggestion({ type: "suggestion.added", item: input.item });
     return { accepted: true };

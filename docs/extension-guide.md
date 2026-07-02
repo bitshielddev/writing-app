@@ -12,10 +12,10 @@ A production adapter must define:
 - how server messages map to every `SuggestionEvent` variant;
 - stable `id` and `dedupeKey` rules;
 - reconnection and replay semantics;
-- ordering of status, suggestion, and error events;
+- ordering of suggestion events;
 - cleanup under React `StrictMode`.
 
-Choose or introduce adapters at the construction boundary in [`App.tsx`](../src/App.tsx). Preserve stable construction with `useMemo`, or move service creation above React if it is intentionally process-wide.
+Choose or introduce adapters in [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts). Preserve stable construction with `useMemo`, or move service creation above React if it is intentionally process-wide. Runtime status and errors remain on `AgentRuntime`; they are not suggestion-feed events.
 
 Do not call an HTTP or model SDK directly from `SuggestionDock`. That would couple view lifecycle to transport lifecycle, make replay/dedupe inconsistent, and bypass reducer tests.
 
@@ -47,6 +47,8 @@ Temporary `suggestionPreview` blocks are excluded from the saved accepted docume
 
 The live inbox, pins, workspace cards, dedupe keys, and geometry are stored as a document-scoped projection. Changes to dedupe retention should be made deliberately because a dismissed item currently cannot be re-added with the same key.
 
+[`suggestions/state.ts`](../src/suggestions/state.ts) is the shared renderer/storage policy boundary. Change the persisted entry types, empty-state defaults, queue limit, or eviction rules there so both processes remain consistent. Do not move persistence ownership into React as part of an unrelated feature.
+
 Pinned entries are user-owned frozen snapshots. Preserve that distinction if live suggestions are server-backed: server updates should not mutate a saved pin.
 
 ### Workspace preferences
@@ -59,17 +61,17 @@ Add new durable data through the storage-process RPC boundary. Hydrate owners at
 
 Adding a kind affects the discriminated union and every exhaustive presentation or behavior decision.
 
-1. Add the literal to `SuggestionKind` and a new union member in [`types.ts`](../src/suggestions/types.ts).
-2. Decide whether it is text-insertable, structural/reference-only, or requires a new action.
+1. Add the literal to `SUGGESTION_KINDS` and a new union member in [`types.ts`](../src/suggestions/types.ts).
+2. Add it to the relevant canonical kind-family constant and guard when it is text-insertable or structural.
 3. Add badge label/icon/tone and visual rendering in [`SuggestionPresentation.tsx`](../src/components/SuggestionPresentation.tsx).
-4. Update `isTextSuggestion` in [`App.tsx`](../src/App.tsx) if it can preview.
-5. Update detail/workspace visual conditions in [`SuggestionDock.tsx`](../src/components/SuggestionDock.tsx) and [`WorkspacePins.tsx`](../src/components/WorkspacePins.tsx).
+4. Reuse the canonical guards in the workspace controller, detail view, workspace pins, validation, mock tooling, and agent tooling; do not add local repeated kind checks.
+5. Update focused dock views and workspace presentation only when the new family needs distinct UI.
 6. Add an initial size in [`workspacePinLayout.ts`](../src/suggestions/workspacePinLayout.ts) if the default is unsuitable.
 7. Ensure external data validation rejects malformed payloads before they reach the reducer.
 8. Add reducer and component tests, plus Mermaid-like failure handling if rendering is asynchronous.
 9. Update the kind table in [Editor and suggestion system](editor-and-suggestions.md).
 
-The current app uses manual kind checks in several places. If kinds grow substantially, centralize behavior metadata instead of adding more scattered conditionals.
+Kind-family decisions are centralized in `suggestions/types.ts`. If kinds grow substantially, extend that metadata rather than adding scattered conditionals.
 
 ## Add a custom editor block
 
@@ -149,7 +151,7 @@ TypeScript types do not validate network input. A production feed should parse r
 - recursive node depth and total payload size;
 - Mermaid/source text safety constraints.
 
-Malformed events should become a controlled `agent.error` or telemetry event, not an exception during React rendering.
+Malformed events should become a controlled runtime error or telemetry event, not an exception during React rendering.
 
 ## Introduce routing or server rendering
 

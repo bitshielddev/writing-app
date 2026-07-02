@@ -8,6 +8,7 @@ The React renderer has one application composition: Electron supplies a required
 flowchart LR
     User[User]
     Shell[App composition root]
+    WorkspaceController[Workspace controller]
     Editor[BlockNote editor]
     Feed[Suggestion feed adapter]
     Inbox[Suggestion inbox reducer]
@@ -23,6 +24,8 @@ flowchart LR
 
     User --> Shell
     Shell --> Editor
+    Shell --> WorkspaceController
+    WorkspaceController --> Feed
     Feed -->|SuggestionEvent| Inbox
     Inbox --> Dock
     Inbox --> Pins
@@ -42,14 +45,14 @@ The `SuggestionFeed` remains transport-neutral, while its only application adapt
 
 ## Composition root
 
-[`App.tsx`](../src/App.tsx) creates and connects long-lived objects:
+[`App.tsx`](../src/App.tsx) is the layout composition root:
 
 1. `useCreateBlockNote` creates the editor from `writingSchema` and seeded content.
-2. `createDesktopSuggestionFeed` creates the Electron event adapter and is memoized for the component lifetime.
-3. `useSuggestionInbox` subscribes to the feed and owns the suggestion lifecycle reducer.
-4. `App` creates editor preview blocks and composes the layout, navigation, and keybinding controllers with inbox actions.
+2. `useWorkspaceController` owns hydration, serialized autosave, desktop subscriptions, agent controls, inbox integration, and preview coordination.
+3. `useWorkspaceLayout` and `useWorkspaceKeybindings` connect controller actions to the responsive layout.
+4. `App` composes the editor, sidebars, dock, drawers, and keyboard surfaces.
 
-Keeping feed creation stable is important. Recreating it during a render would resubscribe the inbox to desktop events.
+The workspace controller memoizes the desktop suggestion feed. Recreating it during a render would resubscribe the inbox to desktop events.
 
 ## State ownership
 
@@ -57,15 +60,16 @@ Keeping feed creation stable is important. Recreating it during a render would r
 | --- | --- | --- |
 | Editor blocks and selection | BlockNote editor created in `App` | Selection is in-memory; accepted blocks autosave in Electron |
 | Feed subscribers | `createDesktopSuggestionFeed` closure | Renderer lifetime |
-| Inbox, pins, preview id, agent status, errors | `useSuggestionInbox` / `inboxReducer` | Visible suggestion projection persists in Electron; preview/status stay ephemeral |
+| Inbox, pins, preview id | `useSuggestionInbox` / `inboxReducer` | Visible suggestion projection persists in Electron; preview identity stays ephemeral |
 | Workspace pin geometry and z-order | Inbox reducer | Persists in Electron |
-| Last editor block with a text cursor | `App` React state | Current page only |
+| Hydration, autosave queue, sources, last text cursor | `useWorkspaceController` | Current page; durable values cross the desktop bridge |
 | Workspace panels, drawers, and column widths | `useWorkspaceLayout` | Panel state is in-memory; widths use `localStorage` |
 | Keyboard sequence and suggestion target | Keybinding and suggestion navigation hooks | Current page only |
 | Documents, Markdown mirror, sources, suggestions | SQLite/storage process | Electron application data and managed project workspace |
 | Agent model/auth configuration | Pi coding-agent | Native `settings.json`, `auth.json`, and `models.json` under `<userData>/pi`; environment credentials also resolve |
 | Agent session/loop state | Pi `SessionManager` and Scribe extension | Project-scoped `.pi/sessions` JSONL |
 | Agent start/stop state | Agent utility process | Current launch only; every app launch starts stopped |
+| Canonical agent status and error | `AgentRuntime`, reported by the agent through Electron main | Current launch only |
 | Activity diagnostics | Electron main | Current-launch 500-item memory ring |
 | Draft title, tab, source, and navigation data | Component constants | Static |
 
@@ -86,12 +90,14 @@ The editor layer knows suggestion IDs, but it does not import or mutate inbox st
 - `defaultKeymap.ts` contains the fixed `Ctrl+;` keymap; `sequenceMatcher.ts` resolves partial and complete sequences without React or DOM dependencies.
 - `useKeybindingController.ts` owns global keyboard capture and timing. `useWorkspaceKeybindings.ts` is the only adapter allowed to coordinate editor, layout, and suggestion actions.
 - `useWorkspaceLayout.ts` owns responsive panels, drawers, widths, and their shared imperative operations.
+- `useWorkspaceController.ts` owns renderer orchestration: hydration, autosave serialization, desktop events, agent controls, inbox persistence, and preview coordination.
 
 The command strip and shortcut dialog read the same command catalog and default keymap used for execution. This prevents discoverability copy from drifting away from the active bindings and leaves a clean keymap-replacement seam for future configurability.
 
 ### `src/suggestions`
 
 - [`types.ts`](../src/suggestions/types.ts) defines suggestion data and the feed interface.
+- [`state.ts`](../src/suggestions/state.ts) defines the persisted projection, empty state, 30-entry limit, and shared eviction policy used by renderer and storage.
 - [`validation.ts`](../src/suggestions/validation.ts) validates suggestion payloads at runtime before development IPC reaches storage.
 - [`inbox.ts`](../src/suggestions/inbox.ts) implements all suggestion, pin, preview, and workspace transitions.
 - [`workspacePinLayout.ts`](../src/suggestions/workspacePinLayout.ts) supplies type-specific initial card sizes.
@@ -100,7 +106,7 @@ The command strip and shortcut dialog read the same command catalog and default 
 
 This temporary directory owns the Electron-only controller view and payload builder. Main and preload expose its injection bridge only during Vite development; storage persists accepted mock suggestions exactly like agent-created suggestions.
 
-This layer is React-independent except for the `useSuggestionInbox` hook at the bottom of `inbox.ts`. The reducer itself is a pure function and is the most important unit-test boundary.
+The reducer itself is a pure function and is the most important unit-test boundary. The persisted state policy is React-independent so the storage process can apply the same queue rules.
 
 ### `desktop` and `src/desktop`
 
@@ -116,7 +122,7 @@ This layer is React-independent except for the `useSuggestionInbox` hook at the 
 
 - [`EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) joins the document header and editor surface.
 - [`DocumentEditor.tsx`](../src/components/DocumentEditor.tsx) renders BlockNote and calculates initial workspace-card placement.
-- [`SuggestionDock.tsx`](../src/components/SuggestionDock.tsx) renders the inbox, pinned section, detail view, and errors.
+- [`SuggestionDock.tsx`](../src/components/SuggestionDock.tsx) composes focused activity, detail, and queue views.
 - [`WorkspacePins.tsx`](../src/components/WorkspacePins.tsx) renders desktop cards and handles bounded pointer/keyboard geometry.
 - [`DocumentHeader.tsx`](../src/components/DocumentHeader.tsx) exposes responsive panel controls and document action placeholders.
 - [`ResponsiveDrawer.tsx`](../src/components/ResponsiveDrawer.tsx) provides the below-desktop modal panel behavior.
@@ -135,6 +141,7 @@ The renderer refuses to construct `App` without the Electron bridge. The complet
 sequenceDiagram
     participant Main as main.tsx
     participant App
+    participant Controller as useWorkspaceController
     participant Editor as BlockNote
     participant Bridge as Electron bridge
     participant Feed as SuggestionFeed
@@ -143,7 +150,8 @@ sequenceDiagram
     Main->>Bridge: require preload bridge
     Main->>App: render inside StrictMode
     App->>Editor: create schema-backed editor
-    App->>Feed: create desktop event feed
+    App->>Controller: connect desktop and editor
+    Controller->>Feed: create stable desktop event feed
     Inbox->>Feed: subscribe
     Bridge-->>Feed: committed suggestion event
     Feed-->>Inbox: suggestion.added
@@ -158,7 +166,7 @@ types/contracts
     ↑
 editor utilities     suggestion implementations
     ↑                         ↑
-components  ← props/callbacks → App composition root
+components  ← props/callbacks → workspace controller / App composition
 ```
 
 Practical rules:
@@ -166,7 +174,7 @@ Practical rules:
 - Domain contracts belong in `suggestions/types.ts`, not in UI components.
 - Suggestion lifecycle changes belong in the reducer and should have reducer tests.
 - Transport or model SDK code should sit behind `SuggestionFeed`.
-- Cross-feature orchestration is acceptable in `App.tsx`; lower-level components should not import the composition root or one another's state.
+- Cross-feature renderer orchestration belongs in `useWorkspaceController`; `App.tsx` remains responsible for layout composition.
 - CSS layout variables are set by `App` but interpreted by `index.css`.
 
 ## Styling architecture

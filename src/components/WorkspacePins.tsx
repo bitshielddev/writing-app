@@ -12,6 +12,7 @@ import type {
   WorkspacePin,
   WorkspacePinRect,
 } from "../suggestions/inbox";
+import { isVisualSuggestion } from "../suggestions/types";
 import { KindBadge, SuggestionVisual } from "./SuggestionPresentation";
 
 const EDGE_PADDING = 16;
@@ -212,9 +213,7 @@ function WorkspacePinCard({
             {pin.item.summary}
           </p>
           <p className="mt-3 text-sm leading-6 text-[#5d5849]">{pin.item.body}</p>
-          {pin.item.kind === "outline" ||
-          pin.item.kind === "layout" ||
-          pin.item.kind === "mindMap" ? (
+          {isVisualSuggestion(pin.item) ? (
             <div className="mt-4">
               <SuggestionVisual item={pin.item} />
             </div>

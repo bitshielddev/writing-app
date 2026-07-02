@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -18,6 +18,7 @@ import {
 import {
   createScribeExtension,
   SCRIBE_LOOP_ENTRY,
+  SCRIBE_REVISION_EVENT,
   SCRIBE_TOOL_NAMES,
   type ScribeExtensionHost,
 } from "./scribe-extension";
@@ -71,12 +72,14 @@ describe("Pi project session", () => {
     const auth = AuthStorage.inMemory();
     const registry = ModelRegistry.inMemory(auth);
     const bus = createEventBus();
+    const reportRuntime = vi.fn();
+    const wake = vi.fn();
     const host: ScribeExtensionHost = {
       loop: new ScribeLoopState(),
       storageCall: async <T>() => ({}) as T,
-      runtime: () => undefined,
+      runtime: reportRuntime,
       activity: () => undefined,
-      wake: () => undefined,
+      wake,
       persist: () => undefined,
     };
     const loader = new DefaultResourceLoader({
@@ -103,6 +106,12 @@ describe("Pi project session", () => {
     expect(active).toEqual(expect.arrayContaining(["read", "grep", "find", "ls"]));
     expect(active).not.toEqual(expect.arrayContaining(["bash", "write", "edit"]));
     expect(active).toHaveLength(4 + SCRIBE_TOOL_NAMES.length);
+    bus.emit(SCRIBE_REVISION_EVENT, {
+      projectRevision: 2,
+      documentRevision: 1,
+    });
+    expect(reportRuntime).toHaveBeenCalledWith();
+    expect(wake).toHaveBeenCalledOnce();
     session.dispose();
   });
 });

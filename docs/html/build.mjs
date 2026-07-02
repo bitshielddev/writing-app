@@ -156,7 +156,7 @@ function renderArchitectureMap(source) {
     <div class="architecture-flow">
       <div class="diagram-node diagram-node--person"><span>User</span></div>
       <span class="diagram-arrow" aria-hidden="true">↓</span>
-      <div class="diagram-node diagram-node--primary"><small>Composition root</small><span>App</span></div>
+      <div class="diagram-node diagram-node--primary"><small>Composition</small><span>App + workspace controller</span></div>
       <div class="diagram-branches" aria-label="App connections">
         <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Document</small><span>BlockNote editor</span></div></div>
         <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Context</small><span>Accepted snapshot</span></div></div>
@@ -164,7 +164,7 @@ function renderArchitectureMap(source) {
       </div>
       <div class="diagram-pipeline" aria-label="Suggestion event pipeline">
         <div class="diagram-node"><span>Agent context</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
-        <div class="diagram-node"><span>Suggestion feed</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
+        <div class="diagram-node"><span>Controller feed</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
         <div class="diagram-node diagram-node--primary"><span>Inbox reducer</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
         <div class="diagram-node"><span>Dock & cards</span></div>
       </div>
@@ -176,16 +176,16 @@ function renderArchitectureMap(source) {
 function renderTimeline(source, kind) {
   const architectureSteps = [
     ["01", "Render", "main.tsx mounts App inside StrictMode."],
-    ["02", "Create", "App creates the schema-backed editor and stable context source."],
-    ["03", "Connect", "The mock feed is created over context; the inbox subscribes."],
-    ["04", "Publish", "Accepted editor blocks become the first document snapshot."],
-    ["05", "Emit", "The feed sends status and initial suggestion events."],
-    ["06", "Observe", "Later editor changes publish unique revisioned snapshots."],
-    ["07", "Reduce", "Document-derived events enter the same inbox state machine."],
+    ["02", "Create", "App creates the schema-backed editor and layout controller."],
+    ["03", "Connect", "The workspace controller creates the stable desktop feed and inbox."],
+    ["04", "Hydrate", "The controller restores accepted blocks and persisted workspace state."],
+    ["05", "Subscribe", "Suggestion events and AgentRuntime updates use separate contracts."],
+    ["06", "Autosave", "Accepted editor changes enter the serialized save queue."],
+    ["07", "Reduce", "Committed suggestion events enter the inbox state machine."],
   ];
   const previewSteps = [
-    ["01", "Request", "A text suggestion asks App to preview in the document."],
-    ["02", "Place", "App inserts a custom preview after the last active accepted block."],
+    ["01", "Request", "A text suggestion asks the workspace controller to preview."],
+    ["02", "Place", "The controller inserts a custom preview after the last active accepted block."],
     ["03", "Own", "The inbox records the one active preview; the user can edit it freely."],
     ["04", "Resolve", "Accept replaces it with a paragraph; Cancel removes it."],
     ["05", "Reconcile", "The preview event bridge resolves the suggestion in the reducer."],

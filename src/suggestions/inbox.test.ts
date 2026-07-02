@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { inboxReducer, initialInboxState } from "./inbox";
+import {
+  inboxReducer,
+  initialInboxState,
+  persistedSuggestionState,
+} from "./inbox";
 import type { TextSuggestion } from "./types";
 
 function suggestion(index: number, dedupeKey = `item-${index}`): TextSuggestion {
@@ -57,6 +61,61 @@ describe("suggestion inbox reducer", () => {
     expect(state.entries).toHaveLength(30);
     expect(state.entries.some((entry) => entry.item.id === "item-0")).toBe(false);
     expect(state.entries.some((entry) => entry.item.id === "item-99")).toBe(false);
+  });
+
+  it("protects selected and previewed entries during queue eviction", () => {
+    let state = initialInboxState;
+    for (let index = 0; index < 30; index += 1) {
+      state = inboxReducer(state, {
+        type: "event",
+        event: { type: "suggestion.added", item: suggestion(index) },
+      });
+    }
+    state = inboxReducer(state, { type: "select", id: "item-0" });
+    state = inboxReducer(state, { type: "preview.started", id: "item-0" });
+    state = inboxReducer(state, {
+      type: "event",
+      event: { type: "suggestion.added", item: suggestion(30) },
+    });
+
+    expect(state.entries).toHaveLength(30);
+    expect(state.entries.some((entry) => entry.item.id === "item-0")).toBe(true);
+    expect(state.entries.some((entry) => entry.item.id === "item-1")).toBe(false);
+  });
+
+  it("marks selection viewed, clears it on back, and removes withdrawn detail", () => {
+    const original = suggestion(1);
+    let state = inboxReducer(initialInboxState, {
+      type: "event",
+      event: { type: "suggestion.added", item: original },
+    });
+    state = inboxReducer(state, { type: "select", id: original.id });
+    expect(state.entries[0]?.viewed).toBe(true);
+    state = inboxReducer(state, {
+      type: "event",
+      event: { type: "suggestion.retracted", id: original.id },
+    });
+    expect(state.entries[0]?.withdrawn).toBe(true);
+    state = inboxReducer(state, { type: "back" });
+    expect(state.selectedId).toBeUndefined();
+    expect(state.entries).toHaveLength(0);
+  });
+
+  it("dismisses live and pinned entries and clears matching selection", () => {
+    let state = initialInboxState;
+    for (const index of [1, 2]) {
+      state = inboxReducer(state, {
+        type: "event",
+        event: { type: "suggestion.added", item: suggestion(index) },
+      });
+    }
+    state = inboxReducer(state, { type: "pin", id: "item-1", pinnedAt: 1 });
+    state = inboxReducer(state, { type: "select", id: "item-1" });
+    state = inboxReducer(state, { type: "dismiss", id: "item-1" });
+
+    expect(state.selectedId).toBeUndefined();
+    expect(state.pinnedEntries).toHaveLength(0);
+    expect(state.entries.map((entry) => entry.item.id)).toEqual(["item-2"]);
   });
 
   it("preserves a preview while updates and retractions mark it stale", () => {
@@ -160,6 +219,41 @@ describe("suggestion inbox reducer", () => {
     });
   });
 
+  it("does not place a pin while its preview is active", () => {
+    const original = suggestion(1);
+    let state = inboxReducer(initialInboxState, {
+      type: "event",
+      event: { type: "suggestion.added", item: original },
+    });
+    state = inboxReducer(state, { type: "pin", id: original.id, pinnedAt: 10 });
+    state = inboxReducer(state, { type: "preview.started", id: original.id });
+    const unchanged = inboxReducer(state, {
+      type: "workspace.place",
+      id: original.id,
+      rect: { x: 0, y: 0, width: 320, height: 240 },
+    });
+
+    expect(unchanged).toBe(state);
+    expect(unchanged.pinnedEntries).toHaveLength(1);
+    expect(unchanged.workspacePins).toHaveLength(0);
+  });
+
+  it("returns an unpinned snapshot to the bounded live queue", () => {
+    let state = initialInboxState;
+    for (let index = 0; index < 31; index += 1) {
+      state = inboxReducer(state, {
+        type: "event",
+        event: { type: "suggestion.added", item: suggestion(index) },
+      });
+    }
+    state = inboxReducer(state, { type: "pin", id: "item-30", pinnedAt: 1 });
+    state = inboxReducer(state, { type: "unpin", id: "item-30" });
+
+    expect(state.entries).toHaveLength(30);
+    expect(state.pinnedEntries).toHaveLength(0);
+    expect(state.entries.some((entry) => entry.item.id === "item-30")).toBe(true);
+  });
+
   it("keeps a cancelled pinned preview and removes an accepted one", () => {
     const original = suggestion(1);
     let state = inboxReducer(initialInboxState, {
@@ -207,5 +301,25 @@ describe("suggestion inbox reducer", () => {
     expect(
       state.workspacePins.find((pin) => pin.item.id === "item-1")?.zIndex,
     ).toBe(3);
+  });
+
+  it("projects only durable suggestion state", () => {
+    const original = suggestion(1);
+    let state = inboxReducer(initialInboxState, {
+      type: "event",
+      event: { type: "suggestion.added", item: original },
+    });
+    state = inboxReducer(state, { type: "select", id: original.id });
+    state = inboxReducer(state, { type: "preview.started", id: original.id });
+
+    expect(persistedSuggestionState(state)).toEqual({
+      entries: state.entries,
+      pinnedEntries: [],
+      workspacePins: [],
+      seenKeys: { [original.dedupeKey]: true },
+      nextZIndex: 1,
+    });
+    expect(persistedSuggestionState(state)).not.toHaveProperty("selectedId");
+    expect(persistedSuggestionState(state)).not.toHaveProperty("activePreviewId");
   });
 });

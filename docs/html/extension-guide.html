@@ -110,10 +110,10 @@
 <li>how server messages map to every <code>SuggestionEvent</code> variant;</li>
 <li>stable <code>id</code> and <code>dedupeKey</code> rules;</li>
 <li>reconnection and replay semantics;</li>
-<li>ordering of status, suggestion, and error events;</li>
+<li>ordering of suggestion events;</li>
 <li>cleanup under React <code>StrictMode</code>.</li>
 </ul>
-<p>Choose or introduce adapters at the construction boundary in <a href="../../src/App.tsx"><code>App.tsx</code></a>. Preserve stable construction with <code>useMemo</code>, or move service creation above React if it is intentionally process-wide.</p>
+<p>Choose or introduce adapters in <a href="../../src/workspace/useWorkspaceController.ts"><code>useWorkspaceController</code></a>. Preserve stable construction with <code>useMemo</code>, or move service creation above React if it is intentionally process-wide. Runtime status and errors remain on <code>AgentRuntime</code>; they are not suggestion-feed events.</p>
 <p>Do not call an HTTP or model SDK directly from <code>SuggestionDock</code>. That would couple view lifecycle to transport lifecycle, make replay/dedupe inconsistent, and bypass reducer tests.</p>
 <h3 id="introduce-context-for-a-real-service">Introduce context for a real service<a class="heading-anchor" href="#introduce-context-for-a-real-service" aria-label="Link to Introduce context for a real service">#</a></h3><p>The current application does not publish editor or artifact context to the feed. Before introducing a network payload, decide and document:</p>
 <ul>
@@ -130,22 +130,23 @@
 <h3 id="document-data">Document data<a class="heading-anchor" href="#document-data" aria-label="Link to Document data">#</a></h3><p>Document saves contain BlockNote&#39;s serializable model and <code>blocksToMarkdownLossy()</code> output. Storage atomically refreshes <code>draft.md</code> before publishing the committed revision. Preserve that ordering and startup repair path.</p>
 <p>Temporary <code>suggestionPreview</code> blocks are excluded from the saved accepted document. If preview recovery is added later, store it as a separate draft concept.</p>
 <h3 id="suggestion-data">Suggestion data<a class="heading-anchor" href="#suggestion-data" aria-label="Link to Suggestion data">#</a></h3><p>The live inbox, pins, workspace cards, dedupe keys, and geometry are stored as a document-scoped projection. Changes to dedupe retention should be made deliberately because a dismissed item currently cannot be re-added with the same key.</p>
+<p><a href="../../src/suggestions/state.ts"><code>suggestions/state.ts</code></a> is the shared renderer/storage policy boundary. Change the persisted entry types, empty-state defaults, queue limit, or eviction rules there so both processes remain consistent. Do not move persistence ownership into React as part of an unrelated feature.</p>
 <p>Pinned entries are user-owned frozen snapshots. Preserve that distinction if live suggestions are server-backed: server updates should not mutate a saved pin.</p>
 <h3 id="workspace-preferences">Workspace preferences<a class="heading-anchor" href="#workspace-preferences" aria-label="Link to Workspace preferences">#</a></h3><p>Column widths remain renderer-local preferences. Workspace-card geometry is stored per document and restored through the same clamp path because available canvas dimensions change.</p>
 <p>Add new durable data through the storage-process RPC boundary. Hydrate owners at application startup and keep serialization out of display components.</p>
 <h2 id="add-a-suggestion-kind">Add a suggestion kind<a class="heading-anchor" href="#add-a-suggestion-kind" aria-label="Link to Add a suggestion kind">#</a></h2><p>Adding a kind affects the discriminated union and every exhaustive presentation or behavior decision.</p>
 <ol>
-<li>Add the literal to <code>SuggestionKind</code> and a new union member in <a href="../../src/suggestions/types.ts"><code>types.ts</code></a>.</li>
-<li>Decide whether it is text-insertable, structural/reference-only, or requires a new action.</li>
+<li>Add the literal to <code>SUGGESTION_KINDS</code> and a new union member in <a href="../../src/suggestions/types.ts"><code>types.ts</code></a>.</li>
+<li>Add it to the relevant canonical kind-family constant and guard when it is text-insertable or structural.</li>
 <li>Add badge label/icon/tone and visual rendering in <a href="../../src/components/SuggestionPresentation.tsx"><code>SuggestionPresentation.tsx</code></a>.</li>
-<li>Update <code>isTextSuggestion</code> in <a href="../../src/App.tsx"><code>App.tsx</code></a> if it can preview.</li>
-<li>Update detail/workspace visual conditions in <a href="../../src/components/SuggestionDock.tsx"><code>SuggestionDock.tsx</code></a> and <a href="../../src/components/WorkspacePins.tsx"><code>WorkspacePins.tsx</code></a>.</li>
+<li>Reuse the canonical guards in the workspace controller, detail view, workspace pins, validation, mock tooling, and agent tooling; do not add local repeated kind checks.</li>
+<li>Update focused dock views and workspace presentation only when the new family needs distinct UI.</li>
 <li>Add an initial size in <a href="../../src/suggestions/workspacePinLayout.ts"><code>workspacePinLayout.ts</code></a> if the default is unsuitable.</li>
 <li>Ensure external data validation rejects malformed payloads before they reach the reducer.</li>
 <li>Add reducer and component tests, plus Mermaid-like failure handling if rendering is asynchronous.</li>
 <li>Update the kind table in <a href="editor-and-suggestions.html">Editor and suggestion system</a>.</li>
 </ol>
-<p>The current app uses manual kind checks in several places. If kinds grow substantially, centralize behavior metadata instead of adding more scattered conditionals.</p>
+<p>Kind-family decisions are centralized in <code>suggestions/types.ts</code>. If kinds grow substantially, extend that metadata rather than adding scattered conditionals.</p>
 <h2 id="add-a-custom-editor-block">Add a custom editor block<a class="heading-anchor" href="#add-a-custom-editor-block" aria-label="Link to Add a custom editor block">#</a></h2><p>Register the block in <a href="../../src/editor/schema.tsx"><code>writingSchema</code></a>, then address all serialization boundaries:</p>
 <ul>
 <li>accepted-document plain-text extraction;</li>
@@ -207,7 +208,7 @@
 <li>recursive node depth and total payload size;</li>
 <li>Mermaid/source text safety constraints.</li>
 </ul>
-<p>Malformed events should become a controlled <code>agent.error</code> or telemetry event, not an exception during React rendering.</p>
+<p>Malformed events should become a controlled runtime error or telemetry event, not an exception during React rendering.</p>
 <h2 id="introduce-routing-or-server-rendering">Introduce routing or server rendering<a class="heading-anchor" href="#introduce-routing-or-server-rendering" aria-label="Link to Introduce routing or server rendering">#</a></h2><p>The current code reads browser globals during state initialization and event handling. Server rendering would require guards or client-only boundaries for:</p>
 <ul>
 <li><code>window.localStorage</code> and <code>window.matchMedia</code> in <code>App</code>;</li>

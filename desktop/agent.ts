@@ -11,7 +11,6 @@ import {
   SessionManager,
   SettingsManager,
   type AgentSession,
-  type AgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
 
 import {
@@ -22,6 +21,7 @@ import {
   type ScribeRevision,
 } from "./scribe-extension.js";
 import { ScribeLoopState } from "./scribe-loop.js";
+import { activitiesFromSessionEvent } from "./agent-events.js";
 import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
 
 type ParentMessage =
@@ -80,97 +80,10 @@ const host: ScribeExtensionHost = {
   persist() {},
 };
 
-function serializable(value: unknown): unknown {
-  try {
-    return JSON.parse(JSON.stringify(value)) as unknown;
-  } catch {
-    return { unavailable: true };
-  }
-}
-
-function messageParts(message: unknown) {
-  const record = message as {
-    role?: string;
-    timestamp?: number;
-    content?: string | Array<{ type?: string; text?: string; thinking?: string }>;
-    errorMessage?: string;
-  };
-  const content = typeof record.content === "string" ? [] : (record.content ?? []);
-  return {
-    role: record.role ?? "message",
-    timestamp: record.timestamp ?? Date.now(),
-    text: typeof record.content === "string"
-      ? record.content
-      : content.filter((part) => part.type === "text").map((part) => part.text ?? "").join(""),
-    reasoning: content
-      .filter((part) => part.type === "thinking")
-      .map((part) => part.thinking ?? "")
-      .join(""),
-    error: record.errorMessage,
-  };
-}
-
-function observeSessionEvent(event: AgentSessionEvent) {
-  const now = Date.now();
-  if (event.type === "agent_start" || event.type === "agent_end") {
-    postActivity({
-      id: `lifecycle:${event.type}:${now}`,
-      kind: "lifecycle",
-      timestamp: now,
-      title: event.type === "agent_start" ? "Agent cycle started" : "Agent cycle ended",
-      payload: serializable(event),
-    });
-    return;
-  }
-  if (event.type === "message_start" || event.type === "message_update" || event.type === "message_end") {
-    const parts = messageParts(event.message);
-    const key = `${parts.role}:${parts.timestamp}`;
-    if (parts.text) {
-      postActivity({
-        id: `message:${key}`,
-        kind: "message",
-        timestamp: parts.timestamp,
-        title: `${parts.role} message`,
-        text: parts.text,
-        payload: serializable(event),
-      });
-    }
-    if (parts.reasoning) {
-      postActivity({
-        id: `reasoning:${key}`,
-        kind: "reasoning",
-        timestamp: parts.timestamp,
-        title: "Model reasoning",
-        text: parts.reasoning,
-        payload: serializable(event),
-      });
-    }
-    if (parts.error) {
-      postActivity({
-        id: `error:${key}`,
-        kind: "error",
-        timestamp: parts.timestamp,
-        title: "Provider error",
-        text: parts.error,
-        payload: serializable(event),
-        status: "error",
-      });
-    }
-    return;
-  }
-  if (
-    event.type === "tool_execution_start" ||
-    event.type === "tool_execution_update" ||
-    event.type === "tool_execution_end"
-  ) {
-    postActivity({
-      id: `tool:${event.toolCallId}`,
-      kind: "tool",
-      timestamp: now,
-      title: `${event.toolName} ${event.type === "tool_execution_end" ? "completed" : "running"}`,
-      payload: serializable(event),
-    });
-  }
+function observeSessionEvent(
+  event: Parameters<typeof activitiesFromSessionEvent>[0],
+) {
+  activitiesFromSessionEvent(event).forEach(postActivity);
 }
 
 function runtime() {
@@ -184,16 +97,41 @@ function runtime() {
   } satisfies AgentRuntime;
 }
 
-async function drain() {
-  if (
-    !configured ||
-    !session ||
-    !host.loop.isEnabled() ||
-    draining ||
-    session.isStreaming
-  ) {
-    return;
+function canDrain(activeSession: AgentSession | undefined): activeSession is AgentSession {
+  return Boolean(
+    configured &&
+      activeSession &&
+      host.loop.isEnabled() &&
+      !draining &&
+      !activeSession.isStreaming,
+  );
+}
+
+function reportLoopPause() {
+  const state = host.loop.snapshot();
+  const capped = state.status === "capped";
+  postActivity({
+    id: `loop:${state.status}:${state.latestRevision}`,
+    kind: "loop",
+    timestamp: Date.now(),
+    title: capped ? "Autonomous loop capped" : "Waiting for changes",
+    text: capped
+      ? "Five consecutive cycles completed without a yield or newer revision."
+      : `Yielded project revision ${state.yieldedRevision}.`,
+    payload: state,
+    status: state.status,
+  });
+}
+
+function scheduleWorkingCycle() {
+  if (host.loop.isEnabled() && host.loop.snapshot().status === "working") {
+    setTimeout(() => void drain(), 0);
   }
+}
+
+async function drain() {
+  const activeSession = session;
+  if (!canDrain(activeSession)) return;
   const cycle = host.loop.beginCycle();
   if (!cycle) {
     host.persist();
@@ -213,27 +151,14 @@ async function drain() {
     status: "working",
   });
   try {
-    await session.prompt(
+    await activeSession.prompt(
       `Review the durable Scribe project revision ${cycle.projectRevision} (draft revision ${cycle.documentRevision}). Read draft.md and relevant Markdown files in sources/. Manage only concrete, high-value suggestions. If no useful work remains for this revision, call wait_for_changes.`,
     );
     if (!host.loop.isEnabled()) return;
     const continueRunning = host.loop.finishCycle();
     host.persist();
     postRuntime(runtime());
-    if (!continueRunning) {
-      const state = host.loop.snapshot();
-      postActivity({
-        id: `loop:${state.status}:${state.latestRevision}`,
-        kind: "loop",
-        timestamp: Date.now(),
-        title: state.status === "capped" ? "Autonomous loop capped" : "Waiting for changes",
-        text: state.status === "capped"
-          ? "Five consecutive cycles completed without a yield or newer revision."
-          : `Yielded project revision ${state.yieldedRevision}.`,
-        payload: state,
-        status: state.status,
-      });
-    }
+    if (!continueRunning) reportLoopPause();
   } catch (error) {
     if (!host.loop.isEnabled()) return;
     const message = error instanceof Error ? error.message : String(error);
@@ -246,15 +171,13 @@ async function drain() {
       timestamp: Date.now(),
       title: "Agent cycle failed",
       text: message,
-      payload: serializable(error),
+      payload: error instanceof Error ? { message: error.message } : error,
       status: "error",
     });
   } finally {
     draining = false;
   }
-  if (host.loop.isEnabled() && host.loop.snapshot().status === "working") {
-    setTimeout(() => void drain(), 0);
-  }
+  scheduleWorkingCycle();
 }
 
 async function startAgent(revision: ScribeRevision) {

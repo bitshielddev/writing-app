@@ -4,8 +4,14 @@ import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 import { ScribeLoopState, type PersistedScribeLoopState } from "./scribe-loop.js";
-import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
-import type { SuggestionItem, SuggestionKind } from "../src/suggestions/types.js";
+import type { AgentActivity } from "../src/shared/desktop.js";
+import {
+  isStructureSuggestionKind,
+  isTextSuggestionKind,
+  SUGGESTION_KINDS,
+  type SuggestionItem,
+  type SuggestionKind,
+} from "../src/suggestions/types.js";
 
 export const SCRIBE_LOOP_ENTRY = "scribe.loop-state";
 export const SCRIBE_REVISION_EVENT = "scribe.project-revision";
@@ -25,21 +31,14 @@ export type ScribeRevision = {
 export type ScribeExtensionHost = {
   loop: ScribeLoopState;
   storageCall<T>(method: string, params?: unknown): Promise<T>;
-  runtime(update: AgentRuntime): void;
+  runtime(): void;
   activity(input: Omit<AgentActivity, "updatedAt">): void;
   wake(): void;
   persist(): void;
 };
 
 const suggestionSchema = Type.Object({
-  kind: Type.Union([
-    Type.Literal("snippet"),
-    Type.Literal("fact"),
-    Type.Literal("term"),
-    Type.Literal("outline"),
-    Type.Literal("layout"),
-    Type.Literal("mindMap"),
-  ]),
+  kind: Type.Union(SUGGESTION_KINDS.map((kind) => Type.Literal(kind))),
   dedupeKey: Type.String({ minLength: 1, maxLength: 200 }),
   title: Type.String({ minLength: 1, maxLength: 200 }),
   summary: Type.String({ minLength: 1, maxLength: 1_000 }),
@@ -74,11 +73,11 @@ function toSuggestion(input: SuggestionInput, id: string = randomUUID()): Sugges
     sourceLabels: input.sourceLabels,
     createdAt: Date.now(),
   };
-  if (input.kind === "snippet" || input.kind === "fact" || input.kind === "term") {
+  if (isTextSuggestionKind(input.kind)) {
     if (!input.insertText) throw new Error("Text suggestions require insertText");
     return { ...base, kind: input.kind, insertText: input.insertText };
   }
-  if (input.kind === "outline" || input.kind === "layout") {
+  if (isStructureSuggestionKind(input.kind)) {
     if (!input.nodes) throw new Error("Structure suggestions require nodes");
     return { ...base, kind: input.kind, nodes: input.nodes as never[] };
   }
@@ -101,14 +100,26 @@ function toolResult(value: unknown, isError = false) {
   };
 }
 
-function runtimeFrom(host: ScribeExtensionHost): AgentRuntime {
-  const state = host.loop.snapshot();
-  return {
-    status: state.status,
-    activeRevision: state.activeRevision,
-    cycleCount: state.cycleCount,
-    error: state.error,
-  };
+export async function executeSuggestionMutation(
+  host: ScribeExtensionHost,
+  method: string,
+  params: Record<string, unknown>,
+) {
+  const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
+  if (expectedDocumentRevision === undefined) {
+    return toolResult("No active revision", true);
+  }
+  try {
+    return toolResult(
+      await host.storageCall(method, { ...params, expectedDocumentRevision }),
+    );
+  } catch (error) {
+    host.wake();
+    return toolResult(
+      error instanceof Error ? error.message : String(error),
+      true,
+    );
+  }
 }
 
 export function createScribeExtension(host: ScribeExtensionHost): ExtensionFactory {
@@ -127,7 +138,7 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
       const revision = value as ScribeRevision;
       if (host.loop.revision(revision.projectRevision, revision.documentRevision)) {
         host.persist();
-        host.runtime(runtimeFrom(host));
+        host.runtime();
         host.activity({
           id: `loop:revision:${revision.projectRevision}`,
           kind: "loop",
@@ -174,17 +185,11 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
       parameters: suggestionSchema,
       execute: async (_id, params) => {
         const item = toSuggestion(params as SuggestionInput);
-        const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
-        if (expectedDocumentRevision === undefined) return toolResult("No active revision", true);
-        try {
-          return toolResult(await host.storageCall("agent.suggestion.create", {
-            item,
-            expectedDocumentRevision,
-          }));
-        } catch (error) {
-          host.wake();
-          return toolResult(error instanceof Error ? error.message : String(error), true);
-        }
+        return executeSuggestionMutation(
+          host,
+          "agent.suggestion.create",
+          { item },
+        );
       },
     });
     pi.registerTool({
@@ -194,17 +199,9 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
       parameters: Type.Intersect([suggestionSchema, Type.Object({ id: Type.String() })]),
       execute: async (_id, params) => {
         const input = params as SuggestionInput & { id: string };
-        const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
-        if (expectedDocumentRevision === undefined) return toolResult("No active revision", true);
-        try {
-          return toolResult(await host.storageCall("agent.suggestion.update", {
-            item: toSuggestion(input, input.id),
-            expectedDocumentRevision,
-          }));
-        } catch (error) {
-          host.wake();
-          return toolResult(error instanceof Error ? error.message : String(error), true);
-        }
+        return executeSuggestionMutation(host, "agent.suggestion.update", {
+          item: toSuggestion(input, input.id),
+        });
       },
     });
     pi.registerTool({
@@ -212,19 +209,10 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
       label: "Retract suggestion",
       description: "Retract an existing live suggestion.",
       parameters: Type.Object({ id: Type.String() }),
-      execute: async (_id, params) => {
-        const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
-        if (expectedDocumentRevision === undefined) return toolResult("No active revision", true);
-        try {
-          return toolResult(await host.storageCall("agent.suggestion.retract", {
-            id: params.id,
-            expectedDocumentRevision,
-          }));
-        } catch (error) {
-          host.wake();
-          return toolResult(error instanceof Error ? error.message : String(error), true);
-        }
-      },
+      execute: async (_id, params) =>
+        executeSuggestionMutation(host, "agent.suggestion.retract", {
+          id: params.id,
+        }),
     });
     pi.registerTool({
       name: "wait_for_changes",

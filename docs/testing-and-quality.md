@@ -21,6 +21,8 @@ npm run build
 
 `npm run build` is also the authoritative type and bundle check. It type-checks the renderer and Electron projects, then runs the integrated Vite build for renderer, main, preload, storage, and agent entries. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.
 
+ESLint enforces a cyclomatic complexity ceiling of 15 per function. Orchestration that exceeds it should be split into named lifecycle or action handlers.
+
 ## Current automated coverage
 
 The suite currently contains unit and component coverage across renderer, storage, autonomous-loop, activity, and Pi-session boundaries.
@@ -28,6 +30,8 @@ The suite currently contains unit and component coverage across renderer, storag
 | File | What it protects |
 | --- | --- |
 | [`suggestions/inbox.test.ts`](../src/suggestions/inbox.test.ts) | Dedupe, 30-item eviction, stale/withdrawn previews, frozen pins, workspace transitions, preview resolution, and z-order. |
+| [`suggestions/state.test.ts`](../src/suggestions/state.test.ts) | Shared empty state, protected queue eviction, and canonical kind guards. |
+| [`workspace/useWorkspaceController.test.ts`](../src/workspace/useWorkspaceController.test.ts) | Hydration, serialized autosave, desktop events, control errors, and preview resolution. |
 | [`dev/mockSuggestions/mockSuggestionDraft.test.ts`](../src/dev/mockSuggestions/mockSuggestionDraft.test.ts) | Common metadata, every kind-specific payload, recursive node JSON, and validation failures. |
 | [`dev/mockSuggestions/MockSuggestionController.test.tsx`](../src/dev/mockSuggestions/MockSuggestionController.test.tsx) | Dynamic fields, persisted development submission, rejection handling, and pending-state protection. |
 | [`components/SuggestionDock.test.tsx`](../src/components/SuggestionDock.test.tsx) | Absence of legacy steering controls, unified stream, text preview action, pin presentation, and workspace placement callback. |
@@ -38,6 +42,8 @@ The suite currently contains unit and component coverage across renderer, storag
 | [`desktop/scribe-loop.test.ts`](../desktop/scribe-loop.test.ts) | Coalescing, yields, races, five-cycle cap, error sleep, wake, and restored loop state. |
 | [`desktop/activity.test.ts`](../desktop/activity.test.ts) | Aggregation, redaction, 50 KB cap, and 500-item eviction. |
 | [`desktop/pi-session.test.ts`](../desktop/pi-session.test.ts) | Project session continuation, extension entries, and the read-only tool contract. |
+| [`desktop/agent-events.test.ts`](../desktop/agent-events.test.ts) | Lifecycle, message/reasoning/error, and tool activity conversion. |
+| [`desktop/scribe-extension.test.ts`](../desktop/scribe-extension.test.ts) | Active revisions, storage failures, wake behavior, and suggestion mutation results. |
 
 ### Why reducer tests matter most
 

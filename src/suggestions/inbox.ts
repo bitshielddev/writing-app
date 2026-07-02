@@ -1,23 +1,17 @@
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 
-import type { PersistedSuggestionState } from "../shared/desktop";
-import type {
-  AgentStatus,
-  SuggestionEvent,
-  SuggestionFeed,
-  SuggestionItem,
-} from "./types";
+import {
+  createEmptySuggestionState,
+  trimSuggestionEntries,
+  type PersistedInboxEntry,
+  type PersistedPinnedEntry,
+  type PersistedSuggestionState,
+  type PersistedWorkspacePin,
+} from "./state";
+import type { SuggestionEvent, SuggestionFeed, SuggestionItem } from "./types";
 
-export type InboxEntry = {
-  item: SuggestionItem;
-  viewed: boolean;
-  stale: boolean;
-  withdrawn: boolean;
-};
-
-export type PinnedInboxEntry = InboxEntry & {
-  pinnedAt: number;
-};
+export type InboxEntry = PersistedInboxEntry;
+export type PinnedInboxEntry = PersistedPinnedEntry;
 
 export type WorkspacePinRect = {
   x: number;
@@ -26,23 +20,11 @@ export type WorkspacePinRect = {
   height: number;
 };
 
-export type WorkspacePin = WorkspacePinRect & {
-  item: SuggestionItem;
-  pinnedAt: number;
-  pendingInitialPlacement: boolean;
-  zIndex: number;
-};
+export type WorkspacePin = PersistedWorkspacePin;
 
-export type InboxState = {
-  entries: InboxEntry[];
-  pinnedEntries: PinnedInboxEntry[];
-  workspacePins: WorkspacePin[];
-  seenKeys: Record<string, true>;
+export type InboxState = PersistedSuggestionState & {
   selectedId?: string;
   activePreviewId?: string;
-  nextZIndex: number;
-  status: AgentStatus;
-  error?: { message: string; recoverable: boolean };
 };
 
 type InboxAction =
@@ -60,46 +42,25 @@ type InboxAction =
   | { type: "preview.started"; id: string }
   | { type: "preview.resolved"; id: string; outcome: "accepted" | "cancelled" };
 
-export const initialInboxState: InboxState = {
-  entries: [],
-  pinnedEntries: [],
-  workspacePins: [],
-  seenKeys: {},
-  nextZIndex: 1,
-  status: "offline",
-};
+export const initialInboxState: InboxState = createEmptySuggestionState();
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled inbox action: ${JSON.stringify(value)}`);
+}
 
 function copySuggestion(item: SuggestionItem): SuggestionItem {
   return JSON.parse(JSON.stringify(item)) as SuggestionItem;
 }
 
-function enforceLimit(state: InboxState): InboxState {
-  if (state.entries.length <= 30) {
-    return state;
-  }
-
-  const protectedIds = new Set(
-    [state.selectedId, state.activePreviewId].filter(
-      (id): id is string => Boolean(id),
-    ),
+function protectedQueueIds(state: InboxState): string[] {
+  return [state.selectedId, state.activePreviewId].filter(
+    (id): id is string => id !== undefined,
   );
-  const evictionOrder = [...state.entries]
-    .filter((entry) => !protectedIds.has(entry.item.id))
-    .sort((a, b) => {
-      if (a.viewed !== b.viewed) {
-        return a.viewed ? -1 : 1;
-      }
-      return a.item.createdAt - b.item.createdAt;
-    });
-  const removeCount = state.entries.length - 30;
-  const evicted = new Set(
-    evictionOrder.slice(0, removeCount).map((entry) => entry.item.id),
-  );
+}
 
-  return {
-    ...state,
-    entries: state.entries.filter((entry) => !evicted.has(entry.item.id)),
-  };
+function trimQueue(state: InboxState): InboxState {
+  const entries = trimSuggestionEntries(state.entries, protectedQueueIds(state));
+  return entries.length === state.entries.length ? state : { ...state, entries };
 }
 
 function markViewed<T extends InboxEntry>(entries: T[], id: string): T[] {
@@ -108,40 +69,11 @@ function markViewed<T extends InboxEntry>(entries: T[], id: string): T[] {
   );
 }
 
-export function inboxReducer(
-  state: InboxState,
-  action: InboxAction,
-): InboxState {
-  if (action.type === "hydrate") {
-    return {
-      ...initialInboxState,
-      ...action.state,
-      status: state.status,
-      error: state.error,
-    };
-  }
-
-  if (action.type === "event") {
-    const event = action.event;
-
-    if (event.type === "agent.status") {
-      return { ...state, status: event.status, error: undefined };
-    }
-
-    if (event.type === "agent.error") {
-      return {
-        ...state,
-        status: "error",
-        error: { message: event.message, recoverable: event.recoverable },
-      };
-    }
-
-    if (event.type === "suggestion.added") {
-      if (state.seenKeys[event.item.dedupeKey]) {
-        return state;
-      }
-
-      return enforceLimit({
+function reduceFeedEvent(state: InboxState, event: SuggestionEvent): InboxState {
+  switch (event.type) {
+    case "suggestion.added":
+      if (state.seenKeys[event.item.dedupeKey]) return state;
+      return trimQueue({
         ...state,
         entries: [
           ...state.entries,
@@ -149,9 +81,7 @@ export function inboxReducer(
         ],
         seenKeys: { ...state.seenKeys, [event.item.dedupeKey]: true },
       });
-    }
-
-    if (event.type === "suggestion.updated") {
+    case "suggestion.updated":
       return {
         ...state,
         entries: state.entries.map((entry) =>
@@ -164,65 +94,71 @@ export function inboxReducer(
             : entry,
         ),
       };
+    case "suggestion.retracted": {
+      const frozen =
+        state.pinnedEntries.some((entry) => entry.item.id === event.id) ||
+        state.workspacePins.some((pin) => pin.item.id === event.id);
+      if (frozen) return state;
+      const protectedItem =
+        event.id === state.selectedId || event.id === state.activePreviewId;
+      return {
+        ...state,
+        entries: protectedItem
+          ? state.entries.map((entry) =>
+              entry.item.id === event.id
+                ? { ...entry, withdrawn: true, stale: true }
+                : entry,
+            )
+          : state.entries.filter((entry) => entry.item.id !== event.id),
+      };
     }
-
-    if (
-      state.pinnedEntries.some((entry) => entry.item.id === event.id) ||
-      state.workspacePins.some((pin) => pin.item.id === event.id)
-    ) {
-      return state;
-    }
-
-    const protectedItem =
-      event.id === state.selectedId || event.id === state.activePreviewId;
-    return {
-      ...state,
-      entries: protectedItem
-        ? state.entries.map((entry) =>
-            entry.item.id === event.id
-              ? { ...entry, withdrawn: true, stale: true }
-              : entry,
-          )
-        : state.entries.filter((entry) => entry.item.id !== event.id),
-    };
+    default:
+      return assertNever(event);
   }
+}
 
-  if (action.type === "select") {
-    return {
-      ...state,
-      selectedId: action.id,
-      entries: markViewed(state.entries, action.id),
-      pinnedEntries: markViewed(state.pinnedEntries, action.id),
-    };
+function reduceSelectionAction(
+  state: InboxState,
+  action: Extract<InboxAction, { type: "select" | "back" | "dismiss" }>,
+): InboxState {
+  switch (action.type) {
+    case "select":
+      return {
+        ...state,
+        selectedId: action.id,
+        entries: markViewed(state.entries, action.id),
+        pinnedEntries: markViewed(state.pinnedEntries, action.id),
+      };
+    case "back":
+      return {
+        ...state,
+        selectedId: undefined,
+        entries: state.entries.filter(
+          (entry) => !entry.withdrawn || entry.item.id === state.activePreviewId,
+        ),
+      };
+    case "dismiss":
+      return {
+        ...state,
+        selectedId:
+          state.selectedId === action.id ? undefined : state.selectedId,
+        entries: state.entries.filter((entry) => entry.item.id !== action.id),
+        pinnedEntries: state.pinnedEntries.filter(
+          (entry) => entry.item.id !== action.id,
+        ),
+      };
+    default:
+      return assertNever(action);
   }
+}
 
-  if (action.type === "back") {
-    return {
-      ...state,
-      selectedId: undefined,
-      entries: state.entries.filter(
-        (entry) =>
-          !entry.withdrawn || entry.item.id === state.activePreviewId,
-      ),
-    };
-  }
-
-  if (action.type === "dismiss") {
-    return {
-      ...state,
-      selectedId: state.selectedId === action.id ? undefined : state.selectedId,
-      entries: state.entries.filter((entry) => entry.item.id !== action.id),
-      pinnedEntries: state.pinnedEntries.filter(
-        (entry) => entry.item.id !== action.id,
-      ),
-    };
-  }
-
+function reducePinAction(
+  state: InboxState,
+  action: Extract<InboxAction, { type: "pin" | "unpin" }>,
+): InboxState {
   if (action.type === "pin") {
     const entry = state.entries.find((candidate) => candidate.item.id === action.id);
-    if (!entry) {
-      return state;
-    }
+    if (!entry) return state;
     return {
       ...state,
       entries: state.entries.filter((candidate) => candidate.item.id !== action.id),
@@ -239,114 +175,122 @@ export function inboxReducer(
     };
   }
 
-  if (action.type === "unpin") {
-    const entry = state.pinnedEntries.find(
-      (candidate) => candidate.item.id === action.id,
-    );
-    if (!entry) {
-      return state;
-    }
-    return enforceLimit({
-      ...state,
-      entries: [
-        ...state.entries,
-        {
-          item: entry.item,
-          viewed: entry.viewed,
-          stale: false,
-          withdrawn: false,
-        },
-      ],
-      pinnedEntries: state.pinnedEntries.filter(
-        (candidate) => candidate.item.id !== action.id,
-      ),
-    });
-  }
+  const entry = state.pinnedEntries.find(
+    (candidate) => candidate.item.id === action.id,
+  );
+  if (!entry) return state;
+  return trimQueue({
+    ...state,
+    entries: [
+      ...state.entries,
+      {
+        item: entry.item,
+        viewed: entry.viewed,
+        stale: false,
+        withdrawn: false,
+      },
+    ],
+    pinnedEntries: state.pinnedEntries.filter(
+      (candidate) => candidate.item.id !== action.id,
+    ),
+  });
+}
 
-  if (action.type === "workspace.place") {
-    if (state.activePreviewId === action.id) {
-      return state;
-    }
-    const entry = state.pinnedEntries.find(
-      (candidate) => candidate.item.id === action.id,
-    );
-    if (!entry) {
-      return state;
-    }
-    return {
-      ...state,
-      selectedId: state.selectedId === action.id ? undefined : state.selectedId,
-      pinnedEntries: state.pinnedEntries.filter(
-        (candidate) => candidate.item.id !== action.id,
-      ),
-      workspacePins: [
-        ...state.workspacePins,
-        {
-          item: entry.item,
-          pinnedAt: entry.pinnedAt,
-          pendingInitialPlacement: true,
-          ...action.rect,
-          zIndex: state.nextZIndex,
-        },
-      ],
-      nextZIndex: state.nextZIndex + 1,
-    };
-  }
+function placeWorkspacePin(
+  state: InboxState,
+  action: Extract<InboxAction, { type: "workspace.place" }>,
+): InboxState {
+  if (state.activePreviewId === action.id) return state;
+  const entry = state.pinnedEntries.find(
+    (candidate) => candidate.item.id === action.id,
+  );
+  if (!entry) return state;
+  return {
+    ...state,
+    selectedId: state.selectedId === action.id ? undefined : state.selectedId,
+    pinnedEntries: state.pinnedEntries.filter(
+      (candidate) => candidate.item.id !== action.id,
+    ),
+    workspacePins: [
+      ...state.workspacePins,
+      {
+        item: entry.item,
+        pinnedAt: entry.pinnedAt,
+        pendingInitialPlacement: true,
+        ...action.rect,
+        zIndex: state.nextZIndex,
+      },
+    ],
+    nextZIndex: state.nextZIndex + 1,
+  };
+}
 
-  if (action.type === "workspace.return") {
-    const pin = state.workspacePins.find(
-      (candidate) => candidate.item.id === action.id,
-    );
-    if (!pin) {
-      return state;
+function returnWorkspacePin(
+  state: InboxState,
+  id: string,
+): InboxState {
+  const pin = state.workspacePins.find((candidate) => candidate.item.id === id);
+  if (!pin) return state;
+  return {
+    ...state,
+    pinnedEntries: [
+      ...state.pinnedEntries,
+      {
+        item: pin.item,
+        viewed: true,
+        stale: false,
+        withdrawn: false,
+        pinnedAt: pin.pinnedAt,
+      },
+    ],
+    workspacePins: state.workspacePins.filter(
+      (candidate) => candidate.item.id !== id,
+    ),
+  };
+}
+
+function reduceWorkspaceAction(
+  state: InboxState,
+  action: Extract<InboxAction, { type: `workspace.${string}` }>,
+): InboxState {
+  switch (action.type) {
+    case "workspace.place":
+      return placeWorkspacePin(state, action);
+    case "workspace.return":
+      return returnWorkspacePin(state, action.id);
+    case "workspace.geometry":
+      return {
+        ...state,
+        workspacePins: state.workspacePins.map((pin) =>
+          pin.item.id === action.id
+            ? { ...pin, ...action.rect, pendingInitialPlacement: false }
+            : pin,
+        ),
+      };
+    case "workspace.raise": {
+      const pin = state.workspacePins.find(
+        (candidate) => candidate.item.id === action.id,
+      );
+      if (!pin || pin.zIndex === state.nextZIndex - 1) return state;
+      return {
+        ...state,
+        workspacePins: state.workspacePins.map((candidate) =>
+          candidate.item.id === action.id
+            ? { ...candidate, zIndex: state.nextZIndex }
+            : candidate,
+        ),
+        nextZIndex: state.nextZIndex + 1,
+      };
     }
-    return {
-      ...state,
-      pinnedEntries: [
-        ...state.pinnedEntries,
-        {
-          item: pin.item,
-          viewed: true,
-          stale: false,
-          withdrawn: false,
-          pinnedAt: pin.pinnedAt,
-        },
-      ],
-      workspacePins: state.workspacePins.filter(
-        (candidate) => candidate.item.id !== action.id,
-      ),
-    };
+    default:
+      return assertNever(action);
   }
+}
 
-  if (action.type === "workspace.geometry") {
-    return {
-      ...state,
-      workspacePins: state.workspacePins.map((pin) =>
-        pin.item.id === action.id
-          ? { ...pin, ...action.rect, pendingInitialPlacement: false }
-          : pin,
-      ),
-    };
-  }
-
-  if (action.type === "workspace.raise") {
-    const pin = state.workspacePins.find(
-      (candidate) => candidate.item.id === action.id,
-    );
-    if (!pin || pin.zIndex === state.nextZIndex - 1) {
-      return state;
-    }
-    return {
-      ...state,
-      workspacePins: state.workspacePins.map((candidate) =>
-        candidate.item.id === action.id
-          ? { ...candidate, zIndex: state.nextZIndex }
-          : candidate,
-      ),
-      nextZIndex: state.nextZIndex + 1,
-    };
-  }
-
+function reducePreviewAction(
+  state: InboxState,
+  action: Extract<InboxAction, { type: `preview.${string}` }>,
+): InboxState {
   if (action.type === "preview.started") {
     return {
       ...state,
@@ -372,6 +316,32 @@ export function inboxReducer(
       ? state.pinnedEntries.filter((entry) => entry.item.id !== action.id)
       : state.pinnedEntries,
   };
+}
+
+export function inboxReducer(state: InboxState, action: InboxAction): InboxState {
+  switch (action.type) {
+    case "hydrate":
+      return { ...createEmptySuggestionState(), ...action.state };
+    case "event":
+      return reduceFeedEvent(state, action.event);
+    case "select":
+    case "back":
+    case "dismiss":
+      return reduceSelectionAction(state, action);
+    case "pin":
+    case "unpin":
+      return reducePinAction(state, action);
+    case "workspace.place":
+    case "workspace.return":
+    case "workspace.geometry":
+    case "workspace.raise":
+      return reduceWorkspaceAction(state, action);
+    case "preview.started":
+    case "preview.resolved":
+      return reducePreviewAction(state, action);
+    default:
+      return assertNever(action);
+  }
 }
 
 export function persistedSuggestionState(
@@ -404,18 +374,14 @@ export function useSuggestionInbox(
   );
 
   useEffect(() => {
-    if (hydrated) {
-      onStateChange?.(persistedSuggestionState(state));
-    }
+    if (hydrated) onStateChange?.(persistedSuggestionState(state));
   }, [hydrated, onStateChange, state]);
 
   const entries = useMemo(
     () =>
-      [...state.entries].sort((a, b) => {
-        if (a.viewed !== b.viewed) {
-          return a.viewed ? 1 : -1;
-        }
-        return b.item.createdAt - a.item.createdAt;
+      [...state.entries].sort((left, right) => {
+        if (left.viewed !== right.viewed) return left.viewed ? 1 : -1;
+        return right.item.createdAt - left.item.createdAt;
       }),
     [state.entries],
   );
@@ -427,12 +393,10 @@ export function useSuggestionInbox(
     ? state.entries.find((entry) => entry.item.id === state.selectedId) ??
       state.pinnedEntries.find((entry) => entry.item.id === state.selectedId)
     : undefined;
+
   const select = useCallback((id: string) => dispatch({ type: "select", id }), []);
   const back = useCallback(() => dispatch({ type: "back" }), []);
-  const dismiss = useCallback(
-    (id: string) => dispatch({ type: "dismiss", id }),
-    [],
-  );
+  const dismiss = useCallback((id: string) => dispatch({ type: "dismiss", id }), []);
   const pin = useCallback(
     (id: string) => dispatch({ type: "pin", id, pinnedAt: Date.now() }),
     [],
@@ -465,13 +429,10 @@ export function useSuggestionInbox(
       dispatch({ type: "preview.resolved", id, outcome }),
     [],
   );
-  const hydrate = useCallback(
-    (nextState: PersistedSuggestionState) => {
-      dispatch({ type: "hydrate", state: nextState });
-      setHydrated();
-    },
-    [],
-  );
+  const hydrate = useCallback((nextState: PersistedSuggestionState) => {
+    dispatch({ type: "hydrate", state: nextState });
+    setHydrated();
+  }, []);
 
   return {
     ...state,

@@ -1,6 +1,8 @@
-import type {
-  SuggestionItem,
-  SuggestionKind,
+import {
+  isStructureSuggestionKind,
+  isTextSuggestionKind,
+  type SuggestionItem,
+  type SuggestionKind,
 } from "../../suggestions/types";
 import { isStructureNodes } from "../../suggestions/validation";
 
@@ -54,11 +56,7 @@ export function buildMockSuggestion(
     createdAt: metadata.createdAt,
   };
 
-  if (
-    draft.kind === "snippet" ||
-    draft.kind === "fact" ||
-    draft.kind === "term"
-  ) {
+  if (isTextSuggestionKind(draft.kind)) {
     return {
       ...common,
       kind: draft.kind,
@@ -66,7 +64,7 @@ export function buildMockSuggestion(
     };
   }
 
-  if (draft.kind === "outline" || draft.kind === "layout") {
+  if (isStructureSuggestionKind(draft.kind)) {
     let nodes: unknown;
     try {
       nodes = JSON.parse(required(draft.nodes, "Nodes JSON"));

@@ -10,8 +10,10 @@ import {
   Menu,
   utilityProcess,
   type MenuItemConstructorOptions,
+  type IpcMainInvokeEvent,
   type UtilityProcess,
   type WebContents,
+  type WebPreferences,
 } from "electron";
 
 import { ActivityRing } from "./activity.js";
@@ -143,9 +145,31 @@ function validateSender(contents: WebContents) {
   );
 }
 
-function registerIpc() {
-  ipcMain.handle("scribe:hydrate", async (event) => {
+function registerValidatedIpc<Args extends unknown[], Result>(
+  channel: string,
+  handler: (
+    event: IpcMainInvokeEvent,
+    ...args: Args
+  ) => Result | Promise<Result>,
+) {
+  ipcMain.handle(channel, (event, ...args) => {
     if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+    return handler(event, ...(args as Args));
+  });
+}
+
+function secureWebPreferences(developmentTools: boolean): WebPreferences {
+  return {
+    preload: join(here, "preload.cjs"),
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    additionalArguments: developmentTools ? ["--scribe-development"] : [],
+  };
+}
+
+function registerIpc() {
+  registerValidatedIpc("scribe:hydrate", async () => {
     const snapshot = await storage.call<WorkspaceSnapshot>("hydrate");
     runtime = {
       ...snapshot.agent,
@@ -154,8 +178,7 @@ function registerIpc() {
     return { ...snapshot, agent: runtime, activity: activity.snapshot() };
   });
 
-  ipcMain.handle("scribe:agent.start", async (event) => {
-    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+  registerValidatedIpc("scribe:agent.start", async () => {
     const seed = await storage.call<ObservationSeed>("agent.seed");
     return agent.call<AgentRuntime>("agent.start", {
       projectRevision: seed.projectRevision,
@@ -163,23 +186,19 @@ function registerIpc() {
     });
   });
 
-  ipcMain.handle("scribe:agent.stop", (event) => {
-    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+  registerValidatedIpc("scribe:agent.stop", () => {
     return agent.call<AgentRuntime>("agent.stop");
   });
 
-  ipcMain.handle("scribe:document.save", (event, input) => {
-    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+  registerValidatedIpc("scribe:document.save", (_event, input) => {
     return storage.call("document.save", input);
   });
 
-  ipcMain.handle("scribe:suggestions.save", (event, state) => {
-    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+  registerValidatedIpc("scribe:suggestions.save", (_event, state) => {
     return storage.call("suggestions.save", state);
   });
 
-  ipcMain.handle("scribe:source.import", async (event) => {
-    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+  registerValidatedIpc("scribe:source.import", async (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender);
     const options: Electron.OpenDialogOptions = {
       properties: ["openFile"],
@@ -199,10 +218,9 @@ function registerIpc() {
   });
 
   if (isDevelopment) {
-    ipcMain.handle(
+    registerValidatedIpc(
       "scribe:development.suggestion.create",
-      async (event, item: unknown) => {
-        if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+      async (_event, item: unknown) => {
         if (!isSuggestionItem(item)) {
           throw new Error("Invalid development suggestion");
         }
@@ -219,12 +237,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 640,
     backgroundColor: "#ffffff",
-    webPreferences: {
-      preload: join(here, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      additionalArguments: isDevelopment ? ["--scribe-development"] : [],
-    },
+    webPreferences: secureWebPreferences(isDevelopment),
   });
   workspaceWindow = window;
   window.on("closed", () => {
@@ -247,12 +260,7 @@ function openMockSuggestionWindow() {
     minWidth: 600,
     minHeight: 600,
     title: "ScribeAI Mock Suggestions",
-    webPreferences: {
-      preload: join(here, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      additionalArguments: ["--scribe-development"],
-    },
+    webPreferences: secureWebPreferences(true),
   });
   mockSuggestionWindow = window;
   window.on("closed", () => {

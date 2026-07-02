@@ -47,7 +47,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 ├── docs/                         Developer documentation
 ├── desktop/                      Electron main, preload, storage, Pi, and build entries
 ├── src/
-│   ├── App.tsx                   Composition root and cross-feature orchestration
+│   ├── App.tsx                   Layout composition root
 │   ├── main.tsx                  React renderer entry point
 │   ├── index.css                 Tailwind theme, layout rules, and editor overrides
 │   ├── components/               UI components and component tests
@@ -66,7 +66,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 
 ## Terms used in the code
 
-- **Suggestion feed**: the subscription interface that emits suggestion and agent-status events.
+- **Suggestion feed**: the subscription interface that emits committed suggestion events.
 - **Inbox entry**: a live suggestion tracked by the reducer, including viewed, stale, and withdrawn flags.
 - **Pinned entry**: a deep-copied, stable suggestion snapshot removed from the live inbox queue.
 - **Workspace pin**: a pinned suggestion moved onto the desktop editor canvas with geometry and stacking state.
@@ -74,7 +74,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 
 ## Important implementation constraints
 
-- [`App.tsx`](../src/App.tsx) is the renderer composition root. It connects the required Electron bridge, hydration, autosave, feed, previews, panel state, and workspace pins.
+- [`App.tsx`](../src/App.tsx) is the renderer layout composition root. [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts) connects the Electron bridge, hydration, autosave, feed, previews, agent runtime, and inbox.
 - [`inboxReducer`](../src/suggestions/inbox.ts) is the source of truth for suggestion lifecycle rules. UI components dispatch intent; they should not recreate those rules locally.
 - [`SuggestionFeed`](../src/suggestions/types.ts) is the event-stream boundary. The Electron adapter maps committed desktop events into renderer events.
 - The app assumes a browser DOM. `window`, `document`, `localStorage`, media queries, `ResizeObserver`, and pointer capture are used directly.

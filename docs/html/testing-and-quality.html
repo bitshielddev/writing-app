@@ -114,6 +114,7 @@
 npm run test:watch
 npm run lint
 npm run build</code></pre></div><p><code>npm run build</code> is also the authoritative type and bundle check. It type-checks the renderer and Electron projects, then runs the integrated Vite build for renderer, main, preload, storage, and agent entries. TypeScript uses strict mode, rejects unused locals and parameters, and disallows fallthrough switch cases.</p>
+<p>ESLint enforces a cyclomatic complexity ceiling of 15 per function. Orchestration that exceeds it should be split into named lifecycle or action handlers.</p>
 <h2 id="current-automated-coverage">Current automated coverage<a class="heading-anchor" href="#current-automated-coverage" aria-label="Link to Current automated coverage">#</a></h2><p>The suite currently contains unit and component coverage across renderer, storage, autonomous-loop, activity, and Pi-session boundaries.</p>
 <table>
 <thead>
@@ -125,6 +126,14 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <tbody><tr>
 <td><a href="../../src/suggestions/inbox.test.ts"><code>suggestions/inbox.test.ts</code></a></td>
 <td>Dedupe, 30-item eviction, stale/withdrawn previews, frozen pins, workspace transitions, preview resolution, and z-order.</td>
+</tr>
+<tr>
+<td><a href="../../src/suggestions/state.test.ts"><code>suggestions/state.test.ts</code></a></td>
+<td>Shared empty state, protected queue eviction, and canonical kind guards.</td>
+</tr>
+<tr>
+<td><a href="../../src/workspace/useWorkspaceController.test.ts"><code>workspace/useWorkspaceController.test.ts</code></a></td>
+<td>Hydration, serialized autosave, desktop events, control errors, and preview resolution.</td>
 </tr>
 <tr>
 <td><a href="../../src/dev/mockSuggestions/mockSuggestionDraft.test.ts"><code>dev/mockSuggestions/mockSuggestionDraft.test.ts</code></a></td>
@@ -165,6 +174,14 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <tr>
 <td><a href="../../desktop/pi-session.test.ts"><code>desktop/pi-session.test.ts</code></a></td>
 <td>Project session continuation, extension entries, and the read-only tool contract.</td>
+</tr>
+<tr>
+<td><a href="../../desktop/agent-events.test.ts"><code>desktop/agent-events.test.ts</code></a></td>
+<td>Lifecycle, message/reasoning/error, and tool activity conversion.</td>
+</tr>
+<tr>
+<td><a href="../../desktop/scribe-extension.test.ts"><code>desktop/scribe-extension.test.ts</code></a></td>
+<td>Active revisions, storage failures, wake behavior, and suggestion mutation results.</td>
 </tr>
 </tbody></table>
 <h3 id="why-reducer-tests-matter-most">Why reducer tests matter most<a class="heading-anchor" href="#why-reducer-tests-matter-most" aria-label="Link to Why reducer tests matter most">#</a></h3><p>The inbox reducer contains the application&#39;s lifecycle invariants and is pure. Any change to dedupe, updates, retractions, selection, previewing, pins, workspace geometry, queue limits, or unread behavior should begin with a reducer case. Component tests should then verify that the correct intent is exposed to users.</p>

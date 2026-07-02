@@ -44,10 +44,8 @@ The event channel supports:
 | `suggestion.added` | Introduce a suggestion if its `dedupeKey` has not been seen. |
 | `suggestion.updated` | Replace a live suggestion with the same `id`. |
 | `suggestion.retracted` | Remove a live suggestion, unless user state protects it. |
-| `agent.status` | Set the current `offline`, `stopped`, `working`, `waiting`, `capped`, or `error` presentation state and clear the current error when appropriate. |
-| `agent.error` | Set a displayable error and its recoverability metadata. |
 
-The renderer uses [`createDesktopSuggestionFeed`](../src/desktop/desktopClient.ts). It receives suggestion and agent-status events from Electron main. Suggestions are written to the desktop database before an event is forwarded, so reload hydrates the same inbox projection.
+The renderer uses [`createDesktopSuggestionFeed`](../src/desktop/desktopClient.ts). It receives only committed suggestion events from Electron main. Agent status and errors are reported separately through the canonical `AgentRuntime`. Suggestions are written to the desktop database before an event is forwarded, so reload hydrates the same inbox projection.
 
 During Vite development, a separate Electron controller window supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields, validates recursive structure-node JSON, and invokes a development-only preload bridge. Main validates the payload again and asks storage to commit it through the same suggestion path used by the Pi agent.
 
@@ -63,8 +61,9 @@ seenKeys            dedupe keys accepted during this page session
 selectedId          item shown in detail view
 activePreviewId     the one suggestion currently previewed in BlockNote
 nextZIndex          monotonic stacking counter for workspace cards
-status / error      agent presentation state
 ```
+
+Persisted entry/pin types, empty-state defaults, the 30-entry limit, and eviction order live in [`state.ts`](../src/suggestions/state.ts) and are shared with desktop storage.
 
 ### Feed-event behavior
 

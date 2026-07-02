@@ -1,6 +1,11 @@
 import { type FormEvent, useRef, useState } from "react";
 
-import type { SuggestionItem, SuggestionKind } from "../../suggestions/types";
+import {
+  isStructureSuggestionKind,
+  isTextSuggestionKind,
+  type SuggestionItem,
+  type SuggestionKind,
+} from "../../suggestions/types";
 import {
   buildMockSuggestion,
   type MockSuggestionDraft,
@@ -95,8 +100,8 @@ export function MockSuggestionController({
     }
   };
 
-  const isTextKind = kind === "snippet" || kind === "fact" || kind === "term";
-  const isStructureKind = kind === "outline" || kind === "layout";
+  const isTextKind = isTextSuggestionKind(kind);
+  const isStructureKind = isStructureSuggestionKind(kind);
 
   return (
     <main className="min-h-dvh bg-[#f7f6ff] px-4 py-8 sm:px-6 lg:py-12">

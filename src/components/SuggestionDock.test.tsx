@@ -39,7 +39,7 @@ function renderDock(
     entries: [entry],
     pinnedEntries: [],
     unreadCount: 1,
-    status: "waiting",
+    runtime: { status: "waiting", cycleCount: 0 },
     view: "suggestions",
     onViewChange: vi.fn(),
     onKeyboardTargetChange: vi.fn(),
@@ -129,12 +129,16 @@ describe("SuggestionDock", () => {
   });
 
   it("starts and stops the agent from the persistent toolbar", async () => {
-    const stoppedProps = renderDock({ status: "stopped" });
+    const stoppedProps = renderDock({
+      runtime: { status: "stopped", cycleCount: 0 },
+    });
     await userEvent.click(screen.getByRole("button", { name: "Start Agent" }));
     expect(stoppedProps.onStartAgent).toHaveBeenCalledOnce();
     cleanup();
 
-    const workingProps = renderDock({ status: "working" });
+    const workingProps = renderDock({
+      runtime: { status: "working", cycleCount: 0 },
+    });
     await userEvent.click(screen.getByRole("button", { name: "Stop Agent" }));
     expect(workingProps.onStopAgent).toHaveBeenCalledOnce();
     await userEvent.click(screen.getByRole("button", { name: "Activity" }));
@@ -142,16 +146,37 @@ describe("SuggestionDock", () => {
   });
 
   it("disables lifecycle control while offline or pending", () => {
-    renderDock({ status: "offline" });
+    renderDock({ runtime: { status: "offline", cycleCount: 0 } });
     expect(
       screen.getByRole("button", { name: "Start Agent" }).hasAttribute("disabled"),
     ).toBe(true);
     cleanup();
 
-    renderDock({ status: "stopped", controlPending: "start" });
+    renderDock({
+      runtime: { status: "stopped", cycleCount: 0 },
+      controlPending: "start",
+    });
     expect(
       screen.getByRole("button", { name: "Starting…" }).hasAttribute("disabled"),
     ).toBe(true);
+  });
+
+  it.each([
+    ["offline", "Agent unavailable"],
+    ["stopped", "Agent stopped"],
+    ["working", "Considering your draft…"],
+    ["waiting", "Waiting for changes"],
+    ["capped", "Autonomous loop capped"],
+    ["error", "Agent error"],
+  ] as const)("presents the %s runtime in the suggestion queue", (status, label) => {
+    renderDock({
+      entries: [],
+      unreadCount: 0,
+      runtime: { status, cycleCount: 0 },
+    });
+
+    expect(screen.getByText(label)).toBeTruthy();
+    cleanup();
   });
 
   it("offers an editable preview action only from text detail", async () => {

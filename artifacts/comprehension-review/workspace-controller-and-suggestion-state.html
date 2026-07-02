@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Workspace controller and suggestion state review</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #191923;
+      --muted: #5f5d6d;
+      --soft: #f6f4fb;
+      --panel: #ffffff;
+      --line: #ded9ea;
+      --brand: #5b3fd7;
+      --brand-soft: #eee9ff;
+      --warn: #8a4b12;
+      --warn-bg: #fff6df;
+      --code: #242231;
+      --code-bg: #f0edf8;
+      --good: #16604a;
+      --good-bg: #eaf8f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #fbfaff 0%, #f4f2fb 42%, #ffffff 100%);
+      color: var(--ink);
+      font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--brand); }
+    .page { max-width: 1180px; margin: 0 auto; padding: 48px 24px 72px; }
+    header.hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 34px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.72);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 16px 0 12px; font-size: clamp(2rem, 5vw, 4.3rem); line-height: .98; letter-spacing: -.055em; }
+    .lede { max-width: 760px; margin: 0; color: #444151; font-size: 1.12rem; }
+    .run-card {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.78);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 16px 50px rgba(40, 35, 70, .08);
+    }
+    .run-card strong { display: block; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .run-card code { display: block; margin-top: 8px; font-size: 14px; color: var(--good); white-space: pre-wrap; }
+    .grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 28px; align-items: start; }
+    nav.toc { position: sticky; top: 20px; border: 1px solid var(--line); background: rgba(255,255,255,.82); border-radius: 18px; padding: 16px; }
+    nav.toc a { display: block; padding: 8px 10px; border-radius: 10px; color: #464354; text-decoration: none; font-size: 14px; }
+    nav.toc a:hover { background: var(--brand-soft); color: var(--brand); }
+    main { display: grid; gap: 24px; }
+    section, .callout, .snippet, .quiz {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.86);
+      border-radius: 24px;
+      padding: clamp(20px, 3vw, 32px);
+      box-shadow: 0 12px 34px rgba(48, 42, 82, .06);
+    }
+    h2 { margin: 0 0 14px; font-size: 1.65rem; line-height: 1.15; letter-spacing: -.025em; }
+    h3 { margin: 24px 0 10px; font-size: 1.05rem; }
+    p { margin: 0 0 14px; }
+    ul { margin: 10px 0 0; padding-left: 22px; }
+    li { margin: 7px 0; }
+    .map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .node {
+      border: 1px solid var(--line);
+      background: var(--soft);
+      border-radius: 16px;
+      padding: 14px;
+      min-height: 116px;
+    }
+    .node b { display: block; font-size: 14px; margin-bottom: 6px; }
+    .node span { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .callout { background: var(--warn-bg); border-color: #f0d599; color: #3c2d16; }
+    .callout h2 { color: var(--warn); }
+    .snippet { padding: 0; overflow: hidden; }
+    .snippet .caption { padding: 16px 20px; border-bottom: 1px solid var(--line); background: #fbfaff; color: var(--muted); font-size: 14px; }
+    pre { margin: 0; overflow-x: auto; padding: 20px; background: var(--code-bg); color: var(--code); font: 13px/1.55 "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    mark { background: #fff0a8; color: inherit; padding: 0 2px; border-radius: 3px; }
+    .table { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 12px 10px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    .history { display: grid; gap: 10px; margin-top: 14px; }
+    .commit { display: grid; grid-template-columns: 86px minmax(0,1fr); gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #fbfaff; }
+    .commit code { color: var(--brand); font-weight: 700; }
+    .commit p { margin: 0; font-size: 14px; color: var(--muted); }
+    details { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: #fbfaff; margin-top: 12px; }
+    summary { cursor: pointer; font-weight: 750; }
+    .quiz details { background: #fff; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .badge { border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-size: 12px; color: var(--muted); background: #fff; }
+    @media (max-width: 900px) {
+      header.hero, .grid { grid-template-columns: 1fr; }
+      nav.toc { position: static; }
+      .map { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) { .map { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">Comprehension review</span>
+        <h1>Where orchestration moved, and where suggestion state now lives</h1>
+        <p class="lede">This working tree turns a crowded renderer and dock into smaller boundaries, separates agent runtime from suggestion events, and shares the persisted suggestion policy between React and Electron storage. The behavior is mostly a preservation refactor, with a few contract changes that future work needs to respect.</p>
+      </div>
+      <div class="run-card" aria-label="Validation run">
+        <strong>Validation run</strong>
+        <code>npm test -- --run
+21 files passed
+97 tests passed</code>
+      </div>
+    </header>
+
+    <div class="grid">
+      <nav class="toc" aria-label="Review navigation">
+        <a href="#map">The new ownership map</a>
+        <a href="#controller">Renderer control path</a>
+        <a href="#state">Suggestion state boundary</a>
+        <a href="#agent">Agent and storage contracts</a>
+        <a href="#ui">Dock split</a>
+        <a href="#risks">Invariants and risks</a>
+        <a href="#history">Change history context</a>
+        <a href="#quiz">Comprehension check</a>
+      </nav>
+
+      <main>
+        <section id="map">
+          <h2>The new ownership map</h2>
+          <p>The important shift is ownership, not a new user-facing feature. `App.tsx` now composes layout and delegates the stateful desktop/editor work to `useWorkspaceController`. Suggestion state types have moved out of the desktop bridge contract and into `src/suggestions/state.ts`, so renderer and storage use the same limit and empty projection.</p>
+          <div class="map" aria-label="Changed component map">
+            <div class="node"><b>App.tsx</b><span>Creates BlockNote and layout. Passes controller outputs into dock, editor, drawers, and keybindings.</span></div>
+            <div class="node"><b>useWorkspaceController</b><span>Owns hydration, autosave, desktop events, agent controls, preview coordination, and inbox persistence.</span></div>
+            <div class="node"><b>suggestions/state.ts</b><span>Defines persisted entries, pins, workspace pins, empty state, limit, and eviction order.</span></div>
+            <div class="node"><b>SuggestionDock*</b><span>The previous monolithic dock is split into toolbar, queue, detail, and activity views.</span></div>
+          </div>
+          <div class="badge-row" aria-label="Changed areas">
+            <span class="badge">Renderer orchestration</span>
+            <span class="badge">Suggestion persistence</span>
+            <span class="badge">Agent runtime events</span>
+            <span class="badge">Dock maintainability</span>
+            <span class="badge">Electron IPC/webPreferences</span>
+            <span class="badge">Test coverage</span>
+          </div>
+        </section>
+
+        <section id="controller">
+          <h2>Follow a document change through the new controller</h2>
+          <p>The old `App.tsx` held the feed, inbox, hydration, save queue, source list, runtime, agent controls, and preview handlers inline. That logic is now in `src/workspace/useWorkspaceController.ts`. `App.tsx` still wires the returned handlers to UI, but it no longer knows how to save a document or start the agent.</p>
+
+          <div class="snippet">
+            <div class="caption">`src/App.tsx`: layout consumes one controller object instead of owning the orchestration itself.</div>
+            <pre><code>const editor = useCreateBlockNote({ schema: writingSchema, initialContent });
+const {
+  inbox,
+  sources,
+  runtime,
+  activity,
+  agentControlPending,
+  agentError,
+  partnerView,
+  setPartnerView,
+  suggestionNavigator,
+  handleEditorChange,
+  handleEditorSelectionChange,
+  handleUploadSource,
+  handleStartAgent,
+  handleStopAgent,
+  handlePreview,
+  handlePlaceOnWorkspace,
+} = useWorkspaceController(desktop, editor);</code></pre>
+          </div>
+
+          <p>Autosave behavior is preserved but now easier to test directly. The controller waits until hydration has completed, removes `suggestionPreview` blocks from the saved document, serializes saves through `saveQueueRef`, and advances the expected document revision after each successful desktop save.</p>
+
+          <div class="snippet">
+            <div class="caption">`src/workspace/useWorkspaceController.ts`: the save queue keeps revision expectations ordered.</div>
+            <pre><code>const persistDocument = useCallback(() => {
+  if (!documentHydratedRef.current || hydrationInProgressRef.current) return;
+  const blocks = editor.document.filter(
+    (block) => block.type !== "suggestionPreview",
+  );
+  const markdown = editor.blocksToMarkdownLossy(blocks);
+  saveQueueRef.current = saveQueueRef.current
+    .then(async () => {
+      const document = await desktop.saveDocument({
+        documentId: documentIdRef.current,
+        blocks,
+        markdown,
+        expectedRevision: documentRevisionRef.current,
+      });
+      documentRevisionRef.current = document.revision;
+    })
+    .catch((error: unknown) => {
+      console.error("Document save failed", error);
+    });
+}, [desktop, editor]);</code></pre>
+          </div>
+
+          <p>Preview insertion follows the same path as before: only text suggestions can preview, only one preview may be active, and the insertion target is the last active accepted block or the final accepted block. The type guard now comes from `suggestions/types.ts`, not a local helper.</p>
+        </section>
+
+        <section id="state">
+          <h2>The durable suggestion projection is now a shared module</h2>
+          <p>`PersistedSuggestionState` used to be declared in `src/shared/desktop.ts`. This diff moves it into `src/suggestions/state.ts` and re-exports the type from the desktop contract. That is more than tidying imports: storage and the reducer now call the same empty-state factory and trimming function.</p>
+
+          <div class="snippet">
+            <div class="caption">`src/suggestions/state.ts`: one definition for the persisted shape and 30-entry policy.</div>
+            <pre><code>export const SUGGESTION_ENTRY_LIMIT = 30;
+
+export type PersistedSuggestionState = {
+  entries: PersistedInboxEntry[];
+  pinnedEntries: PersistedPinnedEntry[];
+  workspacePins: PersistedWorkspacePin[];
+  seenKeys: Record&lt;string, true&gt;;
+  nextZIndex: number;
+};
+
+export function trimSuggestionEntries&lt;T extends PersistedInboxEntry&gt;(
+  entries: readonly T[],
+  protectedIds: Iterable&lt;string&gt; = [],
+): T[] {
+  if (entries.length &lt;= SUGGESTION_ENTRY_LIMIT) return [...entries];
+
+  const protectedSet = new Set(protectedIds);
+  const evictionOrder = entries
+    .filter((entry) =&gt; !protectedSet.has(entry.item.id))
+    .sort((left, right) =&gt; {
+      if (left.viewed !== right.viewed) return left.viewed ? -1 : 1;
+      return left.item.createdAt - right.item.createdAt;
+    });
+  ...
+}</code></pre>
+          </div>
+
+          <p>The reducer uses the same trim policy, but adds renderer-only protection for the currently selected item and active preview. That preserves the old invariant: adding a new suggestion should not evict the item the user is reading or previewing.</p>
+
+          <div class="snippet">
+            <div class="caption">`src/suggestions/inbox.ts`: persisted state is the base; selection and preview stay ephemeral.</div>
+            <pre><code>export type InboxState = PersistedSuggestionState &amp; {
+  selectedId?: string;
+  activePreviewId?: string;
+};
+
+function protectedQueueIds(state: InboxState): string[] {
+  return [state.selectedId, state.activePreviewId].filter(
+    (id): id is string =&gt; id !== undefined,
+  );
+}
+
+function trimQueue(state: InboxState): InboxState {
+  const entries = trimSuggestionEntries(state.entries, protectedQueueIds(state));
+  return entries.length === state.entries.length ? state : { ...state, entries };
+}</code></pre>
+          </div>
+
+          <p>The other contract change is that agent status no longer enters the inbox reducer. `SuggestionEvent` now contains only `suggestion.added`, `suggestion.updated`, and `suggestion.retracted`. Status and errors arrive as `AgentRuntime` through `DesktopEvent` and are stored by the workspace controller.</p>
+
+          <div class="snippet">
+            <div class="caption">`src/desktop/desktopClient.ts`: the feed adapter ignores runtime events now.</div>
+            <pre><code>export function createDesktopSuggestionFeed(
+  bridge: DesktopBridge,
+): SuggestionFeed {
+  return {
+    subscribe(listener) {
+      return bridge.subscribe((event) =&gt; {
+        if (event.type === "suggestion.event") listener(event.event);
+      });
+    },
+  };
+}</code></pre>
+          </div>
+        </section>
+
+        <section id="agent">
+          <h2>Agent activity and mutation safety moved behind small helpers</h2>
+          <p>`desktop/agent-events.ts` extracts session-event-to-activity conversion from `desktop/agent.ts`. The conversion keeps stable identities for tool calls and splits message text, reasoning, and provider errors into separate activities. Electron main still stores activity in the in-memory ring and broadcasts `agent.activity` events.</p>
+
+          <div class="snippet">
+            <div class="caption">`desktop/agent-events.ts`: session events become renderer activity records.</div>
+            <pre><code>export function activitiesFromSessionEvent(
+  event: AgentSessionEvent,
+  now = Date.now(),
+): ActivityInput[] {
+  switch (event.type) {
+    case "agent_start":
+    case "agent_end":
+      return observeLifecycle(event, now);
+    case "message_start":
+    case "message_update":
+    case "message_end":
+      return observeMessage(event);
+    case "tool_execution_start":
+    case "tool_execution_update":
+    case "tool_execution_end":
+      return observeToolActivity(event, now);
+    default:
+      return [];
+  }
+}</code></pre>
+          </div>
+
+          <p>The Pi extension now has one mutation helper for create, update, and retract. It refuses to mutate suggestions when no active document revision exists, passes `expectedDocumentRevision` to storage, and wakes the loop if storage rejects the mutation. The storage side enforces that revision with `assertCurrentRevision`, so stale suggestions do not get committed against a newer draft.</p>
+
+          <div class="snippet">
+            <div class="caption">`desktop/scribe-extension.ts`: all suggestion mutations pass through the active revision check.</div>
+            <pre><code>export async function executeSuggestionMutation(
+  host: ScribeExtensionHost,
+  method: string,
+  params: Record&lt;string, unknown&gt;,
+) {
+  const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
+  if (expectedDocumentRevision === undefined) {
+    return toolResult("No active revision", true);
+  }
+  try {
+    return toolResult(
+      await host.storageCall(method, { ...params, expectedDocumentRevision }),
+    );
+  } catch (error) {
+    host.wake();
+    return toolResult(
+      error instanceof Error ? error.message : String(error),
+      true,
+    );
+  }
+}</code></pre>
+          </div>
+
+          <p>Electron main also gets two small hardening changes: IPC registration now goes through `registerValidatedIpc`, and both workspace and mock suggestion windows use `secureWebPreferences`, which includes `sandbox: true` alongside the existing context isolation and disabled node integration.</p>
+        </section>
+
+        <section id="ui">
+          <h2>The dock is now four files with one public component</h2>
+          <p>`SuggestionDock.tsx` used to contain queue rows, source labels, detail view, activity view, toolbar, and routing logic in one file. The public props are still consumed by `SuggestionDock`, but rendering is delegated to `SuggestionDockActivity`, `SuggestionDockDetail`, and `SuggestionDockQueue`.</p>
+
+          <div class="snippet">
+            <div class="caption">`src/components/SuggestionDock.tsx`: the wrapper chooses the view; child files do the rendering.</div>
+            <pre><code>function DockContent(props: SuggestionDockProps) {
+  ...
+  if (view === "activity") {
+    return &lt;SuggestionDockActivity items={activity} runtime={runtime} /&gt;;
+  }
+  if (selectedEntry) {
+    return (
+      &lt;SuggestionDockDetail
+        entry={selectedEntry}
+        pinned={selectedIsPinned}
+        activePreviewId={activePreviewId}
+        onBack={onBack}
+        onDismiss={() =&gt; onDismiss(selectedEntry.item.id)}
+        onPinToggle={() =&gt;
+          selectedIsPinned
+            ? onUnpin(selectedEntry.item.id)
+            : onPin(selectedEntry.item.id)
+        }
+        onPlaceOnWorkspace={onPlaceOnWorkspace}
+        onPreview={onPreview}
+      /&gt;
+    );
+  }
+  return &lt;SuggestionDockQueue ... /&gt;;
+}</code></pre>
+          </div>
+
+          <p>Kind-family decisions are also centralized. `SuggestionDockDetail`, `WorkspacePins`, `workspacePinLayout`, mock suggestions, validation, and keybindings now call guards such as `isTextSuggestion`, `isStructureSuggestion`, and `isVisualSuggestion`. This matters if a future suggestion kind is added, because the list of places to update is smaller and documented.</p>
+        </section>
+
+        <section id="risks">
+          <h2>Things to keep fixed while changing this again</h2>
+          <div class="table">
+            <table>
+              <thead><tr><th>Invariant or risk</th><th>Evidence in this diff</th><th>Why it matters</th></tr></thead>
+              <tbody>
+                <tr><td>Agent status is not a suggestion event anymore.</td><td>`SuggestionEvent` dropped `agent.status` and `agent.error`; `desktopClient` forwards only `suggestion.event`.</td><td>Any new UI that needs runtime must read `AgentRuntime`, not subscribe to `SuggestionFeed`.</td></tr>
+                <tr><td>Only durable suggestion projection is persisted.</td><td>`persistedSuggestionState` returns entries, pins, workspace pins, seen keys, and z-index, not `selectedId` or `activePreviewId`.</td><td>Reloads should not restore a transient detail selection or an active editor preview.</td></tr>
+                <tr><td>Storage has a defensive trim without renderer protection.</td><td>`saveSuggestionState` calls `trimSuggestionEntries(state.entries)` with no protected ids.</td><td>The reducer normally keeps entries at the limit before saving. If a non-renderer caller submits too many entries, storage may evict by the generic rule.</td></tr>
+                <tr><td>Suggestion event sequence numbers are gone.</td><td>`WorkspaceSnapshot.sequence` and `DesktopEvent.sequence` were removed; `flushOutbox` forwards only the event.</td><td>Code that later needs replay or gap detection will need a new explicit contract.</td></tr>
+                <tr><td>Message activity identity depends on Pi message timestamps.</td><td>`messageParts` uses `record.timestamp ?? Date.now()` and the id includes role plus timestamp.</td><td>Tests cover timestamped messages. If upstream messages lack timestamps, updates may create separate activity rows.</td></tr>
+                <tr><td>Mutation failures always wake the loop.</td><td>`executeSuggestionMutation` calls `host.wake()` for any caught storage error.</td><td>This is useful for stale revisions, but broad for validation or storage errors. Keep that behavior intentional.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="history">
+          <h2>How this fits the recent history</h2>
+          <p>The recent commits show a sequence of broadening runtime capability followed by control and keyboard work. This change reads as the cleanup and contract tightening needed after those features accumulated in `App.tsx` and `SuggestionDock.tsx`.</p>
+          <div class="history">
+            <div class="commit"><code>fba985f</code><p>Introduced the durable Pi agent, markdown workspace, storage process, activity ring, and suggestion persistence.</p></div>
+            <div class="commit"><code>6e874eb</code><p>Changed the agent loop to be writer-controlled with explicit start and stop behavior.</p></div>
+            <div class="commit"><code>92ea9c6</code><p>Adjusted activity presentation so newest activity appears first.</p></div>
+            <div class="commit"><code>91e6931</code><p>Added keyboard command mode and workspace layout/keybinding controllers.</p></div>
+            <div class="commit"><code>working tree</code><p>Extracts the workspace controller, splits the dock, centralizes suggestion state and kind guards, and separates runtime from suggestion events.</p></div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Tests added or redirected</h2>
+          <p>The test suite was extended around the new seams rather than only updating snapshots. The most direct new coverage is:</p>
+          <ul>
+            <li>`src/workspace/useWorkspaceController.test.ts`: hydration, serialized autosave, desktop events, agent control failures, and preview resolution.</li>
+            <li>`src/suggestions/state.test.ts`: empty state, shared eviction, protected ids, and canonical kind guards.</li>
+            <li>`desktop/agent-events.test.ts`: lifecycle, message/reasoning/error splitting, and stable tool activity ids.</li>
+            <li>`desktop/scribe-extension.test.ts`: active revision requirements, expected revision parameters, and wake-on-storage-error behavior.</li>
+          </ul>
+          <p>`npm test -- --run` passed with 21 files and 97 tests.</p>
+        </section>
+
+        <section id="quiz" class="quiz">
+          <h2>Check your mental model</h2>
+          <details>
+            <summary>1. If a component wants to display "Agent stopped" or "Agent error", should it subscribe to `SuggestionFeed`?</summary>
+            <p>No. Runtime status and errors now come from `AgentRuntime` through `DesktopEvent` and the workspace controller. `SuggestionFeed` emits only committed suggestion events.</p>
+          </details>
+          <details>
+            <summary>2. Why does the reducer pass protected ids into `trimSuggestionEntries`?</summary>
+            <p>Selected and active-preview suggestions must not be evicted while the user is reading or editing them. The shared trim function supports protected ids so the renderer can preserve those ephemeral states.</p>
+          </details>
+          <details>
+            <summary>3. What would break if `App.tsx` started constructing a new desktop suggestion feed every render?</summary>
+            <p>The inbox subscription could be torn down and recreated repeatedly, which risks duplicated or missed event handling under React rendering and StrictMode. The controller memoizes the feed to keep the subscription boundary stable.</p>
+          </details>
+          <details>
+            <summary>4. Where would you start debugging if suggestion create/update tools started failing with `STALE_SUGGESTION_REVISION`?</summary>
+            <p>Start at `executeSuggestionMutation` and storage's `assertCurrentRevision`. The helper sends `expectedDocumentRevision` from the active loop snapshot; storage compares it with the current document revision. A mismatch means the agent is acting on an old draft revision and should be woken to review the latest one.</p>
+          </details>
+          <details>
+            <summary>5. When adding a new suggestion kind, what is the safe first place to change?</summary>
+            <p>Start in `src/suggestions/types.ts`: add the literal to `SUGGESTION_KINDS`, define its union member, and place it in the appropriate kind-family guard or add a new guard. Then update validation, presentation, preview/workspace behavior, mock tooling, and tests.</p>
+          </details>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

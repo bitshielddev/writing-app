@@ -1,4 +1,9 @@
-import type { StructureNode, SuggestionItem } from "./types";
+import {
+  isStructureSuggestionKind,
+  isTextSuggestionKind,
+  type StructureNode,
+  type SuggestionItem,
+} from "./types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -40,15 +45,11 @@ export function isSuggestionItem(value: unknown): value is SuggestionItem {
 
   if (!hasCommonFields) return false;
 
-  if (
-    value.kind === "snippet" ||
-    value.kind === "fact" ||
-    value.kind === "term"
-  ) {
+  if (isTextSuggestionKind(value.kind)) {
     return isNonEmptyString(value.insertText);
   }
 
-  if (value.kind === "outline" || value.kind === "layout") {
+  if (isStructureSuggestionKind(value.kind)) {
     return isStructureNodes(value.nodes);
   }
 

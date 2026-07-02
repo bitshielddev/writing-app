@@ -8,10 +8,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import type {
-  StructureNode,
-  SuggestionItem,
-  SuggestionKind,
+import {
+  isMindMapSuggestion,
+  isStructureSuggestion,
+  type StructureNode,
+  type SuggestionItem,
+  type SuggestionKind,
 } from "../suggestions/types";
 import { MermaidDiagram } from "./MermaidDiagram";
 
@@ -67,11 +69,11 @@ export function StructureTree({ nodes }: { nodes: StructureNode[] }) {
 }
 
 export function SuggestionVisual({ item }: { item: SuggestionItem }) {
-  if (item.kind === "outline" || item.kind === "layout") {
+  if (isStructureSuggestion(item)) {
     return <StructureTree nodes={item.nodes} />;
   }
 
-  if (item.kind === "mindMap") {
+  if (isMindMapSuggestion(item)) {
     return (
       <MermaidDiagram
         source={item.mermaidSource}

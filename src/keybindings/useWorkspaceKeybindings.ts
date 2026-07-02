@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { WritingEditor } from "../editor/schema";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type { SuggestionKeyboardNavigationController } from "../suggestions/keyboardNavigation";
-import type { SuggestionItem } from "../suggestions/types";
+import { isTextSuggestion, type SuggestionItem } from "../suggestions/types";
 import type { WorkspaceLayoutController } from "../workspace/useWorkspaceLayout";
 import {
   executed,
@@ -28,10 +28,6 @@ type WorkspaceKeybindingOptions = {
   onUnpin: (id: string) => void;
   onPreview: (item: SuggestionItem) => void;
 };
-
-function isTextSuggestion(item: SuggestionItem) {
-  return item.kind === "snippet" || item.kind === "fact" || item.kind === "term";
-}
 
 export function useWorkspaceKeybindings({
   editor,

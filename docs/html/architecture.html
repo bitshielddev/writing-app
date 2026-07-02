@@ -111,7 +111,7 @@
     <div class="architecture-flow">
       <div class="diagram-node diagram-node--person"><span>User</span></div>
       <span class="diagram-arrow" aria-hidden="true">↓</span>
-      <div class="diagram-node diagram-node--primary"><small>Composition root</small><span>App</span></div>
+      <div class="diagram-node diagram-node--primary"><small>Composition</small><span>App + workspace controller</span></div>
       <div class="diagram-branches" aria-label="App connections">
         <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Document</small><span>BlockNote editor</span></div></div>
         <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Context</small><span>Accepted snapshot</span></div></div>
@@ -119,7 +119,7 @@
       </div>
       <div class="diagram-pipeline" aria-label="Suggestion event pipeline">
         <div class="diagram-node"><span>Agent context</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
-        <div class="diagram-node"><span>Suggestion feed</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
+        <div class="diagram-node"><span>Controller feed</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
         <div class="diagram-node diagram-node--primary"><span>Inbox reducer</span></div><span class="diagram-arrow" aria-hidden="true">→</span>
         <div class="diagram-node"><span>Dock & cards</span></div>
       </div>
@@ -127,6 +127,7 @@
     <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>flowchart LR
     User[User]
     Shell[App composition root]
+    WorkspaceController[Workspace controller]
     Editor[BlockNote editor]
     Feed[Suggestion feed adapter]
     Inbox[Suggestion inbox reducer]
@@ -142,6 +143,8 @@
 
     User --&gt; Shell
     Shell --&gt; Editor
+    Shell --&gt; WorkspaceController
+    WorkspaceController --&gt; Feed
     Feed --&gt;|SuggestionEvent| Inbox
     Inbox --&gt; Dock
     Inbox --&gt; Pins
@@ -156,14 +159,14 @@
     Controller --&gt; DevBridge
     DevBridge --&gt; Main</code></pre></details>
   </figure><p>The <code>SuggestionFeed</code> remains transport-neutral, while its only application adapter maps committed Electron events. Desktop queries and commands use the typed <code>DesktopBridge</code> contract. Development injection is a separately gated bridge and enters the same persisted storage/event path.</p>
-<h2 id="composition-root">Composition root<a class="heading-anchor" href="#composition-root" aria-label="Link to Composition root">#</a></h2><p><a href="../../src/App.tsx"><code>App.tsx</code></a> creates and connects long-lived objects:</p>
+<h2 id="composition-root">Composition root<a class="heading-anchor" href="#composition-root" aria-label="Link to Composition root">#</a></h2><p><a href="../../src/App.tsx"><code>App.tsx</code></a> is the layout composition root:</p>
 <ol>
 <li><code>useCreateBlockNote</code> creates the editor from <code>writingSchema</code> and seeded content.</li>
-<li><code>createDesktopSuggestionFeed</code> creates the Electron event adapter and is memoized for the component lifetime.</li>
-<li><code>useSuggestionInbox</code> subscribes to the feed and owns the suggestion lifecycle reducer.</li>
-<li><code>App</code> creates editor preview blocks and composes the layout, navigation, and keybinding controllers with inbox actions.</li>
+<li><code>useWorkspaceController</code> owns hydration, serialized autosave, desktop subscriptions, agent controls, inbox integration, and preview coordination.</li>
+<li><code>useWorkspaceLayout</code> and <code>useWorkspaceKeybindings</code> connect controller actions to the responsive layout.</li>
+<li><code>App</code> composes the editor, sidebars, dock, drawers, and keyboard surfaces.</li>
 </ol>
-<p>Keeping feed creation stable is important. Recreating it during a render would resubscribe the inbox to desktop events.</p>
+<p>The workspace controller memoizes the desktop suggestion feed. Recreating it during a render would resubscribe the inbox to desktop events.</p>
 <h2 id="state-ownership">State ownership<a class="heading-anchor" href="#state-ownership" aria-label="Link to State ownership">#</a></h2><table>
 <thead>
 <tr>
@@ -183,9 +186,9 @@
 <td>Renderer lifetime</td>
 </tr>
 <tr>
-<td>Inbox, pins, preview id, agent status, errors</td>
+<td>Inbox, pins, preview id</td>
 <td><code>useSuggestionInbox</code> / <code>inboxReducer</code></td>
-<td>Visible suggestion projection persists in Electron; preview/status stay ephemeral</td>
+<td>Visible suggestion projection persists in Electron; preview identity stays ephemeral</td>
 </tr>
 <tr>
 <td>Workspace pin geometry and z-order</td>
@@ -193,9 +196,9 @@
 <td>Persists in Electron</td>
 </tr>
 <tr>
-<td>Last editor block with a text cursor</td>
-<td><code>App</code> React state</td>
-<td>Current page only</td>
+<td>Hydration, autosave queue, sources, last text cursor</td>
+<td><code>useWorkspaceController</code></td>
+<td>Current page; durable values cross the desktop bridge</td>
 </tr>
 <tr>
 <td>Workspace panels, drawers, and column widths</td>
@@ -228,6 +231,11 @@
 <td>Current launch only; every app launch starts stopped</td>
 </tr>
 <tr>
+<td>Canonical agent status and error</td>
+<td><code>AgentRuntime</code>, reported by the agent through Electron main</td>
+<td>Current launch only</td>
+</tr>
+<tr>
 <td>Activity diagnostics</td>
 <td>Electron main</td>
 <td>Current-launch 500-item memory ring</td>
@@ -249,16 +257,18 @@
 <li><code>defaultKeymap.ts</code> contains the fixed <code>Ctrl+;</code> keymap; <code>sequenceMatcher.ts</code> resolves partial and complete sequences without React or DOM dependencies.</li>
 <li><code>useKeybindingController.ts</code> owns global keyboard capture and timing. <code>useWorkspaceKeybindings.ts</code> is the only adapter allowed to coordinate editor, layout, and suggestion actions.</li>
 <li><code>useWorkspaceLayout.ts</code> owns responsive panels, drawers, widths, and their shared imperative operations.</li>
+<li><code>useWorkspaceController.ts</code> owns renderer orchestration: hydration, autosave serialization, desktop events, agent controls, inbox persistence, and preview coordination.</li>
 </ul>
 <p>The command strip and shortcut dialog read the same command catalog and default keymap used for execution. This prevents discoverability copy from drifting away from the active bindings and leaves a clean keymap-replacement seam for future configurability.</p>
 <h3 id="src-suggestions"><code>src/suggestions</code><a class="heading-anchor" href="#src-suggestions" aria-label="Link to src/suggestions">#</a></h3><ul>
 <li><a href="../../src/suggestions/types.ts"><code>types.ts</code></a> defines suggestion data and the feed interface.</li>
+<li><a href="../../src/suggestions/state.ts"><code>state.ts</code></a> defines the persisted projection, empty state, 30-entry limit, and shared eviction policy used by renderer and storage.</li>
 <li><a href="../../src/suggestions/validation.ts"><code>validation.ts</code></a> validates suggestion payloads at runtime before development IPC reaches storage.</li>
 <li><a href="../../src/suggestions/inbox.ts"><code>inbox.ts</code></a> implements all suggestion, pin, preview, and workspace transitions.</li>
 <li><a href="../../src/suggestions/workspacePinLayout.ts"><code>workspacePinLayout.ts</code></a> supplies type-specific initial card sizes.</li>
 </ul>
 <h3 id="src-dev-mocksuggestions"><code>src/dev/mockSuggestions</code><a class="heading-anchor" href="#src-dev-mocksuggestions" aria-label="Link to src/dev/mockSuggestions">#</a></h3><p>This temporary directory owns the Electron-only controller view and payload builder. Main and preload expose its injection bridge only during Vite development; storage persists accepted mock suggestions exactly like agent-created suggestions.</p>
-<p>This layer is React-independent except for the <code>useSuggestionInbox</code> hook at the bottom of <code>inbox.ts</code>. The reducer itself is a pure function and is the most important unit-test boundary.</p>
+<p>The reducer itself is a pure function and is the most important unit-test boundary. The persisted state policy is React-independent so the storage process can apply the same queue rules.</p>
 <h3 id="desktop-and-src-desktop"><code>desktop</code> and <code>src/desktop</code><a class="heading-anchor" href="#desktop-and-src-desktop" aria-label="Link to desktop and src/desktop">#</a></h3><ul>
 <li><code>desktop/main.ts</code> owns Electron lifecycle, renderer IPC, utility processes, revision forwarding, and the activity ring.</li>
 <li><code>desktop/storage.ts</code> owns schema creation, SQLite queries, managed Markdown files, and committed events.</li>
@@ -271,7 +281,7 @@
 <h3 id="src-components"><code>src/components</code><a class="heading-anchor" href="#src-components" aria-label="Link to src/components">#</a></h3><ul>
 <li><a href="../../src/components/EditorWorkspace.tsx"><code>EditorWorkspace.tsx</code></a> joins the document header and editor surface.</li>
 <li><a href="../../src/components/DocumentEditor.tsx"><code>DocumentEditor.tsx</code></a> renders BlockNote and calculates initial workspace-card placement.</li>
-<li><a href="../../src/components/SuggestionDock.tsx"><code>SuggestionDock.tsx</code></a> renders the inbox, pinned section, detail view, and errors.</li>
+<li><a href="../../src/components/SuggestionDock.tsx"><code>SuggestionDock.tsx</code></a> composes focused activity, detail, and queue views.</li>
 <li><a href="../../src/components/WorkspacePins.tsx"><code>WorkspacePins.tsx</code></a> renders desktop cards and handles bounded pointer/keyboard geometry.</li>
 <li><a href="../../src/components/DocumentHeader.tsx"><code>DocumentHeader.tsx</code></a> exposes responsive panel controls and document action placeholders.</li>
 <li><a href="../../src/components/ResponsiveDrawer.tsx"><code>ResponsiveDrawer.tsx</code></a> provides the below-desktop modal panel behavior.</li>
@@ -285,11 +295,12 @@
 <figure class="diagram diagram--timeline" aria-labelledby="bootstrap-timeline-title">
     <figcaption id="bootstrap-timeline-title"><span class="diagram__eyebrow">Runtime sequence</span><strong>Application bootstrap</strong></figcaption>
     <ol class="timeline-steps">
-      <li><span class="timeline-number">01</span><div><strong>Render</strong><p>main.tsx mounts App inside StrictMode.</p></div></li><li><span class="timeline-number">02</span><div><strong>Create</strong><p>App creates the schema-backed editor and stable context source.</p></div></li><li><span class="timeline-number">03</span><div><strong>Connect</strong><p>The mock feed is created over context; the inbox subscribes.</p></div></li><li><span class="timeline-number">04</span><div><strong>Publish</strong><p>Accepted editor blocks become the first document snapshot.</p></div></li><li><span class="timeline-number">05</span><div><strong>Emit</strong><p>The feed sends status and initial suggestion events.</p></div></li><li><span class="timeline-number">06</span><div><strong>Observe</strong><p>Later editor changes publish unique revisioned snapshots.</p></div></li><li><span class="timeline-number">07</span><div><strong>Reduce</strong><p>Document-derived events enter the same inbox state machine.</p></div></li>
+      <li><span class="timeline-number">01</span><div><strong>Render</strong><p>main.tsx mounts App inside StrictMode.</p></div></li><li><span class="timeline-number">02</span><div><strong>Create</strong><p>App creates the schema-backed editor and layout controller.</p></div></li><li><span class="timeline-number">03</span><div><strong>Connect</strong><p>The workspace controller creates the stable desktop feed and inbox.</p></div></li><li><span class="timeline-number">04</span><div><strong>Hydrate</strong><p>The controller restores accepted blocks and persisted workspace state.</p></div></li><li><span class="timeline-number">05</span><div><strong>Subscribe</strong><p>Suggestion events and AgentRuntime updates use separate contracts.</p></div></li><li><span class="timeline-number">06</span><div><strong>Autosave</strong><p>Accepted editor changes enter the serialized save queue.</p></div></li><li><span class="timeline-number">07</span><div><strong>Reduce</strong><p>Committed suggestion events enter the inbox state machine.</p></div></li>
     </ol>
     <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>sequenceDiagram
     participant Main as main.tsx
     participant App
+    participant Controller as useWorkspaceController
     participant Editor as BlockNote
     participant Bridge as Electron bridge
     participant Feed as SuggestionFeed
@@ -298,7 +309,8 @@
     Main-&gt;&gt;Bridge: require preload bridge
     Main-&gt;&gt;App: render inside StrictMode
     App-&gt;&gt;Editor: create schema-backed editor
-    App-&gt;&gt;Feed: create desktop event feed
+    App-&gt;&gt;Controller: connect desktop and editor
+    Controller-&gt;&gt;Feed: create stable desktop event feed
     Inbox-&gt;&gt;Feed: subscribe
     Bridge--&gt;&gt;Feed: committed suggestion event
     Feed--&gt;&gt;Inbox: suggestion.added</code></pre></details>
@@ -307,12 +319,12 @@
     ↑
 editor utilities     suggestion implementations
     ↑                         ↑
-components  ← props/callbacks → App composition root</code></pre></div><p>Practical rules:</p>
+components  ← props/callbacks → workspace controller / App composition</code></pre></div><p>Practical rules:</p>
 <ul>
 <li>Domain contracts belong in <code>suggestions/types.ts</code>, not in UI components.</li>
 <li>Suggestion lifecycle changes belong in the reducer and should have reducer tests.</li>
 <li>Transport or model SDK code should sit behind <code>SuggestionFeed</code>.</li>
-<li>Cross-feature orchestration is acceptable in <code>App.tsx</code>; lower-level components should not import the composition root or one another&#39;s state.</li>
+<li>Cross-feature renderer orchestration belongs in <code>useWorkspaceController</code>; <code>App.tsx</code> remains responsible for layout composition.</li>
 <li>CSS layout variables are set by <code>App</code> but interpreted by <code>index.css</code>.</li>
 </ul>
 <h2 id="styling-architecture">Styling architecture<a class="heading-anchor" href="#styling-architecture" aria-label="Link to Styling architecture">#</a></h2><p>Tailwind CSS 4 is loaded through the Vite plugin and <code>@import &quot;tailwindcss&quot;</code> in <a href="../../src/index.css"><code>index.css</code></a>. Most component styling is inline utility classes. The global stylesheet is reserved for:</p>

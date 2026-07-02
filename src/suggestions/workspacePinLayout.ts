@@ -1,5 +1,5 @@
 import type { WorkspacePinRect } from "./inbox";
-import type { SuggestionItem } from "./types";
+import { isStructureSuggestion, type SuggestionItem } from "./types";
 
 export function getInitialWorkspacePinSize(
   item: SuggestionItem,
@@ -7,7 +7,7 @@ export function getInitialWorkspacePinSize(
   if (item.kind === "mindMap") {
     return { width: 460, height: 340 };
   }
-  if (item.kind === "outline" || item.kind === "layout") {
+  if (isStructureSuggestion(item)) {
     return { width: 380, height: 300 };
   }
   return { width: 320, height: 240 };

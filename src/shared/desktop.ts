@@ -1,34 +1,7 @@
 import type { SuggestionEvent, SuggestionItem } from "../suggestions/types";
+import type { PersistedSuggestionState } from "../suggestions/state";
 
-export type PersistedInboxEntry = {
-  item: SuggestionItem;
-  viewed: boolean;
-  stale: boolean;
-  withdrawn: boolean;
-};
-
-export type PersistedPinnedEntry = PersistedInboxEntry & {
-  pinnedAt: number;
-};
-
-export type PersistedWorkspacePin = {
-  item: SuggestionItem;
-  pinnedAt: number;
-  pendingInitialPlacement: boolean;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  zIndex: number;
-};
-
-export type PersistedSuggestionState = {
-  entries: PersistedInboxEntry[];
-  pinnedEntries: PersistedPinnedEntry[];
-  workspacePins: PersistedWorkspacePin[];
-  seenKeys: Record<string, true>;
-  nextZIndex: number;
-};
+export type { PersistedSuggestionState } from "../suggestions/state";
 
 export type AgentStatus =
   | "offline"
@@ -93,11 +66,10 @@ export type WorkspaceSnapshot = {
   suggestions: PersistedSuggestionState;
   agent: AgentRuntime;
   activity: AgentActivity[];
-  sequence: number;
 };
 
 export type DesktopEvent =
-  | { type: "suggestion.event"; sequence: number; event: SuggestionEvent }
+  | { type: "suggestion.event"; event: SuggestionEvent }
   | { type: "agent.runtime"; runtime: AgentRuntime }
   | { type: "agent.activity"; activity: AgentActivity }
   | { type: "document.saved"; document: DocumentSnapshot; projectRevision: number }

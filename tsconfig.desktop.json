@@ -16,6 +16,7 @@
     "desktop/**/*.ts",
     "src/shared/**/*.ts",
     "src/suggestions/types.ts",
+    "src/suggestions/state.ts",
     "src/suggestions/validation.ts"
   ]
 }
