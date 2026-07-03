@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Review the current architecture, its risks, and a phased path for changing it safely." />
+    <meta name="theme-color" content="#f7f8fc" />
+    <title>Architecture review · ScribeAI docs</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script>try{const t=localStorage.getItem("scribe-docs-theme");if(t){document.documentElement.dataset.theme=t}else if(matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.dataset.theme="dark"}}catch{}</script>
+    <script src="assets/search-index.js" defer></script>
+    <script src="assets/site.js" defer></script>
+  </head>
+  <body data-page="architecture-review.html">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="reading-progress" aria-hidden="true"><span></span></div>
+    <div class="mobile-overlay" data-nav-close hidden></div>
+    <aside class="site-sidebar" id="site-navigation" aria-label="Documentation navigation">
+      <div class="sidebar-header">
+        <a class="brand" href="index.html" aria-label="ScribeAI documentation home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>ScribeAI</strong><small>Developer docs</small></span>
+        </a>
+        <button type="button" class="icon-button sidebar-close" data-nav-close aria-label="Close navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+      </div>
+      <div class="sidebar-search">
+        <button type="button" class="search-trigger" data-search-open aria-label="Search documentation">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search docs</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="sidebar-scroll"><section class="nav-group"><h2>Get oriented</h2><nav aria-label="Get oriented"><a class="nav-link" href="index.html">
+            <span class="nav-link__number">00</span>
+            <span>Overview</span>
+          </a><a class="nav-link" href="getting-started.html">
+            <span class="nav-link__number">01</span>
+            <span>Getting started</span>
+          </a><a class="nav-link" href="architecture.html">
+            <span class="nav-link__number">02</span>
+            <span>Architecture</span>
+          </a><a class="nav-link is-active" href="architecture-review.html" aria-current="page">
+            <span class="nav-link__number">03</span>
+            <span>Architecture review</span>
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="desktop-runtime.html">
+            <span class="nav-link__number">04</span>
+            <span>Desktop & Pi</span>
+          </a><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">05</span>
+            <span>Editor & suggestions</span>
+          </a><a class="nav-link" href="ui-and-accessibility.html">
+            <span class="nav-link__number">06</span>
+            <span>UI & accessibility</span>
+          </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
+            <span class="nav-link__number">07</span>
+            <span>Testing & quality</span>
+          </a><a class="nav-link" href="extension-guide.html">
+            <span class="nav-link__number">08</span>
+            <span>Extension guide</span>
+          </a></nav></section></div>
+      <div class="sidebar-footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span><strong>Current snapshot</strong><small>Client-only prototype</small></span>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <button type="button" class="icon-button" data-nav-open aria-controls="site-navigation" aria-expanded="false" aria-label="Open navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+      <a class="mobile-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>ScribeAI docs</strong></a>
+      <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+    </header>
+
+    <div class="search-dialog" data-search-dialog role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
+      <div class="search-backdrop" data-search-close></div>
+      <div class="search-panel">
+        <div class="search-input-wrap">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg>
+          <label class="sr-only" id="search-title" for="site-search">Search documentation</label>
+          <input id="site-search" type="search" placeholder="Search architecture, previews, testing…" autocomplete="off" data-search-input />
+          <button type="button" class="search-close" data-search-close aria-label="Close search"><kbd>Esc</kbd></button>
+        </div>
+        <div class="search-results" data-search-results>
+          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search all documentation guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
+        </div>
+      </div>
+    </div>
+
+    <main class="site-main" id="main-content">
+      <div class="desktop-toolbar">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Developer docs</a><span>/</span><span>Get oriented</span></nav>
+        <div class="toolbar-actions">
+          <button type="button" class="toolbar-search" data-search-open><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search</span><kbd>⌘ K</kbd></button>
+          <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="page-shell">
+        <div class="content-column">
+          <header class="page-hero page-hero--amber">
+            <div class="page-hero__meta"><span>Guide 03</span><span>25 min read</span></div>
+            <h1>Architecture review</h1>
+            <p>Review the current architecture, its risks, and a phased path for changing it safely.</p>
+            <div class="page-hero__footer">
+              <span><i class="status-dot" aria-hidden="true"></i> Reflects the current codebase</span>
+              <a href="../architecture-review.md">View Markdown <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg></a>
+            </div>
+            <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+          </header>
+
+          <article class="prose"><p>This review describes the application as it exists on 2 July 2026 and recommends a path for changing it safely. It is written for the whole team. No knowledge of Electron, React, databases, or artificial-intelligence agent systems is assumed.</p>
+<p>The assessment was made from the implementation and its tests, independently of the existing architecture guide. Links point to supporting code, but the explanation here is intended to stand on its own. Statements labelled <strong>Observed</strong> describe current code or validation results. Statements labelled <strong>Risk</strong> are reasoned consequences that may occur as the product grows. Statements labelled <strong>Recommendation</strong> propose future work; they do not describe existing behavior.</p>
+<h2 id="1-architecture-present-today">1. Architecture Present Today<a class="heading-anchor" href="#1-architecture-present-today" aria-label="Link to 1. Architecture Present Today">#</a></h2><h3 id="what-starts-and-how-the-pieces-communicate">What starts, and how the pieces communicate<a class="heading-anchor" href="#what-starts-and-how-the-pieces-communicate" aria-label="Link to What starts, and how the pieces communicate">#</a></h3><p>Electron is a framework for shipping a web-style user interface as a desktop application. The <strong>Electron host</strong> is the complete desktop program. Within it, the application deliberately runs several operating-system processes rather than putting all work in one place:</p>
+<ul>
+<li>The <strong>main process</strong> starts the application, creates windows, opens native file dialogs, and coordinates the other processes. There is one main process for the application.</li>
+<li>A <strong>renderer</strong> is the process that draws a window with web technologies. The main workspace and the development-only suggestion window are renderers. They run the React interface but have no direct Node.js or file-system access.</li>
+<li>An <strong>isolated preload bridge</strong> is a small, restricted adapter loaded before a renderer. “Isolated” means the page cannot directly reach the bridge&#39;s Electron internals. It exposes only the named operations the interface needs.</li>
+<li>A <strong>utility process</strong> is a background process created by Electron for non-interface work. ScribeAI uses one utility process for storage and another for the Pi writing agent. A failure or heavy task there is therefore separated from the interface and main process.</li>
+</ul>
+<p>The application starts in this order:</p>
+<figure class="diagram diagram--architecture" aria-labelledby="process-map-title">
+    <figcaption id="process-map-title">
+      <span class="diagram__eyebrow">Process topology</span>
+      <strong>Electron separates interface, coordination, storage, and agent work</strong>
+    </figcaption>
+    <div class="architecture-flow">
+      <div class="diagram-node diagram-node--primary"><small>Coordinator</small><span>Electron main process</span></div>
+      <div class="diagram-branches" aria-label="Processes coordinated by Electron main">
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Persistence</small><span>Storage utility process</span></div></div>
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Writing agent</small><span>Agent utility process</span></div></div>
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Restricted IPC</small><span>Isolated preload bridge</span></div></div>
+      </div>
+      <div class="diagram-pipeline" aria-label="Renderer request path">
+        <div class="diagram-node"><span>React renderer</span></div><span class="diagram-arrow" aria-hidden="true">↔</span>
+        <div class="diagram-node"><span>Preload bridge</span></div><span class="diagram-arrow" aria-hidden="true">↔</span>
+        <div class="diagram-node diagram-node--primary"><span>Electron main</span></div>
+      </div>
+      <p class="diagram-note">Agent storage requests are forwarded through main. Durable storage events return through main to the renderer and agent.</p>
+    </div>
+    <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>flowchart LR
+    Main[&quot;Electron main process&quot;]
+    Storage[&quot;Storage utility process&lt;br/&gt;SQLite and project files&quot;]
+    Agent[&quot;Agent utility process&lt;br/&gt;Pi session and suggestion tools&quot;]
+    Bridge[&quot;Isolated preload bridge&quot;]
+    UI[&quot;Renderer&lt;br/&gt;React and BlockNote&quot;]
+
+    Main --&gt;|&quot;start and request work&quot;| Storage
+    Main --&gt;|&quot;start and control&quot;| Agent
+    Agent --&gt;|&quot;storage requests&quot;| Main
+    Main --&gt;|&quot;forward requests&quot;| Storage
+    UI --&gt;|&quot;named requests&quot;| Bridge
+    Bridge --&gt;|&quot;Electron IPC&quot;| Main
+    Main --&gt;|&quot;events&quot;| Bridge
+    Bridge --&gt;|&quot;events&quot;| UI
+    Storage --&gt;|&quot;durable events&quot;| Main
+    Main --&gt;|&quot;revision changes&quot;| Agent</code></pre></details>
+  </figure><p>In prose, the main process first starts storage and waits until it is ready. Storage opens the database, creates or resets its tables, ensures the default project and document exist, and repairs the Markdown file used by the agent. The main process then starts the agent and waits for its initialization. It registers the renderer-facing operations and creates the workspace window. The renderer can request data only through the preload bridge. The main process forwards storage work to the storage utility process and agent controls to the agent utility process. Storage sends committed changes back as events. The main process broadcasts those events to renderer windows and tells the agent when the durable project revision changes. The agent cannot write project files; it asks the main process to forward suggestion operations to storage. The startup sequence is implemented in <a href="../../desktop/main.ts"><code>desktop/main.ts</code></a>, with storage startup in <a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a> and agent startup in <a href="../../desktop/agent.ts"><code>desktop/agent.ts</code></a>.</p>
+<h3 id="responsibility-and-state-ownership">Responsibility and state ownership<a class="heading-anchor" href="#responsibility-and-state-ownership" aria-label="Link to Responsibility and state ownership">#</a></h3><p>Before naming architectural patterns, the practical ownership is:</p>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it is responsible for today</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Renderer</td>
+<td>The currently displayed editor content; selected, viewed, pinned, previewed, and positioned suggestion state; responsive layout; keyboard interaction; temporary agent-control errors.</td>
+</tr>
+<tr>
+<td>Main process</td>
+<td>Process startup and shutdown, window security, native dialogs, request routing, event broadcasting, current in-memory agent status, and recent in-memory agent activity.</td>
+</tr>
+<tr>
+<td>Storage utility process</td>
+<td>The SQLite database, document and source revisions, the <code>draft.md</code> mirror, imported source files, durable suggestion snapshots, suggestion deduplication (prevention of repeated items), and durable suggestion mutation checks.</td>
+</tr>
+<tr>
+<td>Agent utility process</td>
+<td>The Pi session, autonomous work loop, model/tool availability, and requests to list, create, update, or retract suggestions.</td>
+</tr>
+<tr>
+<td>Preload bridge</td>
+<td>The small set of renderer-to-main requests and the main-to-renderer event subscription. It owns no business state.</td>
+</tr>
+</tbody></table>
+<p>The renderer uses a React <strong>reducer</strong>, a function that calculates the next state from the previous state and an action, for suggestion behavior. This makes selection, dismissal, pinning, workspace placement, previews, and incoming agent events a single explicit <strong>state machine</strong>: a set of allowed states and transitions. The reducer is pure, meaning it does not perform file, network, or process work while calculating a result. The implementation is in <a href="../../src/suggestions/inbox.ts"><code>src/suggestions/inbox.ts</code></a>, and the durable subset of that state is defined in <a href="../../src/suggestions/state.ts"><code>src/suggestions/state.ts</code></a>.</p>
+<p>The durable subset is a <strong>projection</strong>: a stored view derived from richer live state. In this case it contains the live queue, pinned items, workspace cards, deduplication keys, and stacking order, but excludes temporary selection and active-preview identifiers. After hydration, every reducer change projects the state and asks storage to replace the stored suggestion snapshot.</p>
+<p>Storage also changes suggestion state directly when the agent publishes, updates, or retracts a suggestion. It then emits a suggestion event so the renderer can make the corresponding reducer transition. This means storage and the renderer both currently write different updates to the same durable suggestion snapshot. The behavior is visible across <a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>, <a href="../../src/workspace/useWorkspaceController.ts"><code>src/workspace/useWorkspaceController.ts</code></a>, and <a href="../../src/suggestions/inbox.ts"><code>src/suggestions/inbox.ts</code></a>.</p>
+<h3 id="interface-composition-and-editing">Interface composition and editing<a class="heading-anchor" href="#interface-composition-and-editing" aria-label="Link to Interface composition and editing">#</a></h3><p>React is the interface library. Its <strong>composition root</strong> is the place where the major interface parts are created and connected. <a href="../../src/main.tsx"><code>src/main.tsx</code></a> obtains the desktop bridge and mounts <a href="../../src/App.tsx"><code>src/App.tsx</code></a>. <code>App</code> creates the BlockNote editor, workspace layout controller, workspace behavior controller, keyboard controller, navigation, editor, suggestion dock, drawers, and help interface.</p>
+<p>Most visible components are <strong>prop-driven</strong>: a parent gives them data and callback functions through named inputs called props. For example, <a href="../../src/components/EditorWorkspace.tsx"><code>src/components/EditorWorkspace.tsx</code></a> receives an editor, layout flags, workspace pins, and callbacks, then passes the relevant subset to the header and editor. <a href="../../src/components/SuggestionDock.tsx"><code>src/components/SuggestionDock.tsx</code></a> similarly receives suggestion and agent state rather than reading desktop services itself. This keeps much of the display layer independent from persistence and process details.</p>
+<p>BlockNote is the structured rich-text editor embedded in the renderer. It represents a document as typed blocks rather than only as one string. ScribeAI extends its <strong>schema</strong>, the rules describing allowed block types and data, with a temporary suggestion-preview block in <a href="../../src/editor/schema.tsx"><code>src/editor/schema.tsx</code></a>. <a href="../../src/components/DocumentEditor.tsx"><code>src/components/DocumentEditor.tsx</code></a> renders the editor and overlays movable suggestion cards. When saving, the controller removes preview blocks, stores the remaining block data, and also asks BlockNote to produce Markdown. The Markdown conversion is described as lossy because not every detail in rich editor data necessarily has an exact Markdown equivalent.</p>
+<p>Concrete preview example: selecting “Preview in draft” for a text suggestion inserts a temporary preview block after the writer&#39;s last active block. Accepting the preview turns it into ordinary document content; cancelling removes it. A preview is never included in autosave. Preview resolution travels through a small renderer event channel in <a href="../../src/editor/previewEvents.ts"><code>src/editor/previewEvents.ts</code></a> and returns to the suggestion reducer.</p>
+<h3 id="requests-commands-events-and-process-boundaries">Requests, commands, events, and process boundaries<a class="heading-anchor" href="#requests-commands-events-and-process-boundaries" aria-label="Link to Requests, commands, events, and process boundaries">#</a></h3><p>A <strong>command</strong> asks a part of the system to do something, such as “save this document” or “start the agent.” An <strong>event</strong> reports something that has already happened, such as “the document was saved.” Commands can fail and normally have one result. Events may have multiple listeners and should not be treated as requests.</p>
+<p><strong>Inter-process communication (IPC)</strong> is Electron&#39;s mechanism for messages between the renderer and main process. The preload bridge exposes commands such as <code>hydrate</code>, <code>saveDocument</code>, <code>saveSuggestionState</code>, <code>importSource</code>, <code>startAgent</code>, and <code>stopAgent</code>. It also exposes one event subscription. The TypeScript shape is shared in <a href="../../src/shared/desktop.ts"><code>src/shared/desktop.ts</code></a>, the actual bridge is in <a href="../../desktop/preload.ts"><code>desktop/preload.ts</code></a>, and sender checks and handlers are in <a href="../../desktop/main.ts"><code>desktop/main.ts</code></a>.</p>
+<p>The bridge is explicit and narrow. The renderer has context isolation, sandboxing, and Node.js integration disabled. The main process also rejects requests not associated with one of its windows. These measures reduce the damage that compromised renderer code could cause.</p>
+<p>The main, storage, and agent processes use <strong>child-process remote procedure calls (RPCs)</strong>. An RPC is a message that names a method and request identifier, followed later by a result with the same identifier. The <code>ChildRpc</code> helper in the main process keeps pending promises by identifier. The agent uses a similar request/result map for storage calls. This provides request correlation, but the method names and parameters are still mostly free-form strings and <code>unknown</code> values at runtime.</p>
+<p>Concrete publishing example:</p>
+<ol>
+<li>The agent calls its <code>create_suggestion</code> tool. The tool is a command exposed by the Scribe Pi extension.</li>
+<li>The extension adds the document revision the agent reviewed. This is an optimistic revision check: storage accepts the command only if that revision is still current.</li>
+<li>The agent utility process sends a storage request to the main process, which forwards it to storage.</li>
+<li>Storage validates the suggestion, checks the revision, checks its deduplication key, and updates SQLite in a <strong>transaction</strong>. A transaction commits all its database changes together or discards them all. The same transaction adds a <code>suggestion.added</code> event to an <strong>outbox</strong>, a table of committed events waiting to be delivered.</li>
+<li>After the transaction commits, storage posts the event to the main process. The main process broadcasts it to renderers.</li>
+<li>The renderer reducer adds the suggestion and then sends its latest suggestion projection back for storage.</li>
+</ol>
+<p>The tool definitions and revision attachment are in <a href="../../desktop/scribe-extension.ts"><code>desktop/scribe-extension.ts</code></a>; the durable checks and transaction are in <a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>.</p>
+<h3 id="persistence-hydration-and-autosave">Persistence, hydration, and autosave<a class="heading-anchor" href="#persistence-hydration-and-autosave" aria-label="Link to Persistence, hydration, and autosave">#</a></h3><p>SQLite is an embedded relational database stored in one local file. It holds one project, one document&#39;s BlockNote blocks and Markdown, imported-source metadata, suggestion state, and an event outbox. The database uses <strong>write-ahead logging</strong>, which records changes in a companion log before merging them into the main file, and waits for full disk synchronization. Both settings are intended to improve durability. The schema and all storage operations currently share <a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>.</p>
+<p>The <strong>Markdown mirror</strong> is <code>draft.md</code>, a plain-text copy of the current document created for the read-only agent. A save writes a temporary file and renames it over <code>draft.md</code>; this is an <strong>atomic write</strong>, meaning readers should see either the old complete file or the new complete file rather than a partly written file. Startup compares this mirror with SQLite and replaces it if needed. Imported Markdown sources are copied under <code>sources/</code> with collision-safe readable names.</p>
+<p><strong>Hydration</strong> means loading durable state into live memory when the interface starts. The renderer requests one workspace snapshot, replaces the editor blocks, records document identity and revision, loads sources and agent state, and dispatches the stored suggestion projection to the reducer. It suppresses document autosave while doing so. This coordination is in <a href="../../src/workspace/useWorkspaceController.ts"><code>src/workspace/useWorkspaceController.ts</code></a>.</p>
+<p><strong>Autosave</strong> means saving shortly after editing without an explicit Save action. Each editor change resets a 650 millisecond timer. When the timer fires, the renderer excludes preview blocks, generates Markdown, and appends the save to a promise queue: a chain that starts each save only after the previous save finishes. Each save supplies the last acknowledged document revision. Storage rejects a stale revision instead of silently overwriting a newer document, and a successful response advances the renderer&#39;s revision.</p>
+<p>Concrete edit example: a writer changes a paragraph three times quickly. The timer is restarted for each change, so only the settled content is queued after 650 milliseconds. Storage first atomically replaces <code>draft.md</code>, then updates the block data and Markdown in SQLite, increments document and project revisions, commits a <code>document.saved</code> event, and returns the new snapshot. The main process forwards the new revisions to the agent so it can review durable content, not an unsaved editor state.</p>
+<p>Pi is the library that runs the writing-agent session. A <strong>Pi session</strong> is the durable conversation and custom state associated with the project. Session files live below the project workspace, while Pi authentication and model configuration live in the application data directory. The agent continues the most recent project session and stores autonomous-loop checkpoints as custom session entries. The agent has only <code>read</code>, <code>grep</code>, <code>find</code>, and <code>ls</code> project tools plus Scribe&#39;s suggestion tools; shell, write, and edit tools are excluded. This is enforced in <a href="../../desktop/agent.ts"><code>desktop/agent.ts</code></a> and tested in <a href="../../desktop/pi-session.test.ts"><code>desktop/pi-session.test.ts</code></a>.</p>
+<h3 id="build-validation-and-test-boundaries">Build, validation, and test boundaries<a class="heading-anchor" href="#build-validation-and-test-boundaries" aria-label="Link to Build, validation, and test boundaries">#</a></h3><p>The production build has three boundaries. TypeScript checks renderer and desktop code under separate configurations. Vite bundles the React renderer. The Electron plugin builds separate main, storage, agent, and preload outputs. External package dependencies for Electron processes are left unbundled. Configuration is in <a href="../../package.json"><code>package.json</code></a>, <a href="../../vite.config.ts"><code>vite.config.ts</code></a>, <a href="../../tsconfig.app.json"><code>tsconfig.app.json</code></a>, and <a href="../../tsconfig.desktop.json"><code>tsconfig.desktop.json</code></a>.</p>
+<p>Vitest runs most interface and hook tests in a simulated browser called jsdom. Pure reducer and loop tests exercise state transitions without starting Electron. Node-environment tests call storage against temporary files and an in-memory database and create Pi sessions in temporary directories. Component tests cover focused user interactions. There is no test that starts the packaged Electron application, crosses the real preload boundary, or exercises main-process request routing end to end.</p>
+<p><strong>Observed validation:</strong> the planning brief recorded an earlier baseline of 69 passing tests. A fresh run for this review passed <strong>97 tests across 21 files</strong>. Lint passed. The production build passed. The build emitted Vite&#39;s large-chunk warning: the main renderer JavaScript file was <strong>1,297.67 kilobytes (kB) before compression (388.43 kB compressed)</strong>, above the 500 kB warning threshold. Generated build files were not added to this review.</p>
+<h3 id="current-strengths-and-constraints">Current strengths and constraints<a class="heading-anchor" href="#current-strengths-and-constraints" aria-label="Link to Current strengths and constraints">#</a></h3><p>Observed strengths are:</p>
+<ul>
+<li><strong>Process isolation.</strong> Storage and agent work do not execute in the renderer, and secure window preferences limit renderer privileges (<a href="../../desktop/main.ts"><code>desktop/main.ts</code></a>).</li>
+<li><strong>Explicit bridge contracts.</strong> Renderer capabilities are named and limited, and subscriptions can be removed (<a href="../../desktop/preload.ts"><code>desktop/preload.ts</code></a>, <a href="../../src/shared/desktop.ts"><code>src/shared/desktop.ts</code></a>).</li>
+<li><strong>Pure state-machine tests.</strong> Suggestion and autonomous-loop transitions are directly testable without a desktop runtime (<a href="../../src/suggestions/inbox.test.ts"><code>src/suggestions/inbox.test.ts</code></a>, <a href="../../desktop/scribe-loop.test.ts"><code>desktop/scribe-loop.test.ts</code></a>).</li>
+<li><strong>Read-only agent tools.</strong> The model can inspect project files but can change product state only through validated suggestion tools (<a href="../../desktop/agent.ts"><code>desktop/agent.ts</code></a>, <a href="../../desktop/scribe-extension.ts"><code>desktop/scribe-extension.ts</code></a>).</li>
+<li><strong>Revision checks.</strong> Document autosaves and agent suggestion mutations reject work based on an outdated document revision (<a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>).</li>
+<li><strong>Atomic Markdown writes.</strong> Temporary-file replacement avoids exposing a partly written draft, and startup can repair the mirror (<a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>).</li>
+<li><strong>Presentation-component boundaries.</strong> Most visible components receive data and callbacks rather than importing persistence or Electron services directly (<a href="../../src/components/EditorWorkspace.tsx"><code>src/components/EditorWorkspace.tsx</code></a>, <a href="../../src/components/SuggestionDock.tsx"><code>src/components/SuggestionDock.tsx</code></a>).</li>
+</ul>
+<p>The most important current constraints are deliberate single-workspace assumptions. Project and document identifiers are constants in storage and refs in the renderer. Paths always use <code>default-project</code>, and hydration always returns that one document. The sidebar shows static sections; “New Document” and most navigation items have no routing behavior. Source rows display imported files but do not select a document or project. These facts are visible in <a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>, <a href="../../desktop/main.ts"><code>desktop/main.ts</code></a>, <a href="../../src/workspace/useWorkspaceController.ts"><code>src/workspace/useWorkspaceController.ts</code></a>, and <a href="../../src/components/Sidebar.tsx"><code>src/components/Sidebar.tsx</code></a>.</p>
+<h2 id="2-shortcomings-and-recommended-changes">2. Shortcomings and Recommended Changes<a class="heading-anchor" href="#2-shortcomings-and-recommended-changes" aria-label="Link to 2. Shortcomings and Recommended Changes">#</a></h2><p>The findings below separate present behavior from future risk. Effort uses <strong>small</strong>, <strong>medium</strong>, or <strong>large</strong> as relative engineering size. Implementation risk estimates the chance of regressions while making the change. Expected benefit describes the result if the change succeeds.</p>
+<h3 id="immediate-lower-risk-improvements">Immediate, lower-risk improvements<a class="heading-anchor" href="#immediate-lower-risk-improvements" aria-label="Link to Immediate, lower-risk improvements">#</a></h3><h4 id="sequence-suggestion-saves-and-make-failures-visible">Sequence suggestion saves and make failures visible<a class="heading-anchor" href="#sequence-suggestion-saves-and-make-failures-visible" aria-label="Link to Sequence suggestion saves and make failures visible">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Every persisted reducer change starts <code>saveSuggestionState</code> without awaiting or queueing prior calls. A rejection is written only to the developer console. Unlike document saves, suggestion saves have no expected revision, acknowledgement held in interface state, retry, or visible error (<a href="../../src/workspace/useWorkspaceController.ts"><code>src/workspace/useWorkspaceController.ts</code></a>).</li>
+<li><strong>Why it may become a problem — risk.</strong> The application does not define that the newest snapshot must win. Delayed or failed calls can leave SQLite older than the interface, and a restart can appear to undo a dismissal, pin, or card movement. Rapid geometry changes make the exposure more likely.</li>
+<li><strong>Who or what it affects.</strong> Writers, suggestion-state correctness, support diagnostics, and any future synchronization feature.</li>
+<li><strong>Recommended change.</strong> Serialize projection saves as document saves already are. Coalesce pending snapshots where safe, retain the last acknowledged version, surface failure near the suggestion workspace, and offer retry or resynchronization. Do not claim success until storage acknowledges it.</li>
+<li><strong>Assessment.</strong> Effort: small. Implementation risk: low. Expected benefit: high and immediate data-loss protection.</li>
+</ol>
+<h4 id="extract-workspace-coordination-into-focused-application-services">Extract workspace coordination into focused application services<a class="heading-anchor" href="#extract-workspace-coordination-into-focused-application-services" aria-label="Link to Extract workspace coordination into focused application services">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> <code>App</code> is the composition point, while one <code>useWorkspaceController</code> hook coordinates hydration, document autosave, source import, agent control, activity, preview insertion, and suggestion persistence (<a href="../../src/App.tsx"><code>src/App.tsx</code></a>, <a href="../../src/workspace/useWorkspaceController.ts"><code>src/workspace/useWorkspaceController.ts</code></a>).</li>
+<li><strong>Why it may become a problem — risk.</strong> These flows have different timing, failure, and cleanup rules. Sharing one hook increases dependency coupling and makes changes to one lifecycle more likely to affect another. It also encourages one combined error model.</li>
+<li><strong>Who or what it affects.</strong> Engineers changing startup, saves, agent controls, previews, or testing; indirectly, writers when lifecycle edge cases regress.</li>
+<li><strong>Recommended change.</strong> Keep <code>App</code> as the composition root, but give hydration, document saving, agent control/activity, and preview coordination separate hooks or application services with explicit inputs, outputs, status, and cleanup. “Application service” here means code that coordinates a user-facing operation without drawing interface elements or performing storage itself.</li>
+<li><strong>Assessment.</strong> Effort: medium. Implementation risk: low to medium because hook timing is sensitive. Expected benefit: medium now and high as more documents are introduced.</li>
+</ol>
+<h4 id="split-oversized-modules-along-existing-responsibilities">Split oversized modules along existing responsibilities<a class="heading-anchor" href="#split-oversized-modules-along-existing-responsibilities" aria-label="Link to Split oversized modules along existing responsibilities">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Suggestion reduction, projection, subscription, and hook actions share one large module. Workspace pin rendering also contains geometry rules, pointer and keyboard interaction, bounds observation, and card presentation. The workspace controller combines several unrelated lifecycles (<a href="../../src/suggestions/inbox.ts"><code>src/suggestions/inbox.ts</code></a>, <a href="../../src/components/WorkspacePins.tsx"><code>src/components/WorkspacePins.tsx</code></a>, <a href="../../src/workspace/useWorkspaceController.ts"><code>src/workspace/useWorkspaceController.ts</code></a>).</li>
+<li><strong>Why it may become a problem — risk.</strong> Large modules obscure which rules are pure and which touch React or browser integration points. Reviews and tests become broader than the change being made.</li>
+<li><strong>Who or what it affects.</strong> Maintainers, reviewers, and test authors.</li>
+<li><strong>Recommended change.</strong> Split only at boundaries already present: pure suggestion transitions versus React subscription, geometry calculations versus interaction hook versus card view, and the focused coordination services described above. Preserve public behavior and avoid a folder-per-function structure.</li>
+<li><strong>Assessment.</strong> Effort: medium. Implementation risk: low if performed in small moves with existing tests. Expected benefit: medium maintainability and review clarity.</li>
+</ol>
+<h4 id="centralize-suggestion-capabilities-and-validation-rules">Centralize suggestion capabilities and validation rules<a class="heading-anchor" href="#centralize-suggestion-capabilities-and-validation-rules" aria-label="Link to Centralize suggestion capabilities and validation rules">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Suggestion families and some type guards are central, but capability decisions are spread across preview controls, keybindings, workspace sizing, presentation, the development form, runtime validation, and Pi tool conversion. The Pi TypeBox schema accepts broad optional fields and then performs additional family-specific checks (<a href="../../src/suggestions/types.ts"><code>src/suggestions/types.ts</code></a>, <a href="../../src/suggestions/validation.ts"><code>src/suggestions/validation.ts</code></a>, <a href="../../desktop/scribe-extension.ts"><code>desktop/scribe-extension.ts</code></a>).</li>
+<li><strong>Why it may become a problem — risk.</strong> Adding a suggestion kind can update one surface but miss another. Producer validation and consumer assumptions can drift, particularly for nested structure nodes and preview support.</li>
+<li><strong>Who or what it affects.</strong> Agent tool authors, interface developers, test authors, and writers receiving malformed or inconsistently supported suggestions.</li>
+<li><strong>Recommended change.</strong> Define one shared capability model for each suggestion kind: whether it supports text preview, visual rendering, workspace placement, required fields, size policy, and runtime validation. Runtime validation checks real data while the application is running, after TypeScript&#39;s compile-time checks are no longer present. Use a runtime schema that reads the <code>kind</code> field and then validates exactly the fields allowed for that kind.</li>
+<li><strong>Assessment.</strong> Effort: medium. Implementation risk: low. Expected benefit: medium now and high for extension safety.</li>
+</ol>
+<h4 id="add-application-level-and-process-contract-tests">Add application-level and process-contract tests<a class="heading-anchor" href="#add-application-level-and-process-contract-tests" aria-label="Link to Add application-level and process-contract tests">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Reducers, hooks, components, storage functions, Pi session setup, and agent-loop rules have useful tests. The full <code>App</code>, preload channel mapping, main-process routing, child RPC lifecycle, startup ordering, and event resubscription do not have direct contract tests.</li>
+<li><strong>Why it may become a problem — risk.</strong> Both ends of a process boundary can compile while disagreeing at runtime. Startup failure, malformed messages, or a renamed channel may not be caught until a desktop launch.</li>
+<li><strong>Who or what it affects.</strong> Release confidence, desktop maintainers, and users on startup or save paths.</li>
+<li><strong>Recommended change.</strong> Mount the application against a deterministic fake bridge for key workflows. Add contract tests that assert the same channel names, request shapes, results, and events at preload, main, storage, and agent boundaries. Include rejected and malformed messages, process exit, and unsubscribe behavior.</li>
+<li><strong>Assessment.</strong> Effort: medium. Implementation risk: low. Expected benefit: high release confidence.</li>
+</ol>
+<h4 id="track-and-reduce-the-renderer-bundle">Track and reduce the renderer bundle<a class="heading-anchor" href="#track-and-reduce-the-renderer-bundle" aria-label="Link to Track and reduce the renderer bundle">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> The current production build succeeds but emits a large-chunk warning. The primary renderer file is 1,297.67 kB before compression. Mermaid creates many additional lazy chunks, and BlockNote and other editor dependencies contribute to the entry path.</li>
+<li><strong>Why it may become a problem — risk.</strong> A large startup bundle increases parse time and memory use, especially on slower hardware. Growth can continue unnoticed because there is no recorded limit.</li>
+<li><strong>Who or what it affects.</strong> Application startup, development rebuilds, packaged size, and lower-powered devices.</li>
+<li><strong>Recommended change.</strong> Record compressed and uncompressed renderer sizes in continuous integration, set a budget that fails only on meaningful regression, inspect the bundle, and lazy-load heavy features not needed for first paint. Measure startup before choosing splits; do not hide the warning by only raising its threshold.</li>
+<li><strong>Assessment.</strong> Effort: small for tracking, medium for reduction. Implementation risk: low to medium. Expected benefit: measurable performance control.</li>
+</ol>
+<h3 id="medium-architectural-corrections">Medium architectural corrections<a class="heading-anchor" href="#medium-architectural-corrections" aria-label="Link to Medium architectural corrections">#</a></h3><h4 id="make-storage-the-single-authoritative-writer-for-suggestion-state">Make storage the single authoritative writer for suggestion state<a class="heading-anchor" href="#make-storage-the-single-authoritative-writer-for-suggestion-state" aria-label="Link to Make storage the single authoritative writer for suggestion state">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Agent commands modify SQLite first and emit events. Renderer actions modify the reducer first and later replace the whole SQLite projection. Both paths can write the same <code>suggestion_state</code> row (<a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>, <a href="../../src/suggestions/inbox.ts"><code>src/suggestions/inbox.ts</code></a>).</li>
+<li><strong>Why it may become a problem — risk.</strong> A renderer snapshot based on older state can overwrite an agent update, or an agent event can be applied twice through snapshot and event paths. Multiple windows would amplify the conflict because broadcasts go to every window.</li>
+<li><strong>Who or what it affects.</strong> Suggestion integrity, future multi-window behavior, agent consistency, and recovery after interruption.</li>
+<li><strong>Recommended change.</strong> Route renderer actions such as dismiss, pin, unpin, place, move, and preview resolution to storage as commands. Storage should validate and commit each transition and then emit the resulting authoritative event or snapshot. The renderer may update optimistically for responsiveness, but must reconcile with the storage result.</li>
+<li><strong>Assessment.</strong> Effort: large within the medium-term program. Implementation risk: medium to high because ownership changes. Expected benefit: very high correctness and a foundation for multiple documents or windows.</li>
+</ol>
+<h4 id="replace-free-form-process-messages-with-validated-contracts">Replace free-form process messages with validated contracts<a class="heading-anchor" href="#replace-free-form-process-messages-with-validated-contracts" aria-label="Link to Replace free-form process messages with validated contracts">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Renderer-facing types are documented in TypeScript, but IPC results are not runtime-validated. Child RPC methods are strings, parameters and results frequently use <code>unknown</code>, and handlers cast incoming data before partial checks. Message unions exist locally and differ by process (<a href="../../desktop/main.ts"><code>desktop/main.ts</code></a>, <a href="../../desktop/agent.ts"><code>desktop/agent.ts</code></a>, <a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>).</li>
+<li><strong>Why it may become a problem — risk.</strong> TypeScript types disappear in the running application. Version skew, malformed data, or a programming error can cross a trust boundary and fail far from its source.</li>
+<li><strong>Who or what it affects.</strong> Security posture, error diagnosis, protocol evolution, and every process boundary.</li>
+<li><strong>Recommended change.</strong> Create shared command, result, and event schemas keyed by literal operation names. Validate every incoming message and every persisted JavaScript Object Notation (JSON) value at runtime. JSON is the structured text format currently used for stored and transmitted objects. Generate or infer TypeScript types from the same schemas so compile-time and runtime contracts cannot drift.</li>
+<li><strong>Assessment.</strong> Effort: medium to large. Implementation risk: medium because latent invalid data may be exposed. Expected benefit: high reliability and safer compatibility work.</li>
+</ol>
+<h4 id="define-ordering-replay-acknowledgement-and-resynchronization">Define ordering, replay, acknowledgement, and resynchronization<a class="heading-anchor" href="#define-ordering-replay-acknowledgement-and-resynchronization" aria-label="Link to Define ordering, replay, acknowledgement, and resynchronization">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Storage&#39;s event outbox has an increasing sequence internally, but the sequence is not included in renderer events. An item is marked dispatched immediately after it is posted to the parent process; no consumer acknowledges it. Hydration returns a snapshot, while live events arrive through a separate subscription with no documented handoff point. Runtime and activity events exist only in main-process memory.</li>
+<li><strong>Why it may become a problem — risk.</strong> A renderer starting, reloading, sleeping, or briefly disconnecting can miss an event or receive events around hydration in an ambiguous order. Consumers cannot detect a gap or request only what they missed.</li>
+<li><strong>Who or what it affects.</strong> Renderer correctness, process restarts, future multiple windows, activity history, and supportability.</li>
+<li><strong>Recommended change.</strong> Give durable events a stream identity and sequence. Define whether delivery is <strong>at-most-once</strong>, where an event may be lost but is never repeated, or <strong>at-least-once</strong>, where a consumer may see a repeat and must remove duplicates. Define where acknowledgement occurs, how a snapshot states its covered sequence, and how a consumer requests <strong>replay</strong>, meaning redelivery of missed events, or a fresh snapshot after a gap. Treat short-lived activity separately and state that loss is acceptable if that is the product decision. <strong>Resynchronization</strong> should mean returning a consumer to known current state through replay or a fresh snapshot.</li>
+<li><strong>Assessment.</strong> Effort: large. Implementation risk: medium. Expected benefit: high resilience and unambiguous behavior.</li>
+</ol>
+<h4 id="replace-destructive-schema-resets-with-incremental-migrations">Replace destructive schema resets with incremental migrations<a class="heading-anchor" href="#replace-destructive-schema-resets-with-incremental-migrations" aria-label="Link to Replace destructive schema resets with incremental migrations">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> If SQLite&#39;s <code>user_version</code> differs from version 2, storage drops every application table and recreates the schema. This applies to older and newer versions alike (<a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>).</li>
+<li><strong>Why it may become a problem — risk.</strong> A normal application upgrade can erase drafts, sources metadata, suggestions, and future settings. Opening a newer database with an older build can also destroy it.</li>
+<li><strong>Who or what it affects.</strong> Every writer&#39;s local data and the team&#39;s ability to evolve storage safely.</li>
+<li><strong>Recommended change.</strong> Apply ordered, transactional, forward-only migrations from each supported version. Back up before risky migrations, refuse to open an unsupported newer schema, test upgrades from every released version, and define recovery behavior for failed migrations.</li>
+<li><strong>Assessment.</strong> Effort: medium now. Implementation risk: medium because it touches startup. Expected benefit: critical data safety; complete before any released schema change.</li>
+</ol>
+<h4 id="separate-storage-responsibilities">Separate storage responsibilities<a class="heading-anchor" href="#separate-storage-responsibilities" aria-label="Link to Separate storage responsibilities">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> One module declares schema, bootstraps data, reads and writes rows, copies files, repairs Markdown, imports sources, implements domain rules, manages the outbox, dispatches string-named methods, and starts the utility-process listener (<a href="../../desktop/storage.ts"><code>desktop/storage.ts</code></a>).</li>
+<li><strong>Why it may become a problem — risk.</strong> Database changes, file failure, suggestion policy, and transport concerns are difficult to test or change independently. Cross-store consistency is implicit: <code>draft.md</code> is replaced before the database transaction, while startup later treats SQLite as authoritative.</li>
+<li><strong>Who or what it affects.</strong> Data safety, migration work, test isolation, and engineers adding projects or documents.</li>
+<li><strong>Recommended change.</strong> Separate schema and migrations; repositories that read and write database records; file mirroring and source import; domain operations such as revision-checked saves; and process message handling. A <strong>repository</strong> here is an interface that loads and stores domain records without exposing Structured Query Language (SQL), the language used to operate the database, to its callers. Keep the transaction boundary in the domain operation that needs it, not in the transport layer.</li>
+<li><strong>Assessment.</strong> Effort: large. Implementation risk: medium. Expected benefit: high maintainability and clearer failure recovery.</li>
+</ol>
+<h3 id="larger-strategic-changes">Larger strategic changes<a class="heading-anchor" href="#larger-strategic-changes" aria-label="Link to Larger strategic changes">#</a></h3><h4 id="introduce-real-project-and-document-identities-and-scoped-lifecycles">Introduce real project and document identities and scoped lifecycles<a class="heading-anchor" href="#introduce-real-project-and-document-identities-and-scoped-lifecycles" aria-label="Link to Introduce real project and document identities and scoped lifecycles">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> One hard-coded project and one hard-coded document are bootstrapped and queried. The renderer keeps one document identifier in a ref. Navigation is static and has no route or selection model.</li>
+<li><strong>Why it may become a problem — risk.</strong> Adding a second document is not a local interface change. Autosave timers, event subscriptions, agent revisions, suggestion projections, source context, paths, and hydration all currently assume one lifetime and one identity.</li>
+<li><strong>Who or what it affects.</strong> Product expansion, data isolation between documents, navigation, and agent relevance.</li>
+<li><strong>Recommended change.</strong> Introduce project and document repositories, explicit selected identities, route or navigation state, and document-scoped lifecycle objects. Switching documents must cancel or flush the old autosave, unsubscribe from its events, clear previews, hydrate the new state, and bind agent work to the intended project and document. Decide whether suggestions and sources belong to a project, a document, or both before schema work.</li>
+<li><strong>Assessment.</strong> Effort: large. Implementation risk: high. Expected benefit: enables the core multi-document product direction.</li>
+</ol>
+<h4 id="organize-desktop-code-by-domain-application-and-infrastructure">Organize desktop code by domain, application, and infrastructure<a class="heading-anchor" href="#organize-desktop-code-by-domain-application-and-infrastructure" aria-label="Link to Organize desktop code by domain, application, and infrastructure">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Desktop modules are mostly grouped by running process. Business rules, workflow coordination, SQLite, file operations, Pi integration, and message transport sit close together.</li>
+<li><strong>Why it may become a problem — risk.</strong> Product rules become tied to Electron and SQLite details. Testing a workflow can require importing an infrastructure-heavy module, and changing transport can affect domain behavior.</li>
+<li><strong>Who or what it affects.</strong> Long-term maintainability, test speed, and the ability to reuse rules in migrations or other interfaces.</li>
+<li><strong>Recommended change.</strong> Within each relevant product area, distinguish the <strong>domain</strong> (business facts and rules such as revisions and valid suggestion transitions), the <strong>application layer</strong> (coordination of operations such as save-document or publish-suggestion), and <strong>infrastructure</strong> (Electron messages, SQLite, files, and Pi integration). These are responsibility boundaries, not a requirement for a framework or three mirrored folder trees. Dependencies should point from infrastructure toward stable application/domain contracts.</li>
+<li><strong>Assessment.</strong> Effort: large and incremental. Implementation risk: medium if moved alongside features rather than rewritten at once. Expected benefit: high over the product&#39;s lifetime.</li>
+</ol>
+<h4 id="move-from-mixed-snapshots-and-events-to-command-driven-persistence-and-durable-projections">Move from mixed snapshots and events to command-driven persistence and durable projections<a class="heading-anchor" href="#move-from-mixed-snapshots-and-events-to-command-driven-persistence-and-durable-projections" aria-label="Link to Move from mixed snapshots and events to command-driven persistence and durable projections">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> The renderer sends full suggestion snapshots for interface actions, while the agent sends commands that storage converts into events. The stored suggestion row combines source facts, user choices, derived queue state, and layout geometry.</li>
+<li><strong>Why it may become a problem — risk.</strong> Full replacement hides intent and makes conflict resolution coarse. It is hard to audit why state changed, rebuild a damaged view, or merge two actors&#39; changes.</li>
+<li><strong>Who or what it affects.</strong> Data recovery, multi-window behavior, future synchronization, analytics, and debugging.</li>
+<li><strong>Recommended change.</strong> Persist explicit commands or resulting domain events under one authoritative storage operation, then build durable projections for the inbox, pins, and workspace layout. “Durable projection” means a stored, rebuildable view derived from committed facts. Define retention and compaction so this does not imply keeping an unlimited event history. This change should build on, not precede, single-writer storage and event sequencing.</li>
+<li><strong>Assessment.</strong> Effort: large. Implementation risk: high. Expected benefit: very high only when collaboration, recovery, or complex history justifies it.</li>
+</ol>
+<h4 id="add-process-timeouts-restart-resynchronization-and-end-to-end-electron-tests">Add process timeouts, restart, resynchronization, and end-to-end Electron tests<a class="heading-anchor" href="#add-process-timeouts-restart-resynchronization-and-end-to-end-electron-tests" aria-label="Link to Add process timeouts, restart, resynchronization, and end-to-end Electron tests">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> RPC calls wait without a deadline. Process exit rejects currently pending calls, but the main process does not restart storage or agent utilities. A startup failure quits the app. There is no packaged Electron test.</li>
+<li><strong>Why it may become a problem — risk.</strong> A hung process can leave controls pending indefinitely. A crashed agent or storage process requires a full application restart, and untested restart paths can duplicate or miss state.</li>
+<li><strong>Who or what it affects.</strong> Availability, unsaved work, agent controls, and release confidence.</li>
+<li><strong>Recommended change.</strong> Add operation-specific timeouts and cancellation, process health state, bounded restart policies, and snapshot/sequence-based resynchronization after restart. Storage failure should put the interface into a clear read-only or retry state rather than pretending saves work. Add a small end-to-end suite that launches Electron and covers startup, hydrate, edit/save/relaunch, source import through a controlled fixture, agent-unavailable behavior, and utility-process failure.</li>
+<li><strong>Assessment.</strong> Effort: large. Implementation risk: medium to high. Expected benefit: high operational resilience.</li>
+</ol>
+<h4 id="define-compatibility-policies">Define compatibility policies<a class="heading-anchor" href="#define-compatibility-policies" aria-label="Link to Define compatibility policies">#</a></h4><ol>
+<li><strong>What currently happens — observed.</strong> Documents record a schema version, SQLite records a database version, and Pi sessions store custom loop entries. There is no implemented upgrade policy for BlockNote block data, persisted suggestion JSON, Pi loop entries, or cross-process messages. Some stored JSON is cast directly to current TypeScript types.</li>
+<li><strong>Why it may become a problem — risk.</strong> An application update can load old shapes incorrectly, while rollback can expose newer data to older code. A partial process or packaged-file mismatch can fail unpredictably.</li>
+<li><strong>Who or what it affects.</strong> Upgrades, rollbacks, long-lived projects, support, and every durable or cross-process format.</li>
+<li><strong>Recommended change.</strong> Version each durable format and process protocol independently where their evolution differs. State the supported upgrade and downgrade range, migrate or reject deliberately, preserve unknown data where appropriate, and test representative old fixtures. Tie protocol negotiation to the validated contracts rather than relying only on application version.</li>
+<li><strong>Assessment.</strong> Effort: medium to define, large to implement across formats. Implementation risk: medium. Expected benefit: critical for safe long-term releases.</li>
+</ol>
+<h3 id="phased-roadmap">Phased roadmap<a class="heading-anchor" href="#phased-roadmap" aria-label="Link to Phased roadmap">#</a></h3><p>The sequence should prioritize correctness and data safety before expanding the product surface:</p>
+<ol>
+<li><strong>Phase 1 — protect current data and expose failure.</strong> Queue and acknowledge suggestion saves, show save failures, add bundle tracking, and add full-application fake-bridge plus process-contract tests. Replace destructive database resets before the next schema change. These steps reduce present risk without changing product scope.</li>
+<li><strong>Phase 2 — establish one authority and clear boundaries.</strong> Move renderer suggestion actions to storage commands, introduce runtime-validated process contracts, define event sequence and snapshot handoff behavior, and separate storage message handling from domain operations, repositories, migrations, and files. Extract focused application services and split large modules as part of these changes rather than as an independent rewrite.</li>
+<li><strong>Phase 3 — add multiple projects and documents.</strong> Introduce real identities, schema relations, repositories, navigation, and document-scoped hydration, autosave, preview, suggestion, and agent lifecycles. Start only after Phase 2 prevents one document&#39;s state from overwriting another&#39;s.</li>
+<li><strong>Phase 4 — resilience and scale.</strong> Add timeouts, health reporting, utility-process restart and resynchronization, end-to-end Electron coverage, format/protocol compatibility tests, and measured renderer code splitting. Adopt durable event-derived projections only where recovery, history, or multi-actor requirements justify their complexity.</li>
+</ol>
+<p>This order avoids building multi-document behavior on ambiguous ownership. It first makes current writes reliable, then creates a single source of truth, then expands identity and navigation, and finally hardens the system for longer lifetimes and larger workloads.</p>
+</article>
+          <nav class="page-pagination" aria-label="Documentation pages">
+    <a class="page-pagination__link page-pagination__link--previous" href="architecture.html"><span>Previous</span><strong>← Architecture</strong></a>
+    <a class="page-pagination__link page-pagination__link--next" href="desktop-runtime.html"><span>Next</span><strong>Desktop & Pi →</strong></a>
+  </nav>
+          <footer class="content-footer"><p>ScribeAI developer documentation</p><p>Generated from <a href="../architecture-review.md">architecture-review.md</a>.</p></footer>
+        </div>
+
+        <aside class="page-toc" aria-label="On this page">
+          <div class="page-toc__inner">
+            <h2>On this page</h2>
+            <nav><a class="toc-link toc-link--2" href="#1-architecture-present-today">1. Architecture Present Today</a><a class="toc-link toc-link--3" href="#what-starts-and-how-the-pieces-communicate">What starts, and how the pieces communicate</a><a class="toc-link toc-link--3" href="#responsibility-and-state-ownership">Responsibility and state ownership</a><a class="toc-link toc-link--3" href="#interface-composition-and-editing">Interface composition and editing</a><a class="toc-link toc-link--3" href="#requests-commands-events-and-process-boundaries">Requests, commands, events, and process boundaries</a><a class="toc-link toc-link--3" href="#persistence-hydration-and-autosave">Persistence, hydration, and autosave</a><a class="toc-link toc-link--3" href="#build-validation-and-test-boundaries">Build, validation, and test boundaries</a><a class="toc-link toc-link--3" href="#current-strengths-and-constraints">Current strengths and constraints</a><a class="toc-link toc-link--2" href="#2-shortcomings-and-recommended-changes">2. Shortcomings and Recommended Changes</a><a class="toc-link toc-link--3" href="#immediate-lower-risk-improvements">Immediate, lower-risk improvements</a><a class="toc-link toc-link--3" href="#medium-architectural-corrections">Medium architectural corrections</a><a class="toc-link toc-link--3" href="#larger-strategic-changes">Larger strategic changes</a><a class="toc-link toc-link--3" href="#phased-roadmap">Phased roadmap</a></nav>
+            <a class="toc-source" href="../architecture-review.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <noscript><div class="noscript">JavaScript is only used for search, navigation controls, and theme switching. All documentation content remains available.</div></noscript>
+  </body>
+</html>

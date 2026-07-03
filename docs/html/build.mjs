@@ -42,12 +42,23 @@ const pages = [
     accent: "cyan",
   },
   {
+    source: "architecture-review.md",
+    output: "architecture-review.html",
+    title: "Architecture review",
+    shortTitle: "Architecture review",
+    category: "Get oriented",
+    number: "03",
+    description:
+      "Review the current architecture, its risks, and a phased path for changing it safely.",
+    accent: "amber",
+  },
+  {
     source: "desktop-runtime.md",
     output: "desktop-runtime.html",
     title: "Desktop persistence and Pi runtime",
     shortTitle: "Desktop & Pi",
     category: "Build internals",
-    number: "03",
+    number: "04",
     description:
       "Trace Electron processes, SQLite persistence, source import, events, and background Pi observations.",
     accent: "cyan",
@@ -58,7 +69,7 @@ const pages = [
     title: "Editor and suggestion system",
     shortTitle: "Editor & suggestions",
     category: "Build internals",
-    number: "04",
+    number: "05",
     description:
       "Trace agent context, feed events, inbox transitions, editable previews, and workspace pins end to end.",
     accent: "amber",
@@ -69,7 +80,7 @@ const pages = [
     title: "UI and accessibility",
     shortTitle: "UI & accessibility",
     category: "Build internals",
-    number: "05",
+    number: "06",
     description:
       "Work confidently with responsive panels, editor layout, keyboard input, focus, and visual conventions.",
     accent: "rose",
@@ -80,7 +91,7 @@ const pages = [
     title: "Testing and quality",
     shortTitle: "Testing & quality",
     category: "Ship safely",
-    number: "06",
+    number: "07",
     description:
       "Know what the automated suite protects, where browser checks are required, and what to run before handoff.",
     accent: "green",
@@ -91,7 +102,7 @@ const pages = [
     title: "Extension guide",
     shortTitle: "Extension guide",
     category: "Ship safely",
-    number: "07",
+    number: "08",
     description:
       "Use the existing seams to add a real agent, persistence, suggestion kinds, editor blocks, and application actions.",
     accent: "violet",
@@ -173,6 +184,30 @@ function renderArchitectureMap(source) {
   </figure>`;
 }
 
+function renderProcessMap(source) {
+  return `<figure class="diagram diagram--architecture" aria-labelledby="process-map-title">
+    <figcaption id="process-map-title">
+      <span class="diagram__eyebrow">Process topology</span>
+      <strong>Electron separates interface, coordination, storage, and agent work</strong>
+    </figcaption>
+    <div class="architecture-flow">
+      <div class="diagram-node diagram-node--primary"><small>Coordinator</small><span>Electron main process</span></div>
+      <div class="diagram-branches" aria-label="Processes coordinated by Electron main">
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Persistence</small><span>Storage utility process</span></div></div>
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Writing agent</small><span>Agent utility process</span></div></div>
+        <div class="diagram-branch"><span class="diagram-line" aria-hidden="true"></span><div class="diagram-node"><small>Restricted IPC</small><span>Isolated preload bridge</span></div></div>
+      </div>
+      <div class="diagram-pipeline" aria-label="Renderer request path">
+        <div class="diagram-node"><span>React renderer</span></div><span class="diagram-arrow" aria-hidden="true">↔</span>
+        <div class="diagram-node"><span>Preload bridge</span></div><span class="diagram-arrow" aria-hidden="true">↔</span>
+        <div class="diagram-node diagram-node--primary"><span>Electron main</span></div>
+      </div>
+      <p class="diagram-note">Agent storage requests are forwarded through main. Durable storage events return through main to the renderer and agent.</p>
+    </div>
+    <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>${escapeHtml(source)}</code></pre></details>
+  </figure>`;
+}
+
 function renderTimeline(source, kind) {
   const architectureSteps = [
     ["01", "Render", "main.tsx mounts App inside StrictMode."],
@@ -218,6 +253,9 @@ function renderPinLifecycle(source) {
 }
 
 function renderDiagram(source) {
+  if (source.includes('Main["Electron main process"]')) {
+    return renderProcessMap(source);
+  }
   if (source.includes("Shell[App composition root]")) {
     return renderArchitectureMap(source);
   }
@@ -370,7 +408,7 @@ function renderPage(page, index, source, rendered) {
           <button type="button" class="search-close" data-search-close aria-label="Close search"><kbd>Esc</kbd></button>
         </div>
         <div class="search-results" data-search-results>
-          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search across all seven guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
+          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search all documentation guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
         </div>
       </div>
     </div>

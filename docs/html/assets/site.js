@@ -81,7 +81,7 @@
     searchResults.innerHTML = `
       <div class="search-empty">
         <span class="search-empty__mark">⌕</span>
-        <p>Search across all seven guides.</p>
+        <p>Search all documentation guides.</p>
         <small>Try “preview”, “localStorage”, or “reducer”.</small>
       </div>`;
     selectedSearchIndex = -1;
