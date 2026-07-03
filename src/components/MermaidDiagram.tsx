@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 let mermaidInitialized = false;
 let mermaidModule: Promise<typeof import("mermaid")> | undefined;
@@ -14,12 +14,31 @@ export function MermaidDiagram({
   title,
   description,
 }: MermaidDiagramProps) {
-  const reactId = useId();
-  const [svg, setSvg] = useState<string>();
-  const [failed, setFailed] = useState(false);
+  return (
+    <MermaidDiagramRender
+      key={source}
+      source={source}
+      title={title}
+      description={description}
+    />
+  );
+}
+
+function MermaidDiagramRender({
+  source,
+  title,
+  description,
+}: MermaidDiagramProps) {
+  const renderHostRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "failed">(
+    "loading",
+  );
 
   useEffect(() => {
     let active = true;
+    const renderHost = renderHostRef.current;
+
+    if (!renderHost) return;
 
     const render = async () => {
       try {
@@ -35,16 +54,18 @@ export function MermaidDiagram({
           });
           mermaidInitialized = true;
         }
-        const id = `writing-partner-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-        const result = await mermaid.render(id, source);
+
+        if (!active) return;
+
+        renderHost.removeAttribute("data-processed");
+        renderHost.textContent = source;
+        await mermaid.run({ nodes: [renderHost] });
         if (active) {
-          setSvg(result.svg);
-          setFailed(false);
+          setStatus("ready");
         }
       } catch {
         if (active) {
-          setSvg(undefined);
-          setFailed(true);
+          setStatus("failed");
         }
       }
     };
@@ -53,9 +74,9 @@ export function MermaidDiagram({
     return () => {
       active = false;
     };
-  }, [reactId, source]);
+  }, [source]);
 
-  if (failed) {
+  if (status === "failed") {
     return (
       <div
         role="status"
@@ -67,23 +88,26 @@ export function MermaidDiagram({
     );
   }
 
-  if (!svg) {
-    return (
-      <div
-        role="status"
-        className="grid min-h-56 place-items-center rounded-xl bg-white/55 text-sm text-[#777386]"
-      >
-        Rendering diagram…
-      </div>
-    );
-  }
-
   return (
     <div
-      role="img"
-      aria-label={`${title}. ${description}`}
-      className="mermaid-diagram overflow-auto rounded-xl border border-[#d7d4e8] bg-white p-4"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+      role={status === "ready" ? "img" : undefined}
+      aria-label={status === "ready" ? `${title}. ${description}` : undefined}
+      aria-busy={status === "loading"}
+      className="mermaid-diagram relative min-h-56 overflow-auto rounded-xl border border-[#d7d4e8] bg-white p-4"
+    >
+      <div
+        ref={renderHostRef}
+        aria-hidden={status !== "ready"}
+        className={status === "ready" ? undefined : "invisible"}
+      />
+      {status === "loading" ? (
+        <div
+          role="status"
+          className="absolute inset-0 grid place-items-center bg-white/55 text-sm text-[#777386]"
+        >
+          Rendering diagram…
+        </div>
+      ) : null}
+    </div>
   );
 }

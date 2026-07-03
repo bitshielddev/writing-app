@@ -382,12 +382,12 @@ nextZIndex          monotonic stacking counter for workspace cards</code></pre><
 <ul>
 <li>the <code>mermaid</code> package is imported once, lazily;</li>
 <li>the singleton is initialized with <code>securityLevel: &quot;strict&quot;</code> and <code>startOnLoad: false</code>;</li>
-<li>React IDs are sanitized into per-render Mermaid IDs;</li>
-<li>the rendered SVG is injected into a <code>role=&quot;img&quot;</code> container with a combined title and accessible description;</li>
+<li>untrusted diagram source is assigned to a dedicated render host as text before Mermaid processes it;</li>
+<li>Mermaid&#39;s managed-node API renders its sanitized SVG into a <code>role=&quot;img&quot;</code> container with a combined title and accessible description;</li>
 <li>errors render the description as a visible fallback;</li>
 <li>the effect ignores late async results after unmount.</li>
 </ul>
-<p>Because SVG injection is deliberate, keep Mermaid in strict mode and treat source strings as untrusted when replacing the injected feed.</p>
+<p>Keep Mermaid in strict mode and preserve the text-only application boundary when changing the rendering integration.</p>
 </article>
           <nav class="page-pagination" aria-label="Documentation pages">
     <a class="page-pagination__link page-pagination__link--previous" href="desktop-runtime.html"><span>Previous</span><strong>← Desktop & Pi</strong></a>
