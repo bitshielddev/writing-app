@@ -209,9 +209,9 @@ Mind maps use [`MermaidDiagram`](../src/components/MermaidDiagram.tsx):
 
 - the `mermaid` package is imported once, lazily;
 - the singleton is initialized with `securityLevel: "strict"` and `startOnLoad: false`;
-- React IDs are sanitized into per-render Mermaid IDs;
-- the rendered SVG is injected into a `role="img"` container with a combined title and accessible description;
+- untrusted diagram source is assigned to a dedicated render host as text before Mermaid processes it;
+- Mermaid's managed-node API renders its sanitized SVG into a `role="img"` container with a combined title and accessible description;
 - errors render the description as a visible fallback;
 - the effect ignores late async results after unmount.
 
-Because SVG injection is deliberate, keep Mermaid in strict mode and treat source strings as untrusted when replacing the injected feed.
+Keep Mermaid in strict mode and preserve the text-only application boundary when changing the rendering integration.
