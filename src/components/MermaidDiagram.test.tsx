@@ -29,7 +29,6 @@ function appendRenderedSvg(host: HTMLElement) {
 }
 
 beforeEach(() => {
-  mermaidMocks.initialize.mockClear();
   mermaidMocks.run.mockReset();
 });
 
@@ -93,6 +92,72 @@ describe("MermaidDiagram", () => {
     await screen.findByRole("img", { name: /Untrusted map/ });
     expect(receivedSource).toBe(source);
     expect(sourceCreatedElements).toBe(false);
+  });
+
+  it("isolates concurrent diagram renders while initializing Mermaid once", async () => {
+    const firstSource = "mindmap\n  root((First))";
+    const secondSource = "mindmap\n  root((Second))";
+    const pendingRuns: Array<{
+      host: HTMLElement;
+      resolve: () => void;
+      reject: (error: Error) => void;
+    }> = [];
+
+    mermaidMocks.run.mockImplementation(
+      (options: RunOptions) =>
+        new Promise<void>((resolve, reject) => {
+          pendingRuns.push({
+            host: renderHost(options),
+            resolve,
+            reject,
+          });
+        }),
+    );
+
+    render(
+      <>
+        <MermaidDiagram
+          source={firstSource}
+          title="First map"
+          description="First description"
+        />
+        <MermaidDiagram
+          source={secondSource}
+          title="Second map"
+          description="Second description"
+        />
+      </>,
+    );
+
+    await waitFor(() => expect(pendingRuns).toHaveLength(2));
+    const firstRun = pendingRuns.find(
+      ({ host }) => host.textContent === firstSource,
+    );
+    const secondRun = pendingRuns.find(
+      ({ host }) => host.textContent === secondSource,
+    );
+
+    expect(firstRun).toBeDefined();
+    expect(secondRun).toBeDefined();
+    expect(firstRun?.host).not.toBe(secondRun?.host);
+    expect(mermaidMocks.initialize).toHaveBeenCalledTimes(1);
+
+    appendRenderedSvg(secondRun!.host);
+    await act(async () => secondRun!.resolve());
+
+    expect(
+      screen.getByRole("img", { name: "Second map. Second description" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("img", { name: "First map. First description" }),
+    ).toBeNull();
+
+    await act(async () => firstRun!.reject(new Error("First render failed")));
+
+    expect(await screen.findByText("Diagram unavailable")).toBeTruthy();
+    expect(
+      screen.getByRole("img", { name: "Second map. Second description" }),
+    ).toBeTruthy();
   });
 
   it("shows the accessible fallback when Mermaid rejects the source", async () => {
