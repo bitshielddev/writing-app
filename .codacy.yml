@@ -1,4 +1,9 @@
 ---
+engines:
+  metric:
+    exclude_paths:
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
 exclude_paths:
   - "docs/**"
   - "artifacts/**"
