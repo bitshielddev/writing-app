@@ -184,7 +184,7 @@ Inspect `dist/index.html`. Built script, stylesheet, module-preload, and lazy-ch
 
 ### Electron starts but no window appears
 
-Run Electron with logging enabled and inspect `Desktop startup failed` plus utility-process stderr. Main waits for both storage and agent readiness before creating the window. Keep the ES-module entry free of a top-level `await app.whenReady()`; startup must be attached with `app.whenReady().then(start)` so module evaluation can complete.
+Run Electron with logging enabled and inspect `Desktop startup failed` plus utility-process stderr. A database compatibility or integrity failure also displays the affected path and recovery guidance; preserve that file and adjacent migration backups before troubleshooting. Main waits for both storage and agent readiness before creating the window. Keep the ES-module entry free of a top-level `await app.whenReady()`; startup must be attached with `app.whenReady().then(start)` so module evaluation can complete.
 
 Wayland compositor capability warnings are not, by themselves, evidence that window creation failed. Diagnose renderer load failures and utility-process startup before forcing an X11 backend.
 

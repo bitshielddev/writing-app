@@ -20,7 +20,11 @@ import {
   createAgentMessageHandler,
   createStorageMessageHandler,
 } from "./process-messages.js";
-import { runDesktopStartup, startDesktop } from "./startup.js";
+import {
+  databaseStartupGuidance,
+  runDesktopStartup,
+  startDesktop,
+} from "./startup.js";
 import type {
   AgentRuntime,
   DesktopEvent,
@@ -230,6 +234,8 @@ void runDesktopStartup(
   },
   (error) => {
     console.error("Desktop startup failed", error);
+    const guidance = databaseStartupGuidance(error);
+    if (guidance) dialog.showErrorBox("Workspace database could not be opened", guidance);
     app.quit();
   },
 );

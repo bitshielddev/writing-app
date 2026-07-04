@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { deferred } from "../src/test/desktopBridgeHarness";
 import {
+  databaseStartupGuidance,
   runDesktopStartup,
   startDesktop,
   type DesktopProcess,
 } from "./startup";
+import { ChildStartupError } from "./child-rpc";
 
 function processHarness(ready: Promise<void>, calls: string[], name: string) {
   return {
@@ -80,5 +82,16 @@ describe("desktop startup", () => {
     const onFailure = vi.fn();
     await runDesktopStartup(async () => Promise.reject(failure), onFailure);
     expect(onFailure).toHaveBeenCalledWith(failure);
+  });
+
+  it("formats actionable database recovery guidance with the affected path", () => {
+    const guidance = databaseStartupGuidance(new ChildStartupError(
+      "DATABASE_MIGRATION_FAILED",
+      "Migration add-index failed",
+      "/data/scribe.sqlite3",
+    ));
+    expect(guidance).toContain("Migration add-index failed");
+    expect(guidance).toContain("/data/scribe.sqlite3");
+    expect(guidance).toContain("was not reset");
   });
 });

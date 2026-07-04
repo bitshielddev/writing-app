@@ -57,7 +57,11 @@ Hydration includes the current launch's ring, so renderer reload retains diagnos
 
 ## Startup and failure behaviour
 
-Storage is started first, creates/repairs the workspace mirror, and reports readiness. Main then initializes the Pi process, waits for its readiness diagnostic, registers renderer IPC, creates the window, and delivers the current revision without starting a model cycle. Utility process startup failure is fatal; provider/tool failures put the enabled autonomous loop to sleep in `error` until a newer project revision arrives or the writer stops and starts it.
+Storage is started first, inspects and opens the database, creates/repairs the workspace mirror, and reports readiness. Main then initializes the Pi process, waits for its readiness diagnostic, registers renderer IPC, creates the window, and delivers the current revision without starting a model cycle. Utility process startup failure is fatal; provider/tool failures put the enabled autonomous loop to sleep in `error` until a newer project revision arrives or the writer stops and starts it.
+
+Database startup is preserving. A truly empty version-0 file receives the current schema. A current database is validated and bootstrapped idempotently. Known version-0 tables, corrupt data, foreign-key violations, and databases from newer application versions stop startup without reset; main reports the database path and recovery guidance. Released migrations must be forward-only and contiguous, update `user_version` in the same transaction as their schema change, and use a checkpointed backup when marked risky. Failed-migration backups are retained beside `scribe.sqlite3` with a `.failed.bak` suffix.
+
+When authoring a schema release, bump `DATABASE_VERSION` once, add exactly one migration, add preceding/current schema fixtures, cover preservation and rollback failure, and update compatibility documentation. The executable checklist is also kept beside the migration framework in `desktop/database.ts`.
 
 Production loads `dist/index.html` through `BrowserWindow.loadFile`; Vite therefore uses `base: "./"`. Development loads `VITE_DEV_SERVER_URL` in Electron and adds the isolated mock-suggestion window. Context isolation remains enabled and Node integration disabled.
 

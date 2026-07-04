@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension Review: Preserving database startup</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2933;
+      --muted: #64748b;
+      --soft: #f8fafc;
+      --panel: #ffffff;
+      --line: #dbe3ef;
+      --code: #101827;
+      --code-text: #d7e5ff;
+      --accent: #2456a6;
+      --accent-soft: #e8f0ff;
+      --warn: #8a4b0f;
+      --warn-soft: #fff5df;
+      --ok: #166534;
+      --ok-soft: #e9f8ee;
+      --bad: #9f1239;
+      --bad-soft: #fff0f3;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f7f9fc 0%, #ffffff 26rem);
+      color: var(--ink);
+    }
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 42px 24px 72px;
+    }
+    header {
+      display: grid;
+      gap: 18px;
+      max-width: 860px;
+      margin-bottom: 34px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+    }
+    h1 {
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      line-height: 1.04;
+      margin: 0;
+      letter-spacing: -0.04em;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+    }
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 1.08rem;
+    }
+    p, li {
+      line-height: 1.68;
+      font-size: 1rem;
+    }
+    p {
+      margin: 0 0 14px;
+    }
+    a { color: var(--accent); }
+    .lead {
+      font-size: 1.15rem;
+      color: #3b4a5f;
+      max-width: 780px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.75);
+      border-radius: 999px;
+      padding: 7px 12px;
+      color: #475569;
+      font-size: 0.88rem;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 28px;
+      align-items: start;
+    }
+    nav {
+      position: sticky;
+      top: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.86);
+      backdrop-filter: blur(12px);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    nav strong {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 0.92rem;
+    }
+    nav a {
+      display: block;
+      color: #526173;
+      text-decoration: none;
+      padding: 7px 0;
+      font-size: 0.92rem;
+      border-top: 1px solid #eef2f7;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 26px;
+      margin-bottom: 22px;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.045);
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      background: var(--soft);
+    }
+    .card p:last-child, .callout p:last-child { margin-bottom: 0; }
+    .callout {
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin: 18px 0;
+      border: 1px solid var(--line);
+      background: var(--accent-soft);
+    }
+    .callout.warn { background: var(--warn-soft); border-color: #f4d7a4; color: #65360b; }
+    .callout.ok { background: var(--ok-soft); border-color: #bbebc7; color: #14532d; }
+    .callout.bad { background: var(--bad-soft); border-color: #fecdd3; color: #881337; }
+    .file-map {
+      display: grid;
+      gap: 10px;
+    }
+    .file-row {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 14px;
+      padding: 12px 0;
+      border-top: 1px solid #eef2f7;
+    }
+    .file-row code {
+      color: #0f172a;
+      background: #eef4ff;
+      border: 1px solid #dae7ff;
+      padding: 3px 6px;
+      border-radius: 7px;
+      font-size: 0.88rem;
+    }
+    .flow {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0;
+    }
+    .flow-step {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfdff;
+    }
+    .num {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    pre {
+      margin: 14px 0 18px;
+      padding: 16px;
+      overflow-x: auto;
+      background: var(--code);
+      color: var(--code-text);
+      border-radius: 16px;
+      border: 1px solid #263349;
+      line-height: 1.55;
+      font-size: 0.9rem;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+    pre mark {
+      background: rgba(250, 204, 21, 0.22);
+      color: inherit;
+      padding: 0 2px;
+      border-radius: 4px;
+    }
+    .before-after {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .label {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 12px;
+      border-top: 1px solid #e8eef7;
+      line-height: 1.55;
+    }
+    th { color: #334155; background: #f8fafc; }
+    details {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin: 12px 0;
+      background: #fbfdff;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: #1e3a5f;
+    }
+    .question {
+      margin-top: 16px;
+    }
+    .question p { margin-top: 10px; }
+    .muted { color: var(--muted); }
+    @media (max-width: 880px) {
+      main { grid-template-columns: 1fr; }
+      nav { position: static; }
+      .two-col, .before-after { grid-template-columns: 1fr; }
+      .file-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="eyebrow">Comprehension review</div>
+      <h1>Database startup now preserves first and asks for help second</h1>
+      <p class="lead">This change moves SQLite opening out of <code>desktop/storage.ts</code> into a dedicated database lifecycle module. The behaviour that matters most: existing workspace data is no longer dropped just because <code>user_version</code> is unexpected.</p>
+      <div class="meta">
+        <span class="pill">Working tree review</span>
+        <span class="pill">Targeted tests: 22 passed</span>
+        <span class="pill">Built on recent desktop boundary work</span>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <section id="orientation">
+          <h2>The startup path affected by this diff</h2>
+          <p>The previous startup path opened the storage database inside <code>desktop/storage.ts</code>, checked <code>PRAGMA user_version</code>, and rebuilt the schema if the version was not exactly <code>2</code>. The new path inspects the database before opening it for writes, classifies failure modes, and sends a structured startup error back to the Electron main process.</p>
+
+          <div class="flow">
+            <div class="flow-step"><div class="num">1</div><div><strong>Main starts storage first.</strong><br><span class="muted"><code>startDesktop()</code> still waits for <code>storage.ready</code> before spawning the agent or creating a window.</span></div></div>
+            <div class="flow-step"><div class="num">2</div><div><strong>Storage calls <code>openApplicationDatabase(dbPath)</code>.</strong><br><span class="muted">The inspection and schema creation/migration rules now live in <code>desktop/database.ts</code>.</span></div></div>
+            <div class="flow-step"><div class="num">3</div><div><strong>Known database failures become <code>startup.error</code>.</strong><br><span class="muted">The child process posts a structured message before throwing, so the parent can distinguish database compatibility problems from a generic utility-process crash.</span></div></div>
+            <div class="flow-step"><div class="num">4</div><div><strong>Main shows recovery guidance and quits.</strong><br><span class="muted">Only <code>ChildStartupError</code>s whose code starts with <code>DATABASE_</code> get the database-specific dialog text.</span></div></div>
+          </div>
+
+          <div class="callout ok">
+            <p><strong>History context.</strong> The recent <code>a3def0f</code> / PR #2 desktop boundary work introduced the <code>ChildRpc</code>, startup orchestration, and process contracts this diff extends. The latest committed feature, <code>f2a6258</code>, focused on suggestion persistence. This change returns to the desktop storage boundary and hardens startup before more state accumulates in SQLite.</p>
+          </div>
+        </section>
+
+        <section id="files">
+          <h2>The changed files, grouped by responsibility</h2>
+          <div class="file-map">
+            <div class="file-row"><code>desktop/database.ts</code><div>New database lifecycle module: schema SQL, inspection, migration registry validation, backups, migration execution, and <code>openApplicationDatabase()</code>.</div></div>
+            <div class="file-row"><code>desktop/storage.ts</code><div>Deletes inline schema-reset logic and delegates opening to <code>openApplicationDatabase()</code>. Posts structured startup errors when opening fails.</div></div>
+            <div class="file-row"><code>src/shared/contracts.ts</code><div>Adds the child-to-parent <code>startup.error</code> message variant and tracks it in <code>CHILD_MESSAGE_KINDS</code>.</div></div>
+            <div class="file-row"><code>desktop/child-rpc.ts</code><div>Validates <code>startup.error</code> payloads and converts them into <code>ChildStartupError</code> instances that reject <code>ready</code>.</div></div>
+            <div class="file-row"><code>desktop/startup.ts</code> + <code>desktop/main.ts</code><div>Formats database-specific recovery guidance and displays it through Electron's <code>dialog.showErrorBox()</code>.</div></div>
+            <div class="file-row"><code>desktop/database.test.ts</code> + fixture</div><div>Adds preservation, corruption, migration, backup, registry, and pruning coverage around the new module.</div></div>
+            <div class="file-row"><code>docs/*</code></div><div>Documents preserving startup behaviour, migration release rules, and recovery guidance. The <code>docs/html/*</code> files are generated documentation output.</div></div>
+          </div>
+        </section>
+
+        <section id="before-after">
+          <h2>The behavioural turn: from reset-on-mismatch to classify-before-write</h2>
+          <p>The most consequential removed code was the unconditional reset when <code>user_version</code> differed from the compiled database version. That treated older, newer, and partly corrupted databases the same way.</p>
+
+          <div class="before-after">
+            <div>
+              <span class="label">Before, removed from <code>desktop/storage.ts</code></span>
+<pre><code>const currentVersion = db.prepare("PRAGMA user_version").get() as {
+  user_version: number;
+};
+if (currentVersion.user_version !== DATABASE_VERSION) {
+  db.exec(`
+    DROP TABLE IF EXISTS agent_transcript;
+    DROP TABLE IF EXISTS agent_runs;
+    DROP TABLE IF EXISTS agent_memory;
+    DROP TABLE IF EXISTS provider_settings;
+    DROP TABLE IF EXISTS event_outbox;
+    DROP TABLE IF EXISTS suggestion_state;
+    DROP TABLE IF EXISTS sources;
+    DROP TABLE IF EXISTS documents;
+    DROP TABLE IF EXISTS projects;
+    DROP TABLE IF EXISTS app_meta;
+  `);
+}</code></pre>
+            </div>
+            <div>
+              <span class="label">Now, in <code>desktop/storage.ts</code></span>
+<pre><code>let db: DatabaseSync;
+try {
+  db = openApplicationDatabase(dbPath);
+} catch (error) {
+  const startupError = error instanceof DatabaseStartupError
+    ? error
+    : new DatabaseStartupError(
+        "DATABASE_CORRUPT",
+        dbPath,
+        error instanceof Error ? error.message : String(error),
+        { cause: error },
+      );
+  process.parentPort?.postMessage({
+    <mark>kind: "startup.error",</mark>
+    error: {
+      code: startupError.code,
+      message: startupError.message,
+      databasePath: startupError.databasePath,
+    },
+  });
+  throw startupError;
+}</code></pre>
+            </div>
+          </div>
+
+          <p>The new invariant is visible in the catch block: if storage cannot safely open the database, it reports the failure and then stops. It does not fall back to an empty workspace.</p>
+        </section>
+
+        <section id="inspection">
+          <h2>How the new opener decides what is safe</h2>
+          <p><code>openApplicationDatabase()</code> begins with a read-only inspection when the database file already exists. That order matters because newer or suspicious files should not be opened for writes before the app knows what they are.</p>
+
+<pre><code>export function openApplicationDatabase(
+  databasePath: string,
+  migrations: readonly DatabaseMigration[] = [],
+) {
+  validateMigrationRegistry(migrations);
+  let initialInspection: DatabaseInspection = { kind: "empty", version: 0 };
+  if (databasePath !== ":memory:" && existsSync(databasePath)) {
+    let inspectionDb: DatabaseSync | undefined;
+    try {
+      inspectionDb = openReadOnly(databasePath);
+      <mark>initialInspection = inspectDatabase(inspectionDb);</mark>
+    } catch (error) {
+      throw new DatabaseStartupError(
+        "DATABASE_CORRUPT",
+        databasePath,
+        error instanceof Error ? error.message : String(error),
+        { cause: error },
+      );
+    } finally {
+      inspectionDb?.close();
+    }
+  }
+  const inspectionError = errorForInspection(initialInspection, databasePath);
+  if (inspectionError) throw inspectionError;
+
+  const db = new DatabaseSync(databasePath, {
+    enableForeignKeyConstraints: true,
+    timeout: 5_000,
+  });
+  try {
+    db.exec("PRAGMA journal_mode = WAL");
+    db.exec("PRAGMA synchronous = FULL");
+    if (initialInspection.kind === "empty") createCurrentDatabase(db);
+    if (initialInspection.kind === "older") {
+      runMigrations({ db, databasePath, migrations });
+    }
+    const finalInspection = inspectDatabase(db);
+    const finalError = errorForInspection(finalInspection, databasePath);
+    if (finalError) throw finalError;
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
+}</code></pre>
+
+          <table>
+            <thead><tr><th>Inspection result</th><th>Meaning in this diff</th><th>Startup behaviour</th></tr></thead>
+            <tbody>
+              <tr><td><code>empty</code></td><td><code>user_version = 0</code> and no known application tables.</td><td>Create the current schema in a transaction and set <code>user_version = 2</code>.</td></tr>
+              <tr><td><code>supported</code></td><td>The database is version <code>2</code>, has all required tables, and passes checks.</td><td>Open normally, then storage bootstraps default rows with <code>INSERT OR IGNORE</code>.</td></tr>
+              <tr><td><code>older</code></td><td>Reachable when <code>MINIMUM_SUPPORTED_DATABASE_VERSION</code> is below <code>DATABASE_VERSION</code>.</td><td>Run contiguous migrations. In this exact diff both constants are <code>2</code>, so no production migration is active yet.</td></tr>
+              <tr><td><code>newer</code></td><td>The file was written by a newer app release.</td><td>Throw <code>DATABASE_TOO_NEW</code>; do not rewrite it.</td></tr>
+              <tr><td><code>legacy-unknown</code></td><td>Version <code>0</code> but known app tables are present.</td><td>Throw <code>DATABASE_LEGACY_UNKNOWN</code>; preserve the file for manual recovery.</td></tr>
+              <tr><td><code>corrupt</code></td><td>SQLite quick check, foreign-key check, required table check, or version support failed.</td><td>Throw <code>DATABASE_CORRUPT</code>.</td></tr>
+            </tbody>
+          </table>
+
+          <div class="callout warn">
+            <p><strong>Subtle point:</strong> <code>older</code> exists in the model, but current constants make it unavailable for real versioned files below <code>2</code>. The migration machinery is being introduced ahead of the next schema bump.</p>
+          </div>
+        </section>
+
+        <section id="migrations">
+          <h2>The migration framework is stricter than the current schema needs</h2>
+          <p>The code now defines the rules future migrations must obey. A migration must advance exactly one version, the registry must form the full contiguous path, and risky migrations can ask for a checkpointed backup before running.</p>
+
+<pre><code>function migrationPath(
+  migrations: readonly DatabaseMigration[],
+  fromVersion: number,
+  targetVersion: number,
+) {
+  const edges = new Map&lt;number, DatabaseMigration&gt;();
+  for (const migration of migrations) {
+    if (migration.toVersion !== migration.fromVersion + 1) {
+      throw new Error(`Migration ${migration.name} must advance exactly one version`);
+    }
+    if (edges.has(migration.fromVersion)) {
+      throw new Error(`Duplicate migration from version ${migration.fromVersion}`);
+    }
+    edges.set(migration.fromVersion, migration);
+  }
+  const path: DatabaseMigration[] = [];
+  for (let version = fromVersion; version &lt; targetVersion; version += 1) {
+    const migration = edges.get(version);
+    if (!migration || migration.toVersion !== version + 1) {
+      throw new Error(`No contiguous migration path from version ${version} to ${targetVersion}`);
+    }
+    path.push(migration);
+  }
+  return path;
+}</code></pre>
+
+          <p>When a risky migration fails, the schema transaction rolls back and the backup name is changed from <code>.bak</code> to <code>.failed.bak</code>. The failed backup is intentionally excluded from successful-backup pruning.</p>
+
+<pre><code>if (transactionStarted) db.exec("ROLLBACK");
+if (backup) {
+  const failedBackup = backup.replace(/\.bak$/, ".failed.bak");
+  renameSync(backup, failedBackup);
+  backup = failedBackup;
+}
+throw new DatabaseStartupError(
+  "DATABASE_MIGRATION_FAILED",
+  databasePath,
+  `Migration ${migration.name} failed.${backup ? ` Recovery backup: ${backup}` : ""}`,
+  { cause: error },
+);</code></pre>
+
+          <div class="two-col">
+            <div class="card">
+              <h3>What is protected</h3>
+              <p>Versioned fixture rows for projects, documents, sources, suggestion state, and outbox are asserted to survive a normal open. Failed migration tests assert the partial table is gone after rollback and the original fixture row remains.</p>
+            </div>
+            <div class="card">
+              <h3>What remains a future concern</h3>
+              <p>No real migration is registered by this change. The tests use synthetic migrations through <code>runMigrations()</code>, so the next schema release will still need to wire its migration into <code>openApplicationDatabase()</code>.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="error-transport">
+          <h2>The error now survives the process boundary</h2>
+          <p>The shared contract adds a specific child message for startup failures. <code>ChildRpc</code> validates the shape before trusting it, then rejects <code>ready</code> with a typed error.</p>
+
+<pre><code>export type ChildMessage =
+  | { kind: "ready" }
+  | {
+      <mark>kind: "startup.error";</mark>
+      error: { code: string; message: string; databasePath?: string };
+    }
+  | RpcResult
+  | { kind: "domain.event"; event: DesktopEvent }
+  | { kind: "storage.request"; id: string; method: string; params?: unknown }
+  | { kind: "agent.request"; id: string; method: string; params?: unknown };</code></pre>
+
+<pre><code>if (message.kind === "startup.error") {
+  this.disposeWithError(new ChildStartupError(
+    message.error.code,
+    message.error.message,
+    message.error.databasePath,
+  ));
+  return;
+}</code></pre>
+
+          <p>The malformed-message test is important because utility-process messages cross a runtime boundary as <code>unknown</code>. A bad <code>startup.error</code> payload is ignored and does not poison the startup promise:</p>
+
+<pre><code>child.emit("message", { kind: "startup.error" });
+child.emit("message", {
+  kind: "startup.error",
+  error: { code: 5, message: "invalid" },
+});
+child.emit("message", {
+  kind: "startup.error",
+  error: { code: "DATABASE_CORRUPT", message: "invalid", databasePath: 5 },
+});
+child.emit("message", { kind: "ready" });
+return expect(rpc.ready).resolves.toBeUndefined();</code></pre>
+        </section>
+
+        <section id="user-facing">
+          <h2>The user-facing failure is intentionally narrow</h2>
+          <p>The Electron dialog is only shown when the error reaches main as a <code>ChildStartupError</code> with a database-prefixed code. A crashed storage process still follows the existing generic <code>Desktop startup failed</code> logging and quit path.</p>
+
+<pre><code>export function databaseStartupGuidance(error: unknown) {
+  if (!(error instanceof ChildStartupError) || !error.code.startsWith("DATABASE_")) {
+    return undefined;
+  }
+  const path = error.databasePath ?? "the local workspace database";
+  return [
+    "ScribeAI could not open the writing workspace.",
+    error.message,
+    `Your data was not reset. Preserve ${path} and any adjacent .bak files before attempting recovery.`,
+  ].join("\n\n");
+}</code></pre>
+
+<pre><code>void runDesktopStartup(
+  async () =&gt; {
+    await app.whenReady();
+    await start();
+  },
+  (error) =&gt; {
+    console.error("Desktop startup failed", error);
+    const guidance = databaseStartupGuidance(error);
+    if (guidance) dialog.showErrorBox("Workspace database could not be opened", guidance);
+    app.quit();
+  },
+);</code></pre>
+
+          <div class="callout">
+            <p><strong>Debugging clue:</strong> if a user reports seeing the new dialog, the failure happened before the workspace window was created and before the agent process was spawned. Start with <code>scribe.sqlite3</code>, adjacent <code>.bak</code> files, and the exact <code>DATABASE_*</code> code in the message.</p>
+          </div>
+        </section>
+
+        <section id="tests">
+          <h2>What the tests teach about intended behaviour</h2>
+          <p>I ran the focused suite for the changed startup, contract, RPC, and database modules:</p>
+<pre><code>npm test -- --run desktop/database.test.ts desktop/child-rpc.test.ts desktop/startup.test.ts src/shared/contracts.test.ts
+
+Test Files  4 passed (4)
+Tests       22 passed (22)</code></pre>
+
+          <table>
+            <thead><tr><th>Test area</th><th>Behaviour under test</th></tr></thead>
+            <tbody>
+              <tr><td>Current creation</td><td>Empty databases get the strict schema and <code>user_version = 2</code>.</td></tr>
+              <tr><td>Fixture preservation</td><td>A representative version-2 database opens without losing project, document, or source rows.</td></tr>
+              <tr><td>Preserving rejection</td><td>Version-0 known tables and newer databases are rejected without changing file bytes.</td></tr>
+              <tr><td>Migration safety</td><td>Synthetic migrations are atomic, idempotent, validated, backed up when risky, and pruned after success.</td></tr>
+              <tr><td>Process contract</td><td><code>startup.error</code> is listed in the contract inventory and validated by <code>ChildRpc</code>.</td></tr>
+              <tr><td>User guidance</td><td>The recovery message includes the failure detail, affected path, and "was not reset" assurance.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="risks">
+          <h2>Maintenance notes and edge cases</h2>
+          <div class="two-col">
+            <div class="card">
+              <h3>Schema drift risk</h3>
+              <p><code>CURRENT_SCHEMA_SQL</code>, <code>APPLICATION_TABLES</code>, the schema fixture, and storage's query expectations must stay aligned. If a table is added but omitted from <code>APPLICATION_TABLES</code>, inspection will not verify it.</p>
+            </div>
+            <div class="card">
+              <h3>Migration registration risk</h3>
+              <p><code>openApplicationDatabase()</code> defaults to an empty migration list. When <code>DATABASE_VERSION</code> increases, the caller or module will need to provide the migration registry or validation will reject older supported files.</p>
+            </div>
+            <div class="card">
+              <h3>Filesystem assumptions</h3>
+              <p>Risky backups use <code>wal_checkpoint(TRUNCATE)</code>, copy the database file, fsync the copy, and validate it read-only. This is stronger than a raw copy, but recovery still depends on preserving files beside <code>scribe.sqlite3</code>.</p>
+            </div>
+            <div class="card">
+              <h3>Message identity</h3>
+              <p><code>databaseStartupGuidance()</code> relies on <code>instanceof ChildStartupError</code>. That is safe for the current in-process main-side error object from <code>ChildRpc</code>; a plain serialized error would not trigger guidance.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="questions">
+          <h2>Comprehension check</h2>
+          <p>Use these as a quick self-check before modifying this path.</p>
+
+          <div class="question">
+            <details>
+              <summary>1. A user's database has <code>PRAGMA user_version = 99</code>. What path does startup take now?</summary>
+              <p><code>inspectDatabase()</code> returns <code>{ kind: "newer", version: 99 }</code>. <code>errorForInspection()</code> turns that into <code>DATABASE_TOO_NEW</code>. Storage posts <code>startup.error</code>, <code>ChildRpc.ready</code> rejects with <code>ChildStartupError</code>, main shows database recovery guidance, and the app quits without rewriting the file.</p>
+            </details>
+          </div>
+
+          <div class="question">
+            <details>
+              <summary>2. Why does the code inspect an existing file with a read-only connection before opening the write connection?</summary>
+              <p>It avoids writing to files that are newer, legacy-unknown, corrupt, foreign-key-invalid, or missing required tables. The tests for newer and legacy-unknown databases assert the file bytes are unchanged after rejection.</p>
+            </details>
+          </div>
+
+          <div class="question">
+            <details>
+              <summary>3. What would break if malformed <code>startup.error</code> messages were accepted without validation?</summary>
+              <p>A child process could reject startup with a poorly shaped error, such as a numeric code or non-string path. That would weaken the process contract and could produce misleading guidance. The new test confirms malformed startup errors are ignored and a later <code>ready</code> can still resolve startup.</p>
+            </details>
+          </div>
+
+          <div class="question">
+            <details>
+              <summary>4. A risky migration creates a table and then throws. Which invariants should hold afterward?</summary>
+              <p>The transaction should roll back, so the partial table should not exist. <code>user_version</code> should remain at the original version. Existing data should still be readable. The backup should be retained with a <code>.failed.bak</code> suffix and validate as a supported database.</p>
+            </details>
+          </div>
+
+          <div class="question">
+            <details>
+              <summary>5. Where would you start debugging if the new dialog appears before any window opens?</summary>
+              <p>Start in the storage startup path: inspect the reported <code>DATABASE_*</code> code, the database path in the guidance, and any adjacent migration backups. The UI window and agent are downstream of <code>storage.ready</code>, so they are unlikely to be the first cause.</p>
+            </details>
+          </div>
+        </section>
+      </div>
+
+      <nav aria-label="Review navigation">
+        <strong>Reading path</strong>
+        <a href="#orientation">Startup path</a>
+        <a href="#files">Changed files</a>
+        <a href="#before-after">Behavioural turn</a>
+        <a href="#inspection">Inspection rules</a>
+        <a href="#migrations">Migration framework</a>
+        <a href="#error-transport">Process boundary</a>
+        <a href="#user-facing">User-facing failure</a>
+        <a href="#tests">Test impact</a>
+        <a href="#risks">Maintenance notes</a>
+        <a href="#questions">Comprehension check</a>
+      </nav>
+    </main>
+  </div>
+</body>
+</html>
