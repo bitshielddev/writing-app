@@ -9,6 +9,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && tsc -p tsconfig.desktop.json --noEmit && vite build",
+    "bundle:check": "node scripts/bundle-budget.mjs --check",
+    "bundle:report": "node scripts/bundle-budget.mjs --report",
+    "startup:measure": "node scripts/measure-startup.mjs",
     "desktop": "npm run build && electron .",
     "package": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",

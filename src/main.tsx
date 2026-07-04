@@ -4,7 +4,10 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { RuntimeRequired } from "./components/RuntimeRequired";
 import { getDesktopBridge } from "./desktop/desktopClient";
+import { markPerformance, PERFORMANCE_MARKS } from "./performance/marks";
 import "./index.css";
+
+markPerformance(PERFORMANCE_MARKS.bootstrap);
 
 const MOCK_SUGGESTION_PATH = "/mock-suggestions";
 const MockSuggestionController = import.meta.env.DEV

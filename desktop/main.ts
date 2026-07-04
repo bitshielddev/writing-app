@@ -36,7 +36,8 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const developmentServerUrl = process.env.VITE_DEV_SERVER_URL;
-const isDevelopment = Boolean(developmentServerUrl);
+const isDevelopment = import.meta.env.DEV;
+const measureStartup = process.argv.includes("--measure-startup");
 let storage: ChildRpc;
 let agent: ChildRpc;
 let workspaceWindow: BrowserWindow | undefined;
@@ -124,6 +125,32 @@ function createWindow() {
     webPreferences: secureWebPreferences(isDevelopment),
   });
   workspaceWindow = window;
+  if (measureStartup) {
+    window.webContents.once("did-finish-load", () => {
+      const deadline = Date.now() + 30_000;
+      const collect = async () => {
+        const marks = await window.webContents.executeJavaScript(
+          `Object.fromEntries(performance.getEntriesByType("mark").map(({ name, startTime }) => [name, startTime]))`,
+        ) as Record<string, number>;
+        if (
+          marks["scribe:react-mounted"] !== undefined &&
+          marks["scribe:hydration-complete"] !== undefined &&
+          marks["scribe:editor-ready"] !== undefined
+        ) {
+          console.log(`SCRIBE_STARTUP ${JSON.stringify(marks)}`);
+          app.quit();
+          return;
+        }
+        if (Date.now() >= deadline) {
+          console.error("Startup measurement timed out", marks);
+          app.exit(1);
+          return;
+        }
+        setTimeout(() => void collect(), 25);
+      };
+      void collect();
+    });
+  }
   window.on("closed", () => {
     if (workspaceWindow === window) workspaceWindow = undefined;
   });

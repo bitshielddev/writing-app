@@ -20,10 +20,49 @@ function cleanElectronOutput(): Plugin {
   };
 }
 
+function bundleMetadata(): Plugin {
+  const projectRoot = fileURLToPath(new URL(".", import.meta.url)).replaceAll(
+    "\\",
+    "/",
+  );
+  return {
+    name: "bundle-metadata",
+    apply: "build",
+    generateBundle(_options, bundle) {
+      const chunks = Object.values(bundle)
+        .filter((output) => output.type === "chunk")
+        .map((chunk) => ({
+          file: chunk.fileName,
+          entry: chunk.isEntry,
+          dynamicEntry: chunk.isDynamicEntry,
+          imports: [...chunk.imports].sort(),
+          dynamicImports: [...chunk.dynamicImports].sort(),
+          modules: Object.entries(chunk.modules)
+            .map(([id, details]) => ({
+              id: id.replaceAll("\\", "/").replace(`${projectRoot}/`, ""),
+              renderedBytes: details.renderedLength,
+            }))
+            .sort((left, right) =>
+              right.renderedBytes - left.renderedBytes ||
+              left.id.localeCompare(right.id),
+            ),
+        }))
+        .sort((left, right) => left.file.localeCompare(right.file));
+
+      this.emitFile({
+        type: "asset",
+        fileName: ".vite/bundle-metadata.json",
+        source: `${JSON.stringify({ version: 1, chunks }, null, 2)}\n`,
+      });
+    },
+  };
+}
+
 export default defineConfig({
   base: "./",
   plugins: [
     cleanElectronOutput(),
+    bundleMetadata(),
     react(),
     tailwindcss(),
     electron({
@@ -51,6 +90,9 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    manifest: true,
+  },
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",

@@ -13,6 +13,7 @@ import { useSuggestionInbox } from "../suggestions/inbox";
 import { useSuggestionKeyboardNavigation } from "../suggestions/keyboardNavigation";
 import { useSuggestionPersistence } from "../suggestions/useSuggestionPersistence";
 import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
+import { markPerformance, PERFORMANCE_MARKS } from "../performance/marks";
 import {
   isTextSuggestion,
   type SuggestionItem,
@@ -119,6 +120,7 @@ export function useWorkspaceController(
           if (cancelled) return;
           hydrationInProgressRef.current = false;
           documentHydratedRef.current = true;
+          markPerformance(PERFORMANCE_MARKS.hydrationComplete);
         });
       })
       .catch((error: unknown) => {

@@ -1,4 +1,5 @@
 import { useCreateBlockNote } from "@blocknote/react";
+import { useEffect } from "react";
 
 import { ColumnResizeHandle } from "./components/ColumnResizeHandle";
 import { EditorWorkspace } from "./components/EditorWorkspace";
@@ -7,8 +8,9 @@ import { Sidebar } from "./components/Sidebar";
 import { SuggestionDock } from "./components/SuggestionDock";
 import { writingSchema, type WritingPartialBlock } from "./editor/schema";
 import { KeybindingCommandStrip } from "./keybindings/KeybindingCommandStrip";
-import { KeybindingHelpDialog } from "./keybindings/KeybindingHelpDialog";
+import { KeybindingHelpBoundary } from "./keybindings/KeybindingHelpBoundary";
 import { useWorkspaceKeybindings } from "./keybindings/useWorkspaceKeybindings";
+import { markPerformance, PERFORMANCE_MARKS } from "./performance/marks";
 import type { DesktopBridge } from "./shared/desktop";
 import { useWorkspaceController } from "./workspace/useWorkspaceController";
 import {
@@ -94,6 +96,10 @@ export default function App({ desktop }: AppProps) {
     onUnpin: inbox.unpin,
     onPreview: handlePreview,
   });
+
+  useEffect(() => {
+    markPerformance(PERFORMANCE_MARKS.reactMounted);
+  }, []);
 
   const renderDock = (
     keyboardNavigationActive: boolean,
@@ -242,7 +248,7 @@ export default function App({ desktop }: AppProps) {
       </ResponsiveDrawer>
 
       <KeybindingCommandStrip state={keybindings.stripState} />
-      <KeybindingHelpDialog
+      <KeybindingHelpBoundary
         open={keybindings.helpOpen}
         onClose={keybindings.closeHelp}
       />

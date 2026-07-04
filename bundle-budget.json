@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "headroomPercent": 5,
+  "entry": {
+    "rawBytes": 1355279,
+    "gzipBytes": 400300
+  },
+  "initial": {
+    "rawBytes": 1364301,
+    "gzipBytes": 403901
+  }
+}

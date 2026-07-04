@@ -8,6 +8,8 @@ import type {
   WorkspacePinRect,
 } from "../suggestions/inbox";
 import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
+import { preloadKeybindingHelp } from "../keybindings/loadKeybindingHelp";
+import { markPerformance, PERFORMANCE_MARKS } from "../performance/marks";
 import { WorkspacePins } from "./WorkspacePins";
 
 type DocumentEditorProps = {
@@ -31,6 +33,14 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   const scrollRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      markPerformance(PERFORMANCE_MARKS.editorReady);
+      preloadKeybindingHelp();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const getInitialWorkspacePinRect = useCallback(
     (pin: WorkspacePin, stackIndex: number) => {
