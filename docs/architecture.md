@@ -52,14 +52,14 @@ The `SuggestionFeed` remains transport-neutral, while its only application adapt
 3. `useWorkspaceLayout` and `useWorkspaceKeybindings` connect controller actions to the responsive layout.
 4. `App` composes the editor, sidebars, dock, drawers, and keyboard surfaces.
 
-The workspace controller memoizes the desktop suggestion feed. Recreating it during a render would resubscribe the inbox to desktop events.
+The workspace controller memoizes an in-memory suggestion feed relay and owns one desktop event subscription. The subscription routes suggestion events into the inbox and applies other desktop events directly.
 
 ## State ownership
 
 | State | Owner | Lifetime / persistence |
 | --- | --- | --- |
 | Editor blocks and selection | BlockNote editor created in `App` | Selection is in-memory; accepted blocks autosave in Electron |
-| Feed subscribers | `createDesktopSuggestionFeed` closure | Renderer lifetime |
+| Feed subscribers | `createSuggestionFeedRelay` closure | Renderer lifetime |
 | Inbox, pins, preview id | `useSuggestionInbox` / `inboxReducer` | Visible suggestion projection persists in Electron; preview identity stays ephemeral |
 | Workspace pin geometry and z-order | Inbox reducer | Persists in Electron |
 | Hydration, autosave queue, sources, last text cursor | `useWorkspaceController` | Current page; durable values cross the desktop bridge |

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { createDesktopSuggestionFeed } from "../desktop/desktopClient";
+import { createSuggestionFeedRelay } from "../desktop/desktopClient";
 import { subscribeToPreviewResolutions } from "../editor/previewEvents";
 import type { WritingEditor, WritingPartialBlock } from "../editor/schema";
 import type {
@@ -12,7 +12,10 @@ import type {
 import { useSuggestionInbox } from "../suggestions/inbox";
 import { useSuggestionKeyboardNavigation } from "../suggestions/keyboardNavigation";
 import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
-import { isTextSuggestion, type SuggestionItem } from "../suggestions/types";
+import {
+  isTextSuggestion,
+  type SuggestionItem,
+} from "../suggestions/types";
 
 const AUTOSAVE_DELAY_MS = 650;
 const ACTIVITY_LIMIT = 500;
@@ -40,7 +43,8 @@ export function useWorkspaceController(
   desktop: DesktopBridge,
   editor: WritingEditor,
 ) {
-  const feed = useMemo(() => createDesktopSuggestionFeed(desktop), [desktop]);
+  const suggestionFeed = useMemo(() => createSuggestionFeedRelay(), []);
+  const feed = suggestionFeed.feed;
   const saveSuggestionState = useCallback(
     (state: Parameters<DesktopBridge["saveSuggestionState"]>[0]) => {
       void desktop.saveSuggestionState(state).catch((error: unknown) => {
@@ -143,10 +147,11 @@ export function useWorkspaceController(
             setActivity((current) => upsertActivity(current, event.activity));
             break;
           case "suggestion.event":
+            suggestionFeed.emit(event.event);
             break;
         }
       }),
-    [desktop],
+    [desktop, suggestionFeed],
   );
 
   useEffect(

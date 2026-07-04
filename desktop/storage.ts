@@ -26,11 +26,7 @@ import {
 } from "../src/suggestions/state.js";
 import type { SuggestionEvent, SuggestionItem } from "../src/suggestions/types.js";
 import { isSuggestionItem } from "../src/suggestions/validation.js";
-
-type RpcRequest = { kind: "rpc"; id: string; method: string; params?: unknown };
-type RpcResult =
-  | { kind: "rpc.result"; id: string; result: unknown }
-  | { kind: "rpc.result"; id: string; error: string };
+import { createStorageTransport } from "./storage-transport.js";
 
 const PROJECT_ID = "default-project";
 const DOCUMENT_ID = "default-document";
@@ -508,23 +504,13 @@ export async function handleStorageRequest(method: string, params?: unknown) {
 
 await repairDraftMirror();
 
-process.parentPort?.on("message", async ({ data }: { data: RpcRequest }) => {
-  if (data.kind !== "rpc") return;
-  let result: RpcResult;
-  try {
-    result = {
-      kind: "rpc.result",
-      id: data.id,
-      result: await handleStorageRequest(data.method, data.params),
-    };
-  } catch (error) {
-    result = {
-      kind: "rpc.result",
-      id: data.id,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-  process.parentPort?.postMessage(result);
+const handleTransportMessage = createStorageTransport(
+  handleStorageRequest,
+  (message) => process.parentPort?.postMessage(message),
+);
+
+process.parentPort?.on("message", ({ data }: { data: unknown }) => {
+  void handleTransportMessage(data);
 });
 
 process.parentPort?.postMessage({ kind: "ready" });

@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desktop boundary routing walkthrough</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f3ee;
+      --paper: #fffdf9;
+      --ink: #202124;
+      --muted: #60646c;
+      --line: #ddd5c9;
+      --accent: #365f7c;
+      --accent-soft: #e5eef4;
+      --code: #18202b;
+      --code-bg: #f1efe9;
+      --warn: #7a4b12;
+      --warn-bg: #fff5df;
+      --ok: #275d45;
+      --ok-bg: #e8f3ed;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.58 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+      gap: 34px;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 42px 32px 72px;
+    }
+    aside {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      background: rgba(255,253,249,.72);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 12px 28px rgba(52,42,30,.06);
+    }
+    aside h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .11em; color: var(--muted); margin: 0 0 12px; }
+    aside a { display: block; color: var(--accent); text-decoration: none; padding: 7px 0; font-size: 14px; }
+    main { min-width: 0; }
+    header {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 34px 38px;
+      box-shadow: 0 18px 44px rgba(52,42,30,.08);
+    }
+    h1 { font-size: clamp(34px, 5vw, 58px); line-height: 1; letter-spacing: -.04em; margin: 0 0 18px; }
+    .dek { max-width: 780px; color: var(--muted); font-size: 18px; margin: 0; }
+    section {
+      margin-top: 26px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 30px 34px;
+    }
+    h2 { font-size: 27px; line-height: 1.14; letter-spacing: -.02em; margin: 0 0 16px; }
+    h3 { font-size: 18px; margin: 28px 0 10px; }
+    p { max-width: 820px; }
+    .lede { font-size: 17px; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 22px 0; }
+    .card { border: 1px solid var(--line); border-radius: 16px; padding: 16px; background: #fbf8f1; }
+    .card .label { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 8px; }
+    .path { display: grid; gap: 10px; margin: 22px 0; max-width: 860px; }
+    .step { display: grid; grid-template-columns: 160px 1fr; gap: 18px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: #fbf8f1; }
+    .step strong { color: var(--accent); }
+    pre {
+      margin: 16px 0 10px;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code);
+      border: 1px solid #d8d1c4;
+      border-radius: 16px;
+      padding: 18px;
+      font: 13px/1.48 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    mark { background: #d8e9f3; color: inherit; padding: 0 2px; border-radius: 3px; }
+    .note, .risk, .test {
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin: 18px 0;
+      max-width: 860px;
+    }
+    .note { background: var(--accent-soft); border: 1px solid #c5d7e3; }
+    .risk { background: var(--warn-bg); border: 1px solid #efd3a4; color: #4c310d; }
+    .test { background: var(--ok-bg); border: 1px solid #b9d9c9; color: #183f2e; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 10px 8px; }
+    th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    details { border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 12px 0; background: #fbf8f1; }
+    summary { cursor: pointer; color: var(--accent); font-weight: 650; }
+    .small { color: var(--muted); font-size: 14px; }
+    @media (max-width: 900px) {
+      .page { grid-template-columns: 1fr; padding: 22px 16px 48px; }
+      aside { position: static; }
+      .grid { grid-template-columns: 1fr; }
+      .step { grid-template-columns: 1fr; }
+      section, header { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside>
+      <h2>Reading route</h2>
+      <a href="#shape">What moved</a>
+      <a href="#contracts">The shared vocabulary</a>
+      <a href="#desktop-path">Runtime paths</a>
+      <a href="#renderer">Renderer subscription change</a>
+      <a href="#tests">Test signal</a>
+      <a href="#risks">Maintenance notes</a>
+      <a href="#check">Comprehension check</a>
+    </aside>
+
+    <main>
+      <header>
+        <h1>Desktop boundary routing walkthrough</h1>
+        <p class="dek">This change pulls Electron boundary code out of <code>desktop/main.ts</code>, <code>desktop/preload.ts</code>, <code>desktop/storage.ts</code>, and <code>desktop/agent.ts</code> into smaller transport, routing, and startup modules. Runtime behavior is meant to stay the same, while the process contracts become testable without booting Electron.</p>
+      </header>
+
+      <section id="shape">
+        <h2>The change is mostly a boundary extraction</h2>
+        <p class="lede">The old main process owned several jobs in one file: child process RPC, sender validation, IPC handlers, storage event fan-out, agent message handling, startup sequencing, and window creation. The diff keeps the Electron-specific shell in <code>desktop/main.ts</code> and moves the logic into adapters with narrow dependencies.</p>
+
+        <div class="grid">
+          <div class="card">
+            <div class="label">Main process</div>
+            <p><code>desktop/main.ts</code> now creates real Electron objects and delegates to <code>ChildRpc</code>, <code>registerMainIpc</code>, <code>createStorageMessageHandler</code>, <code>createAgentMessageHandler</code>, and <code>startDesktop</code>.</p>
+          </div>
+          <div class="card">
+            <div class="label">Utility processes</div>
+            <p><code>desktop/storage.ts</code> and <code>desktop/agent.ts</code> no longer parse every message inline. They use transport helpers that validate envelopes and correlate results.</p>
+          </div>
+          <div class="card">
+            <div class="label">Renderer</div>
+            <p>The workspace controller owns one desktop event subscription and sends suggestion events into an in-memory relay consumed by <code>useSuggestionInbox</code>.</p>
+          </div>
+        </div>
+
+        <table>
+          <thead><tr><th>File or module</th><th>Role after the change</th></tr></thead>
+          <tbody>
+            <tr><td><code>src/shared/contracts.ts</code></td><td>Names IPC channels, RPC method inventories, process message variants, and event variant inventories.</td></tr>
+            <tr><td><code>desktop/child-rpc.ts</code></td><td>Wraps Electron <code>utilityProcess</code> with ready handling, request IDs, result correlation, stderr forwarding, and cleanup.</td></tr>
+            <tr><td><code>desktop/ipc-routing.ts</code></td><td>Registers renderer invoke handlers behind sender validation.</td></tr>
+            <tr><td><code>desktop/process-messages.ts</code></td><td>Routes domain events from storage and runtime/activity/storage requests from the agent.</td></tr>
+            <tr><td><code>desktop/startup.ts</code></td><td>Captures startup order: storage ready, repair, agent ready, IPC/menu/window, initial revision notification.</td></tr>
+            <tr><td><code>desktop/preload-bridge.ts</code></td><td>Builds the preload API from shared channel constants.</td></tr>
+          </tbody>
+        </table>
+
+        <p class="small">History context: recent commits added a full Pi agent and later a writer-controlled agent process. This diff appears to consolidate that desktop runtime work into contract-centered modules. The two latest Mermaid commits are on the current branch but are unrelated to this desktop boundary change.</p>
+      </section>
+
+      <section id="contracts">
+        <h2>The shared vocabulary is now explicit</h2>
+        <p>The new <code>src/shared/contracts.ts</code> file is the anchor for names that were previously repeated as string literals or local types. This matters because four boundaries need to agree: renderer to preload, preload to main, main to utility children, and agent to storage through main.</p>
+
+<pre><code>export const DESKTOP_INVOKE_CHANNELS = {
+  hydrate: "scribe:hydrate",
+  startAgent: "scribe:agent.start",
+  stopAgent: "scribe:agent.stop",
+  saveDocument: "scribe:document.save",
+  saveSuggestionState: "scribe:suggestions.save",
+  importSource: "scribe:source.import",
+} as const satisfies Record&lt;Exclude&lt;keyof DesktopBridge, "subscribe"&gt;, string&gt;;
+
+export const DESKTOP_EVENT_CHANNEL = "scribe:event" as const;
+export const DEVELOPMENT_SUGGESTION_CHANNEL =
+  "scribe:development.suggestion.create" as const;</code></pre>
+
+        <p>The <code>satisfies</code> clause creates a useful invariant: if <code>DesktopBridge</code> gains another invoke method, TypeScript should force the channel inventory to change too. The subscription method is excluded because it uses the event channel instead of <code>ipcRenderer.invoke</code>.</p>
+
+<pre><code>export type ChildMessage =
+  | { kind: "ready" }
+  | RpcResult
+  | { kind: "domain.event"; event: DesktopEvent }
+  | { kind: "storage.request"; id: string; method: string; params?: unknown }
+  | { kind: "agent.runtime"; runtime: Partial&lt;AgentRuntime&gt; }
+  | { kind: "agent.activity"; activity: Omit&lt;AgentActivity, "updatedAt"&gt; };
+
+export type AgentParentMessage =
+  | { kind: "project.changed"; projectRevision: number; documentRevision: number }
+  | { kind: "rpc"; id: string; method: AgentRpcMethod; params?: unknown }
+  | { kind: "storage.result"; id: string; result?: unknown; error?: string }
+  | { kind: "shutdown" };</code></pre>
+
+        <div class="note">The contract tests do not prove every runtime payload is valid. They do make the inventories visible and fail if someone changes the channel map or message-kind list without acknowledging the boundary change.</div>
+      </section>
+
+      <section id="desktop-path">
+        <h2>Follow the two runtime paths</h2>
+        <p>Most behavioral claims in this diff are about preserving existing flow while moving code. The best way to read it is by following the messages.</p>
+
+        <h3>Path A: renderer calls main</h3>
+        <div class="path">
+          <div class="step"><strong>preload</strong><span><code>createDesktopBridge</code> maps each renderer method to a shared invoke channel.</span></div>
+          <div class="step"><strong>main IPC</strong><span><code>registerMainIpc</code> validates the sender before calling storage or agent RPC.</span></div>
+          <div class="step"><strong>child process</strong><span><code>ChildRpc.call</code> waits for readiness, assigns an ID, sends <code>{ kind: "rpc" }</code>, and resolves only the matching result.</span></div>
+        </div>
+
+<pre><code>const register = (
+  channel: string,
+  handler: (event: MainInvokeEvent, ...args: unknown[]) =&gt; unknown,
+) =&gt; {
+  ipcMain.handle(channel, (event, ...args) =&gt; {
+    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+    return handler(event, ...args);
+  });
+};
+
+register(DESKTOP_INVOKE_CHANNELS.startAgent, async () =&gt; {
+  const seed = await storage.call&lt;ObservationSeed&gt;("agent.seed");
+  return agent.call&lt;AgentRuntime&gt;("agent.start", {
+    projectRevision: seed.projectRevision,
+    documentRevision: seed.documentRevision,
+  });
+});</code></pre>
+
+        <p>The sender check is still on every route because the register helper wraps every handler. Starting the agent still uses storage as the source of the observation seed, then passes revisions to <code>agent.start</code>.</p>
+
+<pre><code>async call&lt;T&gt;(method: string, params?: unknown): Promise&lt;T&gt; {
+  await this.ready;
+  if (this.disposed) throw new Error("Utility process is not available");
+  const id = this.createId();
+  return new Promise&lt;T&gt;((resolve, reject) =&gt; {
+    this.pending.set(id, {
+      resolve: (value) =&gt; resolve(value as T),
+      reject,
+    });
+    const request: RpcRequest = { kind: "rpc", id, method, params };
+    this.child.postMessage(request);
+  });
+}</code></pre>
+
+        <p>The behavior to notice is correlation rather than ordering. Tests send results out of order and expect the right promises to resolve.</p>
+
+        <h3>Path B: child processes notify main</h3>
+        <p>Storage domain events still get broadcast to renderers. They also inform the agent that the project revision changed. The document path can use the event's document revision directly; the source-import path asks storage for a fresh seed.</p>
+
+<pre><code>if (message.kind !== "domain.event") return;
+broadcast(message.event);
+if (message.event.type === "document.saved") {
+  getAgent()?.post({
+    kind: "project.changed",
+    projectRevision: message.event.projectRevision,
+    documentRevision: message.event.document.revision,
+  });
+} else if (message.event.type === "source.imported") {
+  const seed = await storage.call&lt;ObservationSeed&gt;("agent.seed");
+  getAgent()?.post({
+    kind: "project.changed",
+    projectRevision: seed.projectRevision,
+    documentRevision: seed.documentRevision,
+  });
+}</code></pre>
+
+        <p>Agent-originated storage requests are still proxied through main. A storage failure becomes a <code>storage.result</code> with an <code>error</code> string rather than an unhandled rejection.</p>
+
+<pre><code>if (message.kind === "storage.request") {
+  try {
+    const result = await storage.call(message.method, message.params);
+    getAgent()?.post({ kind: "storage.result", id: message.id, result });
+  } catch (error) {
+    getAgent()?.post({
+      kind: "storage.result",
+      id: message.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+} else if (message.kind === "agent.runtime") {
+  setRuntime(message.runtime);
+} else if (message.kind === "agent.activity") {
+  broadcast({ type: "agent.activity", activity: addActivity(message.activity) });
+}</code></pre>
+
+        <div class="risk">A subtle dependency remains: these helpers use <code>getAgent()?.post(...)</code>. If an event arrives before the agent object exists, it is dropped. That matches the defensive optional chaining in the changed code, but it is an assumption to remember when changing startup order.</div>
+      </section>
+
+      <section id="startup">
+        <h2>Startup order became a named behavior</h2>
+        <p><code>desktop/startup.ts</code> extracts the sequence that was previously embedded in <code>main.ts</code>. The sequence is now small enough to test without Electron.</p>
+
+<pre><code>const storage = spawnStorage();
+await storage.ready;
+await storage.call("workspace.repair");
+
+const agent = spawnAgent();
+await agent.ready;
+
+registerIpc(storage, agent);
+installMenu();
+createWindow();
+
+const seed = await storage.call&lt;ObservationSeed&gt;("agent.seed");
+agent.post({
+  kind: "project.changed",
+  projectRevision: seed.projectRevision,
+  documentRevision: seed.documentRevision,
+});</code></pre>
+
+        <p>The invariant is direct: repair happens before the agent starts, IPC is registered only after both children are ready, and the agent gets an initial <code>project.changed</code> message after the window is created. The tests assert this call order.</p>
+      </section>
+
+      <section id="renderer">
+        <h2>The renderer now has one desktop subscription</h2>
+        <p>Before this change, the desktop suggestion feed wrapped <code>bridge.subscribe</code> and filtered <code>suggestion.event</code> inside the feed. The workspace controller also subscribed to desktop events for document, source, runtime, and activity updates. That could create multiple bridge-level subscriptions inside one controller.</p>
+
+<pre><code>export function createSuggestionFeedRelay(): {
+  feed: SuggestionFeed;
+  emit: (event: SuggestionEvent) =&gt; void;
+} {
+  const listeners = new Set&lt;(event: SuggestionEvent) =&gt; void&gt;();
+  return {
+    feed: {
+      subscribe(listener) {
+        listeners.add(listener);
+        return () =&gt; listeners.delete(listener);
+      },
+    },
+    emit(event) {
+      listeners.forEach((listener) =&gt; listener(event));
+    },
+  };
+}</code></pre>
+
+        <p>The controller creates the relay once and passes <code>relay.feed</code> to the inbox. Its single desktop subscription handles every event type. Suggestion events are forwarded into the relay.</p>
+
+<pre><code>const suggestionFeed = useMemo(() =&gt; createSuggestionFeedRelay(), []);
+const feed = suggestionFeed.feed;
+const inbox = useSuggestionInbox(feed, inboxOptions);
+
+useEffect(
+  () =&gt;
+    desktop.subscribe((event) =&gt; {
+      switch (event.type) {
+        case "document.saved":
+          documentRevisionRef.current = event.document.revision;
+          break;
+        case "source.imported":
+          setSources((current) =&gt; [
+            event.source,
+            ...current.filter((source) =&gt; source.id !== event.source.id),
+          ]);
+          break;
+        case "agent.runtime":
+          setRuntime(event.runtime);
+          break;
+        case "agent.activity":
+          setActivity((current) =&gt; upsertActivity(current, event.activity));
+          break;
+        case "suggestion.event":
+          suggestionFeed.emit(event.event);
+          break;
+      }
+    }),
+  [desktop, suggestionFeed],
+);</code></pre>
+
+        <div class="note">The docs were updated to match this mental model: feed subscribers now live in <code>createSuggestionFeedRelay</code>, while <code>useWorkspaceController</code> owns the desktop subscription.</div>
+      </section>
+
+      <section id="tests">
+        <h2>What the new tests cover</h2>
+        <p>The test additions are the main evidence that the extraction is intended to preserve behavior. The focused tests cover adapters; the app-level test covers the renderer boundary as a workflow.</p>
+
+        <div class="test">
+          <p><code>desktop/child-rpc.test.ts</code> checks readiness, out-of-order RPC results, unknown responses, child exit before startup, rejection of pending calls, and listener cleanup.</p>
+          <p><code>desktop/ipc-routing.test.ts</code> checks sender validation, every production route, development suggestion validation, source import cancellation, and exact storage/agent method calls.</p>
+          <p><code>desktop/process-messages.test.ts</code> checks document/source events to agent revision messages, storage request success/failure correlation, runtime updates, and activity broadcasting.</p>
+          <p><code>src/App.test.tsx</code> exercises hydration, preview, pinning, autosave revision use, source import, agent controls, runtime/activity events, suggestion event relay, failures, and subscription cleanup.</p>
+        </div>
+
+<pre><code>expect(calls).toEqual([
+  "spawn.storage",
+  "storage.call:workspace.repair",
+  "spawn.agent",
+  "register.ipc",
+  "install.menu",
+  "create.window",
+  "storage.call:agent.seed",
+  "agent.post:project.changed",
+]);</code></pre>
+
+        <p>I also ran the targeted suite for the changed boundary and storage tests:</p>
+        <pre><code>Test Files  9 passed (9)
+Tests       33 passed (33)</code></pre>
+      </section>
+
+      <section id="risks">
+        <h2>Maintenance notes for the next change</h2>
+        <ul>
+          <li>If a renderer bridge method is added, update <code>DESKTOP_INVOKE_CHANNELS</code>, <code>preload-bridge.ts</code>, <code>ipc-routing.ts</code>, and the contract/preload/IPC tests together.</li>
+          <li>If a child message kind is added, update <code>ChildMessage</code>, <code>CHILD_MESSAGE_KINDS</code>, and whichever handler should receive it. <code>ChildRpc</code> currently accepts by kind, then trusts the shape of most payloads.</li>
+          <li>If <code>agent.start</code> changes its params, update <code>createAgentParentTransport</code>. It currently rejects malformed start messages unless <code>params</code> contains integer <code>projectRevision</code> and <code>documentRevision</code>.</li>
+          <li>If suggestion events stop appearing in the UI, check the controller's <code>case "suggestion.event": suggestionFeed.emit(event.event)</code> first. The inbox no longer subscribes to the desktop bridge directly.</li>
+          <li>The generated docs HTML and search index changed alongside the markdown docs. Treat them as derived artifacts unless this project expects docs HTML to be reviewed directly.</li>
+        </ul>
+      </section>
+
+      <section id="check">
+        <h2>Comprehension check</h2>
+        <details>
+          <summary>1. When the renderer calls "start agent", where do the project and document revisions come from?</summary>
+          <p>They come from storage via <code>storage.call("agent.seed")</code> inside <code>registerMainIpc</code>. Main then calls <code>agent.call("agent.start", { projectRevision, documentRevision })</code>.</p>
+        </details>
+        <details>
+          <summary>2. What would break if the workspace controller stopped calling <code>suggestionFeed.emit</code> for <code>suggestion.event</code>?</summary>
+          <p>The inbox would not receive live suggestion additions, updates, or retractions. After this change, <code>useSuggestionInbox</code> subscribes to the relay feed, not to the desktop bridge.</p>
+        </details>
+        <details>
+          <summary>3. Why does <code>ChildRpc</code> store requests by ID instead of resolving calls in send order?</summary>
+          <p>Utility process responses can arrive out of order. The ID map lets <code>rpc.result</code> resolve or reject only the matching pending promise.</p>
+        </details>
+        <details>
+          <summary>4. Where would you start debugging if a source import updates the UI but the agent does not observe the new source?</summary>
+          <p>Start in <code>createStorageMessageHandler</code>. A <code>source.imported</code> event should be broadcast, then main should call <code>storage.call("agent.seed")</code> and post <code>{ kind: "project.changed", ... }</code> to the agent.</p>
+        </details>
+        <details>
+          <summary>5. Which invariant does the startup test protect?</summary>
+          <p>Storage must be ready and repaired before the agent starts; IPC/menu/window setup happens after both children are ready; then main sends the initial <code>project.changed</code> seed to the agent.</p>
+        </details>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

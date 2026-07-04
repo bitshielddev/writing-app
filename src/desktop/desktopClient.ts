@@ -1,5 +1,8 @@
 import type { DesktopBridge } from "../shared/desktop";
-import type { SuggestionFeed } from "../suggestions/types";
+import type {
+  SuggestionEvent,
+  SuggestionFeed,
+} from "../suggestions/types";
 
 export function getDesktopBridge(): DesktopBridge {
   const bridge = window.scribe;
@@ -9,14 +12,20 @@ export function getDesktopBridge(): DesktopBridge {
   return bridge;
 }
 
-export function createDesktopSuggestionFeed(
-  bridge: DesktopBridge,
-): SuggestionFeed {
+export function createSuggestionFeedRelay(): {
+  feed: SuggestionFeed;
+  emit: (event: SuggestionEvent) => void;
+} {
+  const listeners = new Set<(event: SuggestionEvent) => void>();
   return {
-    subscribe(listener) {
-      return bridge.subscribe((event) => {
-        if (event.type === "suggestion.event") listener(event.event);
-      });
+    feed: {
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    },
+    emit(event) {
+      listeners.forEach((listener) => listener(event));
     },
   };
 }
