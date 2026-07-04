@@ -23,13 +23,11 @@ import {
 import { ScribeLoopState } from "./scribe-loop.js";
 import { activitiesFromSessionEvent } from "./agent-events.js";
 import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
-
-type ParentMessage =
-  | ({ kind: "project.changed" } & ScribeRevision)
-  | { kind: "rpc"; id: string; method: "agent.start"; params: ScribeRevision }
-  | { kind: "rpc"; id: string; method: "agent.stop" }
-  | { kind: "storage.result"; id: string; result?: unknown; error?: string }
-  | { kind: "shutdown" };
+import type { AgentParentMessage } from "../src/shared/contracts.js";
+import {
+  AgentStorageClient,
+  createAgentParentTransport,
+} from "./agent-transport.js";
 
 const workspaceRoot = process.argv[2];
 const agentDir = process.argv[3];
@@ -38,24 +36,17 @@ if (!workspaceRoot || !agentDir || !sessionDirectory) {
   throw new Error("Agent process requires workspace, Pi config, and session paths");
 }
 
-const pendingStorage = new Map<
-  string,
-  { resolve: (value: unknown) => void; reject: (error: Error) => void }
->();
 const eventBus = createEventBus();
 let session: AgentSession | undefined;
 let configured = false;
 let draining = false;
 
+const storageClient = new AgentStorageClient(randomUUID, (message) =>
+  process.parentPort?.postMessage(message),
+);
+
 function storageCall<T>(method: string, params?: unknown): Promise<T> {
-  const id = randomUUID();
-  return new Promise<T>((resolve, reject) => {
-    pendingStorage.set(id, {
-      resolve: (value) => resolve(value as T),
-      reject,
-    });
-    process.parentPort?.postMessage({ kind: "storage.request", id, method, params });
-  });
+  return storageClient.call<T>(method, params);
 }
 
 function postRuntime(value: AgentRuntime) {
@@ -223,11 +214,11 @@ async function stopAgent() {
 
 let controlQueue = Promise.resolve();
 
-function handleControl(message: Extract<ParentMessage, { kind: "rpc" }>) {
+function handleControl(message: Extract<AgentParentMessage, { kind: "rpc" }>) {
   controlQueue = controlQueue.then(async () => {
     try {
       const result = message.method === "agent.start"
-        ? await startAgent(message.params)
+        ? await startAgent(message.params as ScribeRevision)
         : await stopAgent();
       process.parentPort?.postMessage({ kind: "rpc.result", id: message.id, result });
     } catch (error) {
@@ -315,27 +306,20 @@ async function initialize() {
   }
 }
 
-process.parentPort?.on("message", ({ data }: { data: ParentMessage }) => {
-  if (data.kind === "rpc") {
-    handleControl(data);
-    return;
-  }
-  if (data.kind === "storage.result") {
-    const request = pendingStorage.get(data.id);
-    if (!request) return;
-    pendingStorage.delete(data.id);
-    if (data.error) request.reject(new Error(data.error));
-    else request.resolve(data.result);
-    return;
-  }
-  if (data.kind === "project.changed") {
+const handleParentMessage = createAgentParentTransport({
+  storage: storageClient,
+  handleControl,
+  handleProjectChanged: (data) => {
     eventBus.emit(SCRIBE_REVISION_EVENT, {
       projectRevision: data.projectRevision,
       documentRevision: data.documentRevision,
     } satisfies ScribeRevision);
-    return;
-  }
-  session?.dispose();
+  },
+  handleShutdown: () => session?.dispose(),
+});
+
+process.parentPort?.on("message", ({ data }: { data: unknown }) => {
+  handleParentMessage(data);
 });
 
 initialize()

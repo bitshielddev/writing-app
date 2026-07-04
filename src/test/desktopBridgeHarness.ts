@@ -1,0 +1,128 @@
+import type {
+  AgentRuntime,
+  DesktopBridge,
+  DesktopEvent,
+  DocumentSnapshot,
+  SourceSnapshot,
+  WorkspaceSnapshot,
+} from "../shared/desktop";
+import { createEmptySuggestionState } from "../suggestions/state";
+
+export type Deferred<T> = {
+  promise: Promise<T>;
+  resolve(value: T): void;
+  reject(error: unknown): void;
+};
+
+export function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
+export class ControlledOperation<Args extends unknown[], Result> {
+  readonly calls: Array<{ args: Args; completion: Deferred<Result> }> = [];
+
+  readonly invoke = (...args: Args): Promise<Result> => {
+    const completion = deferred<Result>();
+    this.calls.push({ args, completion });
+    return completion.promise;
+  };
+
+  resolve(index: number, result: Result) {
+    const call = this.calls[index];
+    if (!call) throw new Error(`No controlled call at index ${index}`);
+    call.completion.resolve(result);
+  }
+
+  reject(index: number, error: unknown) {
+    const call = this.calls[index];
+    if (!call) throw new Error(`No controlled call at index ${index}`);
+    call.completion.reject(error);
+  }
+}
+
+export function createDocumentSnapshot(
+  overrides: Partial<DocumentSnapshot> = {},
+): DocumentSnapshot {
+  return {
+    id: "document-1",
+    projectId: "project-1",
+    title: "Draft",
+    blocks: [{ id: "block-1", type: "paragraph", content: "Opening" }],
+    markdown: "Opening\n",
+    schemaVersion: 1,
+    revision: 3,
+    updatedAt: 1,
+    ...overrides,
+  };
+}
+
+export function createSourceSnapshot(
+  overrides: Partial<SourceSnapshot> = {},
+): SourceSnapshot {
+  return {
+    id: "source-1",
+    projectId: "project-1",
+    title: "Research.md",
+    storagePath: "/workspace/sources/Research.md",
+    bytes: 128,
+    updatedAt: 1,
+    ...overrides,
+  };
+}
+
+export function createWorkspaceSnapshot(
+  overrides: Partial<WorkspaceSnapshot> = {},
+): WorkspaceSnapshot {
+  return {
+    project: { id: "project-1", name: "Writing project", revision: 5 },
+    document: createDocumentSnapshot(),
+    sources: [createSourceSnapshot()],
+    suggestions: createEmptySuggestionState(),
+    agent: { status: "stopped", cycleCount: 2 },
+    activity: [],
+    ...overrides,
+  };
+}
+
+export class DesktopBridgeHarness {
+  readonly hydrate = new ControlledOperation<[], WorkspaceSnapshot>();
+  readonly startAgent = new ControlledOperation<[], AgentRuntime>();
+  readonly stopAgent = new ControlledOperation<[], AgentRuntime>();
+  readonly saveDocument = new ControlledOperation<
+    [Parameters<DesktopBridge["saveDocument"]>[0]],
+    DocumentSnapshot
+  >();
+  readonly saveSuggestionState = new ControlledOperation<
+    [Parameters<DesktopBridge["saveSuggestionState"]>[0]],
+    void
+  >();
+  readonly importSource = new ControlledOperation<[], SourceSnapshot | undefined>();
+  private readonly listeners = new Set<(event: DesktopEvent) => void>();
+
+  readonly bridge: DesktopBridge = {
+    hydrate: this.hydrate.invoke,
+    startAgent: this.startAgent.invoke,
+    stopAgent: this.stopAgent.invoke,
+    saveDocument: this.saveDocument.invoke,
+    saveSuggestionState: this.saveSuggestionState.invoke,
+    importSource: this.importSource.invoke,
+    subscribe: (listener) => {
+      this.listeners.add(listener);
+      return () => this.listeners.delete(listener);
+    },
+  };
+
+  get listenerCount() {
+    return this.listeners.size;
+  }
+
+  emit(event: DesktopEvent) {
+    for (const listener of this.listeners) listener(event);
+  }
+}

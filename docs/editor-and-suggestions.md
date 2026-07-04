@@ -45,7 +45,7 @@ The event channel supports:
 | `suggestion.updated` | Replace a live suggestion with the same `id`. |
 | `suggestion.retracted` | Remove a live suggestion, unless user state protects it. |
 
-The renderer uses [`createDesktopSuggestionFeed`](../src/desktop/desktopClient.ts). It receives only committed suggestion events from Electron main. Agent status and errors are reported separately through the canonical `AgentRuntime`. Suggestions are written to the desktop database before an event is forwarded, so reload hydrates the same inbox projection.
+The renderer uses one desktop subscription in `useWorkspaceController` and forwards committed suggestion events through [`createSuggestionFeedRelay`](../src/desktop/desktopClient.ts) to the inbox. Agent status and errors are handled separately through the canonical `AgentRuntime`. Suggestions are written to the desktop database before an event is forwarded, so reload hydrates the same inbox projection.
 
 During Vite development, a separate Electron controller window supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields, validates recursive structure-node JSON, and invokes a development-only preload bridge. Main validates the payload again and asks storage to commit it through the same suggestion path used by the Pi agent.
 

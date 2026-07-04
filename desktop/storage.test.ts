@@ -67,6 +67,57 @@ describe("desktop storage service", () => {
     expect(hydrated.suggestions.entries[0]?.item).toEqual(item);
   });
 
+  it("handles every suggestion, seed, and projection RPC method", async () => {
+    const snapshot = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
+    const seed = await handleStorageRequest("agent.seed") as {
+      projectRevision: number;
+      documentRevision: number;
+    };
+    expect(seed.documentRevision).toBe(snapshot.document.revision);
+
+    const listed = await handleStorageRequest("agent.suggestions.list") as {
+      live: TextSuggestion[];
+    };
+    const existing = listed.live[0];
+    expect(existing).toBeTruthy();
+    const updated = { ...existing!, title: "Updated title" };
+    await expect(
+      handleStorageRequest("agent.suggestion.update", {
+        item: updated,
+        expectedDocumentRevision: snapshot.document.revision,
+      }),
+    ).resolves.toEqual({ accepted: true });
+    await expect(
+      handleStorageRequest("agent.suggestion.retract", {
+        id: updated.id,
+        expectedDocumentRevision: snapshot.document.revision,
+      }),
+    ).resolves.toEqual({ accepted: true });
+
+    const developmentItem: TextSuggestion = {
+      ...updated,
+      id: "development-suggestion",
+      dedupeKey: "development-suggestion",
+    };
+    await expect(
+      handleStorageRequest("development.suggestion.create", {
+        item: developmentItem,
+      }),
+    ).resolves.toEqual({ accepted: true });
+    await expect(
+      handleStorageRequest("suggestions.save", {
+        entries: [],
+        pinnedEntries: [],
+        workspacePins: [],
+        seenKeys: {},
+        nextZIndex: 1,
+      }),
+    ).resolves.toBeUndefined();
+    await expect(handleStorageRequest("unknown.method")).rejects.toThrow(
+      "Unknown storage method: unknown.method",
+    );
+  });
+
   it("imports only UTF-8 Markdown with readable collision-safe filenames", async () => {
     const directory = await mkdtemp(join(tmpdir(), "scribe-source-"));
     const path = join(directory, "research notes.md");

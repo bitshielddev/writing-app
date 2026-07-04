@@ -169,7 +169,7 @@
 <li><code>useWorkspaceLayout</code> and <code>useWorkspaceKeybindings</code> connect controller actions to the responsive layout.</li>
 <li><code>App</code> composes the editor, sidebars, dock, drawers, and keyboard surfaces.</li>
 </ol>
-<p>The workspace controller memoizes the desktop suggestion feed. Recreating it during a render would resubscribe the inbox to desktop events.</p>
+<p>The workspace controller memoizes an in-memory suggestion feed relay and owns one desktop event subscription. The subscription routes suggestion events into the inbox and applies other desktop events directly.</p>
 <h2 id="state-ownership">State ownership<a class="heading-anchor" href="#state-ownership" aria-label="Link to State ownership">#</a></h2><table>
 <thead>
 <tr>
@@ -185,7 +185,7 @@
 </tr>
 <tr>
 <td>Feed subscribers</td>
-<td><code>createDesktopSuggestionFeed</code> closure</td>
+<td><code>createSuggestionFeedRelay</code> closure</td>
 <td>Renderer lifetime</td>
 </tr>
 <tr>
