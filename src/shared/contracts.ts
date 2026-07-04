@@ -61,6 +61,10 @@ export type RpcResult = {
 
 export type ChildMessage =
   | { kind: "ready" }
+  | {
+      kind: "startup.error";
+      error: { code: string; message: string; databasePath?: string };
+    }
   | RpcResult
   | { kind: "domain.event"; event: DesktopEvent }
   | { kind: "storage.request"; id: string; method: string; params?: unknown }
@@ -69,6 +73,7 @@ export type ChildMessage =
 
 export const CHILD_MESSAGE_KINDS = {
   ready: true,
+  "startup.error": true,
   "rpc.result": true,
   "domain.event": true,
   "storage.request": true,

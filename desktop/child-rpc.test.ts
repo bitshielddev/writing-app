@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 
-import { ChildRpc, type UtilityProcessAdapter } from "./child-rpc";
+import { ChildRpc, ChildStartupError, type UtilityProcessAdapter } from "./child-rpc";
 
 class FakeUtilityProcess extends EventEmitter {
   readonly posted: unknown[] = [];
@@ -79,6 +79,37 @@ describe("ChildRpc", () => {
     await expect(rpc.ready).rejects.toThrow(
       "Utility process exited before startup with code 8",
     );
+  });
+
+  it("preserves structured utility-process startup failures", async () => {
+    const { child, rpc } = createRpc();
+    child.emit("message", {
+      kind: "startup.error",
+      error: {
+        code: "DATABASE_TOO_NEW",
+        message: "Version 9 is newer than this application",
+        databasePath: "/workspace/scribe.sqlite3",
+      },
+    });
+    await expect(rpc.ready).rejects.toEqual(expect.objectContaining<Partial<ChildStartupError>>({
+      code: "DATABASE_TOO_NEW",
+      databasePath: "/workspace/scribe.sqlite3",
+    }));
+  });
+
+  it("ignores malformed structured startup failures", () => {
+    const { child, rpc } = createRpc();
+    child.emit("message", { kind: "startup.error" });
+    child.emit("message", {
+      kind: "startup.error",
+      error: { code: 5, message: "invalid" },
+    });
+    child.emit("message", {
+      kind: "startup.error",
+      error: { code: "DATABASE_CORRUPT", message: "invalid", databasePath: 5 },
+    });
+    child.emit("message", { kind: "ready" });
+    return expect(rpc.ready).resolves.toBeUndefined();
   });
 
   it("rejects all pending work after exit and cleanup is idempotent", async () => {

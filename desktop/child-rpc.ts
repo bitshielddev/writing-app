@@ -21,6 +21,17 @@ export type UtilityProcessAdapter = {
   } | null;
 };
 
+export class ChildStartupError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly databasePath?: string,
+  ) {
+    super(message);
+    this.name = "ChildStartupError";
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -28,6 +39,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function asChildMessage(value: unknown): ChildMessage | undefined {
   if (!isRecord(value) || typeof value.kind !== "string") return undefined;
   if (!(value.kind in CHILD_MESSAGE_KINDS)) return undefined;
+  if (value.kind === "startup.error") {
+    if (!isRecord(value.error)) return undefined;
+    if (typeof value.error.code !== "string" || typeof value.error.message !== "string") {
+      return undefined;
+    }
+    if (
+      value.error.databasePath !== undefined &&
+      typeof value.error.databasePath !== "string"
+    ) return undefined;
+  }
   return value as ChildMessage;
 }
 
@@ -54,6 +75,14 @@ export class ChildRpc {
         this.readySettled = true;
         this.readyResolve();
       }
+      return;
+    }
+    if (message.kind === "startup.error") {
+      this.disposeWithError(new ChildStartupError(
+        message.error.code,
+        message.error.message,
+        message.error.databasePath,
+      ));
       return;
     }
     if (message.kind === "rpc.result") {

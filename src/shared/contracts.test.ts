@@ -41,6 +41,7 @@ describe("process contract inventory", () => {
   it("tracks every child, parent, and desktop event variant", () => {
     expect(Object.keys(CHILD_MESSAGE_KINDS)).toEqual([
       "ready",
+      "startup.error",
       "rpc.result",
       "domain.event",
       "storage.request",

@@ -27,11 +27,11 @@ import {
 import type { SuggestionEvent, SuggestionItem } from "../src/suggestions/types.js";
 import { isSuggestionItem } from "../src/suggestions/validation.js";
 import { createStorageTransport } from "./storage-transport.js";
+import { DatabaseStartupError, openApplicationDatabase } from "./database.js";
 
 const PROJECT_ID = "default-project";
 const DOCUMENT_ID = "default-document";
 const DOCUMENT_SCHEMA_VERSION = 1;
-const DATABASE_VERSION = 2;
 const dbPath = process.parentPort ? process.argv[2] : ":memory:";
 const workspaceRoot = process.parentPort
   ? process.argv[3]
@@ -44,78 +44,28 @@ if (!dbPath || !workspaceRoot) {
 const sourcesDirectory = join(workspaceRoot, "sources");
 const piDirectory = join(workspaceRoot, ".pi");
 const draftPath = join(workspaceRoot, "draft.md");
-const db = new DatabaseSync(dbPath, {
-  enableForeignKeyConstraints: true,
-  timeout: 5_000,
-});
-
-db.exec("PRAGMA journal_mode = WAL");
-db.exec("PRAGMA synchronous = FULL");
-
-const currentVersion = db.prepare("PRAGMA user_version").get() as {
-  user_version: number;
-};
-if (currentVersion.user_version !== DATABASE_VERSION) {
-  db.exec(`
-    DROP TABLE IF EXISTS agent_transcript;
-    DROP TABLE IF EXISTS agent_runs;
-    DROP TABLE IF EXISTS agent_memory;
-    DROP TABLE IF EXISTS provider_settings;
-    DROP TABLE IF EXISTS event_outbox;
-    DROP TABLE IF EXISTS suggestion_state;
-    DROP TABLE IF EXISTS sources;
-    DROP TABLE IF EXISTS documents;
-    DROP TABLE IF EXISTS projects;
-    DROP TABLE IF EXISTS app_meta;
-  `);
+let db: DatabaseSync;
+try {
+  db = openApplicationDatabase(dbPath);
+} catch (error) {
+  const startupError = error instanceof DatabaseStartupError
+    ? error
+    : new DatabaseStartupError(
+        "DATABASE_CORRUPT",
+        dbPath,
+        error instanceof Error ? error.message : String(error),
+        { cause: error },
+      );
+  process.parentPort?.postMessage({
+    kind: "startup.error",
+    error: {
+      code: startupError.code,
+      message: startupError.message,
+      databasePath: startupError.databasePath,
+    },
+  });
+  throw startupError;
 }
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS projects (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    revision INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  ) STRICT;
-
-  CREATE TABLE IF NOT EXISTS documents (
-    id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    blocks_json TEXT NOT NULL,
-    markdown TEXT NOT NULL,
-    schema_version INTEGER NOT NULL,
-    revision INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  ) STRICT;
-
-  CREATE TABLE IF NOT EXISTS sources (
-    id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    storage_path TEXT NOT NULL,
-    bytes INTEGER NOT NULL,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  ) STRICT;
-
-  CREATE TABLE IF NOT EXISTS suggestion_state (
-    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
-    state_json TEXT NOT NULL,
-    updated_at INTEGER NOT NULL
-  ) STRICT;
-
-  CREATE TABLE IF NOT EXISTS event_outbox (
-    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_json TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    dispatched_at INTEGER
-  ) STRICT;
-
-  PRAGMA user_version = 2;
-`);
 
 function bootstrap() {
   const now = Date.now();

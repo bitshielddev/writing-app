@@ -1,4 +1,5 @@
 import type { ObservationSeed } from "../src/shared/desktop.js";
+import { ChildStartupError } from "./child-rpc.js";
 
 export type DesktopProcess = {
   ready: Promise<void>;
@@ -49,4 +50,16 @@ export async function runDesktopStartup(
   } catch (error) {
     onFailure(error);
   }
+}
+
+export function databaseStartupGuidance(error: unknown) {
+  if (!(error instanceof ChildStartupError) || !error.code.startsWith("DATABASE_")) {
+    return undefined;
+  }
+  const path = error.databasePath ?? "the local workspace database";
+  return [
+    "ScribeAI could not open the writing workspace.",
+    error.message,
+    `Your data was not reset. Preserve ${path} and any adjacent .bak files before attempting recovery.`,
+  ].join("\n\n");
 }
