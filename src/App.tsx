@@ -64,6 +64,9 @@ export default function App({ desktop }: AppProps) {
     activity,
     agentControlPending,
     agentError,
+    suggestionPersistenceStatus,
+    suggestionPersistenceError,
+    retrySuggestionSave,
     partnerView,
     setPartnerView,
     suggestionNavigator,
@@ -103,6 +106,8 @@ export default function App({ desktop }: AppProps) {
       activePreviewId={inbox.activePreviewId}
       unreadCount={inbox.unreadCount}
       error={agentError}
+      persistenceStatus={suggestionPersistenceStatus}
+      persistenceError={suggestionPersistenceError}
       activity={activity}
       runtime={runtime}
       controlPending={agentControlPending}
@@ -122,6 +127,7 @@ export default function App({ desktop }: AppProps) {
       onPreview={handlePreview}
       onStartAgent={handleStartAgent}
       onStopAgent={handleStopAgent}
+      onRetrySuggestionSave={retrySuggestionSave}
     />
   );
 

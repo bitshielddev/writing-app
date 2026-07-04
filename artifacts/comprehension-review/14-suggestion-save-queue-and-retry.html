@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suggestion save queue and retry review</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1d1b27;
+      --muted: #666176;
+      --paper: #fffdf9;
+      --panel: #ffffff;
+      --soft: #f5f1fb;
+      --line: #ded6eb;
+      --brand: #5a3fd4;
+      --brand-soft: #eee8ff;
+      --red: #a43b3b;
+      --red-soft: #fff0f0;
+      --green: #14624d;
+      --green-soft: #ebf8f3;
+      --amber: #80510f;
+      --amber-soft: #fff7df;
+      --code-bg: #292537;
+      --code: #f7f3ff;
+      --mark: #ffe98a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(90, 63, 212, .12), transparent 32rem),
+        linear-gradient(180deg, #fbf9ff 0%, #fffdf9 58%, #f8f5fb 100%);
+      color: var(--ink);
+      font: 16px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page { max-width: 1160px; margin: 0 auto; padding: 44px 22px 72px; }
+    header { margin-bottom: 28px; }
+    .crumb { color: var(--muted); font-size: 13px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+    h1 { max-width: 880px; margin: 12px 0 12px; font-size: clamp(2.2rem, 5.4vw, 4.6rem); line-height: .96; letter-spacing: -.055em; }
+    .lede { max-width: 780px; margin: 0; color: #484454; font-size: 1.12rem; }
+    .layout { display: grid; grid-template-columns: 265px minmax(0, 1fr); gap: 26px; align-items: start; }
+    nav {
+      position: sticky;
+      top: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.82);
+      border-radius: 20px;
+      padding: 14px;
+      box-shadow: 0 14px 42px rgba(50, 39, 88, .08);
+    }
+    nav a { display: block; color: #464154; text-decoration: none; border-radius: 12px; padding: 8px 10px; font-size: 14px; }
+    nav a:hover { background: var(--brand-soft); color: var(--brand); }
+    main { display: grid; gap: 22px; }
+    section, .card, .snippet, .quiz {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.9);
+      border-radius: 24px;
+      box-shadow: 0 14px 42px rgba(50, 39, 88, .07);
+    }
+    section, .card, .quiz { padding: clamp(20px, 3vw, 32px); }
+    h2 { margin: 0 0 14px; font-size: 1.55rem; line-height: 1.18; letter-spacing: -.025em; }
+    h3 { margin: 22px 0 8px; font-size: 1.02rem; }
+    p { margin: 0 0 14px; }
+    ul { margin: 10px 0 0; padding-left: 22px; }
+    li { margin: 7px 0; }
+    code.inline { background: var(--brand-soft); color: #35228f; border-radius: 6px; padding: 1px 5px; font-size: .92em; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .pill { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 5px 10px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .file-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+    .file { border: 1px solid var(--line); border-radius: 16px; background: var(--soft); padding: 14px; }
+    .file b { display: block; margin-bottom: 5px; font-size: 14px; }
+    .file span { color: var(--muted); font-size: 13px; }
+    .flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+    .step { border: 1px solid var(--line); background: #fbf9ff; border-radius: 16px; padding: 12px; min-height: 126px; }
+    .step strong { display: block; margin-bottom: 6px; font-size: 13px; color: var(--brand); }
+    .step span { display: block; color: var(--muted); font-size: 13px; line-height: 1.42; }
+    .snippet { overflow: hidden; }
+    .caption { padding: 15px 18px; border-bottom: 1px solid var(--line); background: #fbf9ff; color: var(--muted); font-size: 14px; }
+    pre { margin: 0; overflow-x: auto; padding: 18px; background: var(--code-bg); color: var(--code); font: 13px/1.55 "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    mark { background: var(--mark); color: #201a00; border-radius: 3px; padding: 0 2px; }
+    .note { border-left: 4px solid var(--brand); background: var(--brand-soft); padding: 14px 16px; border-radius: 14px; margin-top: 14px; }
+    .warn { border-left-color: var(--amber); background: var(--amber-soft); }
+    .danger { border-left-color: var(--red); background: var(--red-soft); }
+    .good { border-left-color: var(--green); background: var(--green-soft); }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 11px 9px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    details { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: #fff; margin-top: 12px; }
+    summary { cursor: pointer; font-weight: 800; }
+    .history { display: grid; gap: 10px; margin-top: 12px; }
+    .commit { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 12px; border: 1px solid var(--line); border-radius: 14px; background: #fbf9ff; padding: 12px; }
+    .commit code { color: var(--brand); font-weight: 800; }
+    .commit p { margin: 0; color: var(--muted); font-size: 14px; }
+    @media (max-width: 880px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; }
+      .file-grid, .flow { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="crumb">Comprehension review / suggestion persistence</div>
+      <h1>A single-flight save path for suggestion state</h1>
+      <p class="lede">This change moves suggestion snapshot writes out of the workspace controller and into a focused hook that sequences saves, coalesces pending projections, preserves failed work for retry, and shows the writer when local suggestion changes might not survive restart.</p>
+      <div class="pill-row">
+        <span class="pill">Changed files: 7</span>
+        <span class="pill">New hook: useSuggestionPersistence</span>
+        <span class="pill">Tests run: 31 passing</span>
+        <span class="pill">Task context: .tasks/02</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav aria-label="Review navigation">
+        <a href="#why">Why this exists</a>
+        <a href="#map">Where the behavior moved</a>
+        <a href="#queue">The queue contract</a>
+        <a href="#hydration">Hydration no longer writes back</a>
+        <a href="#failure">Failure now reaches the UI</a>
+        <a href="#tests">What the tests lock down</a>
+        <a href="#history">How this fits the recent history</a>
+        <a href="#checks">Comprehension checks</a>
+      </nav>
+
+      <main>
+        <section id="why">
+          <h2>The old path treated dispatch as if it were durability</h2>
+          <p>Before this diff, <code class="inline">useWorkspaceController</code> handed every inbox projection directly to <code class="inline">desktop.saveSuggestionState</code>. The call was fire-and-forget: errors were logged, but the UI kept operating with no visible indication that storage had rejected the latest suggestion state.</p>
+          <p>The task file for this change, <code class="inline">.tasks/02-sequence-suggestion-saves-and-surface-failures.md</code>, names two constraints that shape the implementation: keep the bridge method unchanged for now, and do not hide restart-loss risk after a failed save. This is explicitly an interim renderer-side correctness step before storage becomes the authoritative writer in Task 10.</p>
+          <div class="note warn">
+            <p><strong>Behavioral change to remember:</strong> a suggestion reducer update is no longer equivalent to a durable write. The renderer tracks which local projection has actually been acknowledged by the desktop bridge.</p>
+          </div>
+        </section>
+
+        <section id="map">
+          <h2>The changed files, grouped by responsibility</h2>
+          <div class="file-grid">
+            <div class="file"><b>src/suggestions/useSuggestionPersistence.ts</b><span>New queueing hook. Owns status, local versions, active/pending/failed candidates, hydration seeding, and retry.</span></div>
+            <div class="file"><b>src/workspace/useWorkspaceController.ts</b><span>Replaces direct saving with the hook and exposes persistence status/error/retry to the app.</span></div>
+            <div class="file"><b>src/App.tsx</b><span>Passes persistence state and retry callback into the suggestion dock.</span></div>
+            <div class="file"><b>src/components/SuggestionDock.tsx</b><span>Renders an accessible retry alert when suggestion persistence has failed.</span></div>
+            <div class="file"><b>useSuggestionPersistence.test.ts</b><span>New focused tests for coalescing, cloning, failures, retries, hydration, and unmount behavior.</span></div>
+            <div class="file"><b>Existing controller/dock tests</b><span>Controller now asserts hydration does not save; dock asserts the visible failure alert calls retry.</span></div>
+          </div>
+        </section>
+
+        <div class="snippet">
+          <div class="caption">The workspace controller now delegates suggestion writes to the focused hook.</div>
+          <pre><code>const suggestionPersistence = useSuggestionPersistence(desktop);
+const {
+  status: suggestionPersistenceStatus,
+  failureMessage: suggestionPersistenceError,
+  requestSave: saveSuggestionState,
+  seedHydratedState,
+  retry: retrySuggestionSave,
+} = suggestionPersistence;
+
+const inboxOptions = useMemo(
+  () =&gt; ({ onStateChange: saveSuggestionState }),
+  [saveSuggestionState],
+);</code></pre>
+        </div>
+
+        <section id="queue">
+          <h2>The queue has one active slot and one replaceable waiting slot</h2>
+          <p>The new hook models persistence as complete projections, not field patches. Every reducer output is a full <code class="inline">PersistedSuggestionState</code>, so while one save is active the newest waiting snapshot can replace the older waiting snapshot. That avoids resurrecting removed entries through a partial merge.</p>
+          <div class="flow" aria-label="Suggestion persistence data flow">
+            <div class="step"><strong>1. Inbox changes</strong><span><code>useSuggestionInbox</code> emits a persisted projection through <code>onStateChange</code>.</span></div>
+            <div class="step"><strong>2. requestSave</strong><span>The hook ignores pre-hydration writes, assigns a renderer-local version, and clones the state.</span></div>
+            <div class="step"><strong>3. pending slot</strong><span>The candidate becomes <code>pendingRef</code>. If another save is active, no second bridge call starts yet.</span></div>
+            <div class="step"><strong>4. drain</strong><span>When free, pending moves to active and <code>desktop.saveSuggestionState</code> is called.</span></div>
+            <div class="step"><strong>5. ack or fail</strong><span>Success advances <code>acknowledgedVersion</code>. Failure retains the newest unacknowledged candidate for retry.</span></div>
+          </div>
+        </section>
+
+        <div class="snippet">
+          <div class="caption">The public status type is intentionally small. The versions are local bookkeeping, not database revisions.</div>
+          <pre><code>export type SuggestionPersistenceStatus =
+  | { state: "idle"; acknowledgedVersion: number }
+  | {
+      state: "saving" | "pending" | "retrying";
+      acknowledgedVersion: number;
+    }
+  | { state: "failed"; acknowledgedVersion: number; message: string };</code></pre>
+        </div>
+
+        <div class="snippet">
+          <div class="caption">A save request is copied and coalesced before the bridge sees it.</div>
+          <pre><code>const requestSave = useCallback(
+  (state: PersistedSuggestionState) =&gt; {
+    if (!hydratedRef.current || !mountedRef.current) return;
+    if (hydratedEchoRef.current) {
+      const isHydrationEcho =
+        JSON.stringify(state) === JSON.stringify(hydratedEchoRef.current);
+      hydratedEchoRef.current = undefined;
+      if (isHydrationEcho) return;
+    }
+    const candidate = {
+      version: ++nextVersionRef.current,
+      state: immutableCopy(state),
+    };
+    latestProjectionRef.current = candidate.state;
+    pendingRef.current = candidate;
+
+    if (activeRef.current) {
+      publishStatus({
+        state: "pending",
+        acknowledgedVersion: acknowledgedVersionRef.current,
+      });
+      return;
+    }
+
+    failedRef.current = undefined;
+    drain();
+  },
+  [drain, publishStatus],
+);</code></pre>
+        </div>
+
+        <section>
+          <h2>What to notice in the save request path</h2>
+          <table>
+            <thead><tr><th>Line of behavior</th><th>Why it matters</th></tr></thead>
+            <tbody>
+              <tr><td><code class="inline">!hydratedRef.current</code> returns early</td><td>Suggestion persistence remains disabled until the desktop snapshot has seeded the hook.</td></tr>
+              <tr><td><code class="inline">JSON.stringify</code> compares the first hydrated echo</td><td>The reducer's hydrate dispatch can produce an <code class="inline">onStateChange</code> event. If it matches the seeded snapshot, it is not written back to storage.</td></tr>
+              <tr><td><code class="inline">immutableCopy(state)</code></td><td>The bridge receives a snapshot that later local mutations cannot alter. In this implementation the copy is <code class="inline">structuredClone</code>.</td></tr>
+              <tr><td><code class="inline">pendingRef.current = candidate</code></td><td>While active work is running, later projections replace the one waiting slot. The newest complete projection wins.</td></tr>
+              <tr><td><code class="inline">failedRef.current = undefined</code> before draining a new request</td><td>A later user action supersedes the failed retry target and starts persistence again through the same queue.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <div class="snippet">
+          <div class="caption">The drain function is the single place that starts bridge calls.</div>
+          <pre><code>const drain = useCallback(function drainQueue() {
+  if (!mountedRef.current || activeRef.current || !pendingRef.current) return;
+
+  const candidate = pendingRef.current;
+  const retrying = retryingRef.current;
+  pendingRef.current = undefined;
+  activeRef.current = candidate;
+  retryingRef.current = false;
+  publishStatus({
+    state: retrying ? "retrying" : "saving",
+    acknowledgedVersion: acknowledgedVersionRef.current,
+  });
+
+  void desktop.saveSuggestionState(candidate.state).then(
+    () =&gt; {
+      activeRef.current = undefined;
+      acknowledgedVersionRef.current = candidate.version;
+      failedRef.current = undefined;
+      console.info(`Suggestion state save acknowledged (version ${candidate.version})`);
+
+      if (!mountedRef.current) return;
+      if (pendingRef.current) {
+        publishStatus({
+          state: "pending",
+          acknowledgedVersion: acknowledgedVersionRef.current,
+        });
+        drainQueue();
+        return;
+      }
+
+      setFailureMessage(undefined);
+      publishStatus({ state: "idle", acknowledgedVersion: acknowledgedVersionRef.current });
+    },
+    (error: unknown) =&gt; {
+      activeRef.current = undefined;
+      failedRef.current = pendingRef.current ?? candidate;
+      pendingRef.current = undefined;
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(
+        `Suggestion state save failed (version ${candidate.version}): ${detail}`,
+      );
+      if (!mountedRef.current) return;
+      setFailureMessage(SAVE_FAILURE_MESSAGE);
+      publishStatus({
+        state: "failed",
+        acknowledgedVersion: acknowledgedVersionRef.current,
+        message: detail,
+      });
+    },
+  );
+}, [desktop, publishStatus]);</code></pre>
+        </div>
+
+        <section id="hydration">
+          <h2>Hydration is now seeded before the inbox is hydrated</h2>
+          <p>The controller calls <code class="inline">seedHydratedState(snapshot.suggestions)</code> immediately before <code class="inline">hydrateInbox(snapshot.suggestions)</code>. That order is the key to suppressing the hydration echo. The hook knows what storage already returned before the reducer installs it and before <code class="inline">useSuggestionInbox</code> can publish the resulting projection.</p>
+        </section>
+
+        <div class="snippet">
+          <div class="caption">The controller changed the hydration path and the corresponding test expectation.</div>
+          <pre><code>setActivity(snapshot.activity);
+seedHydratedState(snapshot.suggestions);
+hydrateInbox(snapshot.suggestions);
+
+// useWorkspaceController.test.ts
+expect(harness.bridge.saveSuggestionState).not.toHaveBeenCalled();</code></pre>
+        </div>
+
+        <section id="failure">
+          <h2>Failure now stays visible until an acknowledged save clears it</h2>
+          <p>The hook separates the internal failure detail from the user-facing warning. <code class="inline">status.message</code> carries the bridge error, such as <code class="inline">disk full</code> in the test. <code class="inline">failureMessage</code> is the concise UI text: <code class="inline">Suggestion changes may not survive an application restart.</code></p>
+          <p>A retry is allowed only when there is no active save, no pending save, and a retained failed candidate exists. A later reducer change can also restart persistence; in that case it replaces the failed candidate with the newest local projection.</p>
+          <div class="note danger">
+            <p><strong>Maintenance risk:</strong> the alert remains present during a new save attempt after failure because <code class="inline">failureMessage</code> is cleared only after success. The Retry button is disabled unless <code class="inline">status.state === "failed"</code>, so the UI can warn without allowing a duplicate retry while saving.</p>
+          </div>
+        </section>
+
+        <div class="snippet">
+          <div class="caption">The dock displays the persistence warning and wires Retry back to the hook.</div>
+          <pre><code>{props.persistenceError ? (
+  &lt;div
+    role="alert"
+    className="m-3 flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900"
+  &gt;
+    &lt;span&gt;{props.persistenceError}&lt;/span&gt;
+    &lt;button
+      type="button"
+      disabled={props.persistenceStatus.state !== "failed"}
+      className="shrink-0 rounded-md border border-red-400 bg-white px-3 py-1.5 font-bold disabled:cursor-wait disabled:opacity-60"
+      onClick={props.onRetrySuggestionSave}
+    &gt;
+      Retry
+    &lt;/button&gt;
+  &lt;/div&gt;
+) : null}</code></pre>
+        </div>
+
+        <section id="tests">
+          <h2>The tests describe the intended behavior better than a prose spec</h2>
+          <p>I ran the targeted suite with:</p>
+          <pre><code>npm test -- --run src/suggestions/useSuggestionPersistence.test.ts src/components/SuggestionDock.test.tsx src/workspace/useWorkspaceController.test.ts
+
+Test Files  3 passed (3)
+Tests       31 passed (31)</code></pre>
+          <table>
+            <thead><tr><th>Test area</th><th>Behavior covered</th></tr></thead>
+            <tbody>
+              <tr><td><code class="inline">useSuggestionPersistence</code></td><td>Single active save, pending coalescing to newest projection, snapshot copying, retry of newest failed state, replacement by a later projection, no hydration save, and no duplicate work on unmount.</td></tr>
+              <tr><td><code class="inline">SuggestionDock</code></td><td>The persistence warning renders with <code class="inline">role="alert"</code> and calls <code class="inline">onRetrySuggestionSave</code> when Retry is clicked.</td></tr>
+              <tr><td><code class="inline">useWorkspaceController</code></td><td>Hydrating renderer-owned suggestion state no longer invokes <code class="inline">saveSuggestionState</code>.</td></tr>
+            </tbody>
+          </table>
+          <div class="note good">
+            <p><strong>Useful invariant:</strong> storage acknowledgement advances <code class="inline">acknowledgedVersion</code>. Dispatching a reducer action only creates a candidate.</p>
+          </div>
+        </section>
+
+        <section id="history">
+          <h2>Recent history explains why this is a renderer-side queue, not a storage rewrite</h2>
+          <div class="history">
+            <div class="commit"><code>b6326e9</code><p>Initial TypeScript app foundation. This introduced the renderer codebase this hook now extends.</p></div>
+            <div class="commit"><code>0b62339</code><p>Pinning and workspace cards added more suggestion state that must survive restart.</p></div>
+            <div class="commit"><code>65d1cd5</code><p>Electron persistence started moving state across a desktop boundary.</p></div>
+            <div class="commit"><code>a3def0f</code><p>The desktop boundary refactor added stronger bridge contracts and tests around the renderer/desktop seam.</p></div>
+          </div>
+          <p style="margin-top:14px">This diff follows that sequence by keeping the existing <code class="inline">DesktopBridge.saveSuggestionState</code> method, but making the renderer more honest about save ordering and failures. The task file says storage will become the authoritative suggestion writer later; this change does not attempt that migration.</p>
+        </section>
+
+        <section>
+          <h2>Edges worth carrying in your head</h2>
+          <ul>
+            <li><code class="inline">acknowledgedVersion</code> is renderer-local. Do not treat it as a database revision or cross-process concurrency token.</li>
+            <li>The hydration echo check compares JSON strings. That is acceptable here because the state is expected to be JSON-safe persisted suggestion data, but key-order assumptions would matter if this shape became less plain.</li>
+            <li>Only the newest pending projection is retained. This is deliberate because each projection is complete state.</li>
+            <li>On failure, the retained retry target is <code class="inline">pendingRef.current ?? candidate</code>. If local changes arrived while the failed save was active, retry sends those newer changes.</li>
+            <li>The hook logs version and error context but does not log suggestion bodies.</li>
+          </ul>
+        </section>
+
+        <section id="checks" class="quiz">
+          <h2>Pause and check the model</h2>
+          <details>
+            <summary>1. A save for version 1 is active. Versions 2 through 11 are requested before version 1 resolves. How many bridge calls should have started before version 1 resolves?</summary>
+            <p>One. The active version 1 call remains the only in-flight call. Versions 2 through 11 replace the pending slot, so the next bridge call starts only after version 1 resolves, and it sends version 11.</p>
+          </details>
+          <details>
+            <summary>2. Why does the controller call <code>seedHydratedState</code> before <code>hydrateInbox</code>?</summary>
+            <p>The hook needs to know the exact persisted suggestion snapshot before the inbox reducer installs it. When the reducer publishes its hydrated state, <code>requestSave</code> can recognize it as the hydration echo and skip writing it back.</p>
+          </details>
+          <details>
+            <summary>3. What would break if pending snapshots were merged field-by-field instead of replaced?</summary>
+            <p>Old data could be resurrected. The reducer emits complete projections; replacing the pending candidate preserves the latest whole state. Field merging could combine newer fields with stale entries or pins that the reducer had removed.</p>
+          </details>
+          <details>
+            <summary>4. After a save fails while a newer pending projection exists, which projection does Retry send?</summary>
+            <p>The newer pending projection. The failure handler assigns <code>failedRef.current = pendingRef.current ?? candidate</code>, then clears pending. Retry moves that retained candidate back into pending and drains it.</p>
+          </details>
+          <details>
+            <summary>5. Where would you start debugging if users see the warning after clicking Retry?</summary>
+            <p>Check <code>useSuggestionPersistence.retry</code> and <code>drain</code>: whether <code>failedRef.current</code> exists, whether an active or pending save blocks retry, and whether the bridge promise resolves or rejects. The dock only displays <code>failureMessage</code> and calls the provided retry callback.</p>
+          </details>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
