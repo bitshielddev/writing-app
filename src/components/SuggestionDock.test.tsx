@@ -40,6 +40,7 @@ function renderDock(
     pinnedEntries: [],
     unreadCount: 1,
     runtime: { status: "waiting", cycleCount: 0 },
+    persistenceStatus: { state: "idle", acknowledgedVersion: 0 },
     view: "suggestions",
     onViewChange: vi.fn(),
     onKeyboardTargetChange: vi.fn(),
@@ -52,6 +53,7 @@ function renderDock(
     onPreview: vi.fn(),
     onStartAgent: vi.fn(),
     onStopAgent: vi.fn(),
+    onRetrySuggestionSave: vi.fn(),
     ...overrides,
   };
   function DockHarness() {
@@ -159,6 +161,22 @@ describe("SuggestionDock", () => {
     expect(
       screen.getByRole("button", { name: "Starting…" }).hasAttribute("disabled"),
     ).toBe(true);
+  });
+
+  it("shows a persistent suggestion save failure with retry", async () => {
+    const props = renderDock({
+      persistenceStatus: {
+        state: "failed",
+        acknowledgedVersion: 2,
+        message: "Suggestion changes may not survive an application restart.",
+      },
+      persistenceError:
+        "Suggestion changes may not survive an application restart.",
+    });
+
+    expect(screen.getByRole("alert").textContent).toMatch(/may not survive/i);
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(props.onRetrySuggestionSave).toHaveBeenCalledOnce();
   });
 
   it.each([

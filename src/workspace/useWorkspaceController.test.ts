@@ -105,7 +105,7 @@ describe("workspace controller", () => {
     expect(harness.editor.replaceBlocks).toHaveBeenCalled();
     expect(result.current.sources.map((source) => source.id)).toEqual(["source-1"]);
     expect(result.current.inbox.entries).toEqual([]);
-    expect(harness.bridge.saveSuggestionState).toHaveBeenCalled();
+    expect(harness.bridge.saveSuggestionState).not.toHaveBeenCalled();
   });
 
   it("serializes autosaves and advances the expected revision", async () => {

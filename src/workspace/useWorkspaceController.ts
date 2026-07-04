@@ -11,6 +11,7 @@ import type {
 } from "../shared/desktop";
 import { useSuggestionInbox } from "../suggestions/inbox";
 import { useSuggestionKeyboardNavigation } from "../suggestions/keyboardNavigation";
+import { useSuggestionPersistence } from "../suggestions/useSuggestionPersistence";
 import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
 import {
   isTextSuggestion,
@@ -45,14 +46,14 @@ export function useWorkspaceController(
 ) {
   const suggestionFeed = useMemo(() => createSuggestionFeedRelay(), []);
   const feed = suggestionFeed.feed;
-  const saveSuggestionState = useCallback(
-    (state: Parameters<DesktopBridge["saveSuggestionState"]>[0]) => {
-      void desktop.saveSuggestionState(state).catch((error: unknown) => {
-        console.error("Suggestion state save failed", error);
-      });
-    },
-    [desktop],
-  );
+  const suggestionPersistence = useSuggestionPersistence(desktop);
+  const {
+    status: suggestionPersistenceStatus,
+    failureMessage: suggestionPersistenceError,
+    requestSave: saveSuggestionState,
+    seedHydratedState,
+    retry: retrySuggestionSave,
+  } = suggestionPersistence;
   const inboxOptions = useMemo(
     () => ({ onStateChange: saveSuggestionState }),
     [saveSuggestionState],
@@ -110,6 +111,7 @@ export function useWorkspaceController(
         setSources(snapshot.sources);
         setRuntime(snapshot.agent);
         setActivity(snapshot.activity);
+        seedHydratedState(snapshot.suggestions);
         hydrateInbox(snapshot.suggestions);
         const finalBlock = editor.document.at(-1);
         if (finalBlock) setLastActiveBlockId(finalBlock.id);
@@ -125,7 +127,7 @@ export function useWorkspaceController(
     return () => {
       cancelled = true;
     };
-  }, [desktop, editor, hydrateInbox]);
+  }, [desktop, editor, hydrateInbox, seedHydratedState]);
 
   useEffect(
     () =>
@@ -308,6 +310,9 @@ export function useWorkspaceController(
     activity,
     agentControlPending,
     agentError: agentControlError ?? runtime.error,
+    suggestionPersistenceStatus,
+    suggestionPersistenceError,
+    retrySuggestionSave,
     partnerView,
     setPartnerView,
     suggestionNavigator,

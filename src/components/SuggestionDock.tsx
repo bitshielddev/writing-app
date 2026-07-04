@@ -3,6 +3,7 @@ import { type RefObject, useEffect, useRef } from "react";
 import type { AgentActivity, AgentRuntime } from "../shared/desktop";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type { SuggestionItem } from "../suggestions/types";
+import type { SuggestionPersistenceStatus } from "../suggestions/useSuggestionPersistence";
 import { SuggestionDockActivity } from "./SuggestionDockActivity";
 import { SuggestionDockDetail } from "./SuggestionDockDetail";
 import { SuggestionDockQueue } from "./SuggestionDockQueue";
@@ -14,6 +15,8 @@ type SuggestionDockProps = {
   activePreviewId?: string;
   unreadCount: number;
   error?: string;
+  persistenceStatus: SuggestionPersistenceStatus;
+  persistenceError?: string;
   activity?: AgentActivity[];
   runtime: AgentRuntime;
   controlPending?: "start" | "stop";
@@ -31,6 +34,7 @@ type SuggestionDockProps = {
   onPreview: (item: SuggestionItem) => void;
   onStartAgent: () => void;
   onStopAgent: () => void;
+  onRetrySuggestionSave: () => void;
 };
 
 function DockToolbar({
@@ -186,6 +190,22 @@ export function SuggestionDock(props: SuggestionDockProps) {
         {props.runtime.error ? `. ${props.runtime.error}` : ""}
       </p>
       <DockToolbar {...props} />
+      {props.persistenceError ? (
+        <div
+          role="alert"
+          className="m-3 flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900"
+        >
+          <span>{props.persistenceError}</span>
+          <button
+            type="button"
+            disabled={props.persistenceStatus.state !== "failed"}
+            className="shrink-0 rounded-md border border-red-400 bg-white px-3 py-1.5 font-bold disabled:cursor-wait disabled:opacity-60"
+            onClick={props.onRetrySuggestionSave}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
       <DockContent {...props} />
     </aside>
   );
