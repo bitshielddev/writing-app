@@ -16,14 +16,6 @@ import { DatabaseSync } from "node:sqlite";
 export const DATABASE_VERSION = 2;
 export const MINIMUM_SUPPORTED_DATABASE_VERSION = 2;
 
-const APPLICATION_TABLES = [
-  "projects",
-  "documents",
-  "sources",
-  "suggestion_state",
-  "event_outbox",
-] as const;
-
 export const CURRENT_SCHEMA_SQL = `
   CREATE TABLE projects (
     id TEXT PRIMARY KEY,
@@ -114,6 +106,20 @@ function applicationTables(db: DatabaseSync) {
   return rows.map((row) => row.name);
 }
 
+let currentSchemaTableNames: readonly string[] | undefined;
+
+function applicationTableNames() {
+  if (currentSchemaTableNames) return currentSchemaTableNames;
+  const schema = new DatabaseSync(":memory:");
+  try {
+    schema.exec(CURRENT_SCHEMA_SQL);
+    currentSchemaTableNames = applicationTables(schema);
+    return currentSchemaTableNames;
+  } finally {
+    schema.close();
+  }
+}
+
 function integrityFailure(db: DatabaseSync) {
   const quickCheck = db.prepare("PRAGMA quick_check").all() as Array<{ quick_check: string }>;
   const failedCheck = quickCheck.find((row) => row.quick_check !== "ok");
@@ -134,8 +140,8 @@ export function inspectDatabase(
     const integrityError = integrityFailure(db);
     if (integrityError) return { kind: "corrupt", version, reason: integrityError };
     const tables = applicationTables(db);
-    const knownTables = tables.filter((table) =>
-      (APPLICATION_TABLES as readonly string[]).includes(table));
+    const expectedTables = applicationTableNames();
+    const knownTables = tables.filter((table) => expectedTables.includes(table));
     if (version === 0) {
       return knownTables.length === 0
         ? { kind: "empty", version: 0 }
@@ -145,13 +151,12 @@ export function inspectDatabase(
     if (version < minimumVersion) {
       return { kind: "corrupt", version, reason: `Unsupported database version ${version}` };
     }
-    const missing = APPLICATION_TABLES.filter((table) => !tables.includes(table));
+    if (version < supportedVersion) return { kind: "older", version };
+    const missing = expectedTables.filter((table) => !tables.includes(table));
     if (missing.length > 0) {
       return { kind: "corrupt", version, reason: `Missing application table(s): ${missing.join(", ")}` };
     }
-    return version === supportedVersion
-      ? { kind: "supported", version }
-      : { kind: "older", version };
+    return { kind: "supported", version };
   } catch (error) {
     return {
       kind: "corrupt",
@@ -263,6 +268,62 @@ export function backupDatabase(db: DatabaseSync, databasePath: string, sourceVer
   return backupPath;
 }
 
+function executeMigrationTransaction(db: DatabaseSync, migration: DatabaseMigration) {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    migration.up(db);
+    db.exec(`PRAGMA user_version = ${migration.toVersion}`);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function retainFailedBackup(backupPath: string | undefined) {
+  if (!backupPath) return undefined;
+  const failedBackupPath = backupPath.replace(/\.bak$/, ".failed.bak");
+  renameSync(backupPath, failedBackupPath);
+  return failedBackupPath;
+}
+
+function migrationError(
+  migration: DatabaseMigration,
+  databasePath: string,
+  backupPath: string | undefined,
+  cause: unknown,
+) {
+  const recovery = backupPath ? ` Recovery backup: ${backupPath}` : "";
+  return new DatabaseStartupError(
+    "DATABASE_MIGRATION_FAILED",
+    databasePath,
+    `Migration ${migration.name} failed.${recovery}`,
+    { cause },
+  );
+}
+
+function executeMigrationStep(
+  db: DatabaseSync,
+  migration: DatabaseMigration,
+  databasePath: string,
+) {
+  let backupPath: string | undefined;
+  try {
+    if (migration.requiresBackup) {
+      backupPath = backupDatabase(db, databasePath, migration.fromVersion);
+    }
+    executeMigrationTransaction(db, migration);
+    return backupPath;
+  } catch (error) {
+    const failedBackupPath = retainFailedBackup(backupPath);
+    throw migrationError(migration, databasePath, failedBackupPath, error);
+  }
+}
+
+function existingPaths(paths: Array<string | undefined>): string[] {
+  return paths.filter((path): path is string => path !== undefined);
+}
+
 export function runMigrations({
   db,
   databasePath,
@@ -276,36 +337,8 @@ export function runMigrations({
 }) {
   const startVersion = pragmaVersion(db);
   const path = migrationPath(migrations, startVersion, targetVersion);
-  const backups: string[] = [];
-  for (const migration of path) {
-    let backup: string | undefined;
-    let transactionStarted = false;
-    try {
-      backup = migration.requiresBackup
-        ? backupDatabase(db, databasePath, migration.fromVersion)
-        : undefined;
-      if (backup) backups.push(backup);
-      db.exec("BEGIN IMMEDIATE");
-      transactionStarted = true;
-      migration.up(db);
-      db.exec(`PRAGMA user_version = ${migration.toVersion}`);
-      db.exec("COMMIT");
-      transactionStarted = false;
-    } catch (error) {
-      if (transactionStarted) db.exec("ROLLBACK");
-      if (backup) {
-        const failedBackup = backup.replace(/\.bak$/, ".failed.bak");
-        renameSync(backup, failedBackup);
-        backup = failedBackup;
-      }
-      throw new DatabaseStartupError(
-        "DATABASE_MIGRATION_FAILED",
-        databasePath,
-        `Migration ${migration.name} failed.${backup ? ` Recovery backup: ${backup}` : ""}`,
-        { cause: error },
-      );
-    }
-  }
+  const backups = existingPaths(path.map((migration) =>
+    executeMigrationStep(db, migration, databasePath)));
   if (backups.length > 0) pruneBackups(databasePath);
   return backups;
 }

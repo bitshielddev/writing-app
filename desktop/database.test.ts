@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  CURRENT_SCHEMA_SQL,
   DatabaseStartupError,
   createCurrentDatabase,
   inspectDatabase,
@@ -46,6 +47,26 @@ afterEach(async () => {
 });
 
 describe("database lifecycle", () => {
+  it("recognizes every table derived from the current schema as application data", () => {
+    const schema = new DatabaseSync(":memory:");
+    schema.exec(CURRENT_SCHEMA_SQL);
+    const tableNames = (schema.prepare(
+      "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+    ).all() as Array<{ name: string }>).map((row) => row.name);
+    schema.close();
+
+    for (const tableName of tableNames) {
+      const candidate = new DatabaseSync(":memory:");
+      candidate.exec(`CREATE TABLE ${tableName} (id INTEGER)`);
+      expect(inspectDatabase(candidate)).toEqual({
+        kind: "legacy-unknown",
+        version: 0,
+        tables: [tableName],
+      });
+      candidate.close();
+    }
+  });
+
   it("creates the complete current schema only for an empty version-0 database", async () => {
     const path = await temporaryPath();
     const db = openApplicationDatabase(path);

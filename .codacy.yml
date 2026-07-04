@@ -7,3 +7,6 @@ engines:
 exclude_paths:
   - "docs/**"
   - "artifacts/**"
+  # Codacy's SQL analyzer expects T-SQL and rejects valid SQLite syntax such as
+  # PRAGMA, STRICT tables, and AUTOINCREMENT.
+  - "desktop/fixtures/**/*.sql"
