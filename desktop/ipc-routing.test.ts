@@ -13,10 +13,14 @@ import {
   registerMainIpc,
   type IpcMainAdapter,
   type MainInvokeEvent,
+  type RendererEventConsumers,
   type RpcCaller,
 } from "./ipc-routing";
 
-function createHarness(development = true) {
+function createHarness(
+  development = true,
+  eventConsumers?: RendererEventConsumers,
+) {
   const handlers = new Map<
     string,
     (event: MainInvokeEvent, ...args: unknown[]) => unknown
@@ -83,6 +87,7 @@ function createHarness(development = true) {
         title: "Activity",
       },
     ],
+    eventConsumers,
     logger: { error: vi.fn() },
   });
   const invoke = (channel: string, ...args: unknown[]) => {
@@ -145,6 +150,40 @@ describe("main IPC routing", () => {
       "source.import",
       expect.anything(),
     );
+  });
+
+  it("requires the renderer-owned subscription identity before acknowledging", async () => {
+    let consumerId: string | undefined;
+    const eventConsumers: RendererEventConsumers = {
+      subscribe: () => consumerId = "consumer-1",
+      consumerId: () => consumerId,
+      beginHydration: vi.fn(),
+      completeHydration: vi.fn(() => true),
+    };
+    const harness = createHarness(true, eventConsumers);
+    const acknowledgement = {
+      streamId: "document:default-document",
+      sequence: 0,
+    };
+
+    await expect(harness.invoke(
+      DESKTOP_INVOKE_CHANNELS.acknowledgeEvents,
+      acknowledgement,
+    )).rejects.toThrow("The operation could not be completed");
+    expect(harness.storage.call).not.toHaveBeenCalled();
+
+    await expect(harness.invoke(DESKTOP_INVOKE_CHANNELS.subscribeEvents))
+      .resolves.toEqual({ consumerId: "consumer-1" });
+    harness.storage.call.mockResolvedValueOnce({
+      streamId: acknowledgement.streamId,
+      acknowledgedSequence: acknowledgement.sequence,
+    });
+    await harness.invoke(DESKTOP_INVOKE_CHANNELS.acknowledgeEvents, acknowledgement);
+
+    expect(harness.storage.call).toHaveBeenLastCalledWith("events.acknowledge", {
+      consumerId: "consumer-1",
+      ...acknowledgement,
+    });
   });
 
   it("validates development suggestions and omits the route in production", async () => {

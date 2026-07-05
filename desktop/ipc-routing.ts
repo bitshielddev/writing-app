@@ -120,7 +120,9 @@ export function registerMainIpc({
   register("events.replay", DESKTOP_INVOKE_CHANNELS.replayEvents, (_event, input) =>
     storage.call("events.replay", input));
   register("events.acknowledge", DESKTOP_INVOKE_CHANNELS.acknowledgeEvents, (event, input) => {
-    const consumerId = eventConsumers?.consumerId(event.sender.id) ?? `renderer:${event.sender.id}`;
+    const consumerId = eventConsumers
+      ? eventConsumers.consumerId(event.sender.id)
+      : `renderer:${event.sender.id}`;
     if (!consumerId) throw new Error("Renderer must subscribe before acknowledging events");
     return storage.call("events.acknowledge", { consumerId, ...input });
   });
