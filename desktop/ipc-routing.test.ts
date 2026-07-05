@@ -4,7 +4,11 @@ import {
   DESKTOP_INVOKE_CHANNELS,
   DEVELOPMENT_SUGGESTION_CHANNEL,
 } from "../src/shared/contracts";
-import { createWorkspaceSnapshot } from "../src/test/desktopBridgeHarness";
+import {
+  createDocumentSnapshot,
+  createSourceSnapshot,
+  createWorkspaceSnapshot,
+} from "../src/test/desktopBridgeHarness";
 import {
   registerMainIpc,
   type IpcMainAdapter,
@@ -22,7 +26,10 @@ function createHarness(development = true) {
   };
   const agent = {
     call: vi.fn<(method: string, params?: unknown) => Promise<unknown>>(
-      async (method) => `agent:${method}`,
+      async (method) => ({
+        status: method === "agent.start" ? "working" : "stopped",
+        cycleCount: 2,
+      }),
     ),
   };
   const dialog = {
@@ -35,10 +42,18 @@ function createHarness(development = true) {
     if (method === "hydrate") return snapshot;
     if (method === "agent.seed") {
       return {
+        projectId: "project-1",
+        projectName: "Writing project",
         projectRevision: 12,
+        documentId: "document-1",
+        documentTitle: "Draft",
         documentRevision: 4,
       };
     }
+    if (method === "document.save") return createDocumentSnapshot();
+    if (method === "suggestions.save") return undefined;
+    if (method === "source.import") return createSourceSnapshot();
+    if (method === "development.suggestion.create") return { accepted: true };
     return `storage:${method}`;
   });
   let runtime = { status: "working" as const, cycleCount: 2 };
@@ -65,6 +80,7 @@ function createHarness(development = true) {
         title: "Activity",
       },
     ],
+    logger: { error: vi.fn() },
   });
   const invoke = (channel: string, ...args: unknown[]) => {
     const handler = handlers.get(channel);
@@ -78,7 +94,7 @@ describe("main IPC routing", () => {
   it("rejects unknown renderers before invoking a route", async () => {
     const harness = createHarness();
     const handler = harness.handlers.get(DESKTOP_INVOKE_CHANNELS.hydrate);
-    expect(() => handler?.({ sender: { id: 999 } })).toThrow("Unknown renderer");
+    await expect(handler?.({ sender: { id: 999 } })).rejects.toThrow("Unknown renderer");
     expect(harness.storage.call).not.toHaveBeenCalled();
   });
 
@@ -98,9 +114,9 @@ describe("main IPC routing", () => {
 
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.startAgent);
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.stopAgent);
-    const saveInput = { documentId: "document", blocks: [] };
+    const saveInput = { documentId: "document", blocks: [], markdown: "", expectedRevision: 0 };
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.saveDocument, saveInput);
-    const state = { entries: [], pinnedEntries: [] };
+    const state = { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 };
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.saveSuggestionState, state);
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.importSource);
 
@@ -129,9 +145,9 @@ describe("main IPC routing", () => {
 
   it("validates development suggestions and omits the route in production", async () => {
     const harness = createHarness();
-    expect(() =>
+    await expect(
       harness.invoke(DEVELOPMENT_SUGGESTION_CHANNEL, { invalid: true }),
-    ).toThrow("Invalid development suggestion");
+    ).rejects.toThrow("Invalid data at main-ipc.development.suggestion.create.params");
     const item = {
       id: "suggestion",
       dedupeKey: "suggestion",

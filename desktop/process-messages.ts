@@ -1,38 +1,45 @@
-import type { ChildMessage } from "../src/shared/contracts.js";
+import {
+  PROTOCOL_VERSION,
+  StorageOperations,
+  type AgentChildMessage,
+  type OperationCaller,
+  type StorageChildMessage,
+  type StorageForwardResult,
+  toContractError,
+} from "../src/shared/contracts.js";
 import type {
   AgentActivity,
+  AgentActivityInput,
   AgentRuntime,
   DesktopEvent,
-  ObservationSeed,
 } from "../src/shared/desktop.js";
 
-type ProcessEndpoint = {
-  call<T>(method: string, params?: unknown): Promise<T>;
-  post(message: unknown): void;
-};
+type PostEndpoint = { post(message: unknown): void };
 
 export function createStorageMessageHandler({
   storage,
   getAgent,
   broadcast,
 }: {
-  storage: ProcessEndpoint;
-  getAgent: () => ProcessEndpoint | undefined;
+  storage: OperationCaller<typeof StorageOperations>;
+  getAgent: () => PostEndpoint | undefined;
   broadcast: (event: DesktopEvent) => void;
 }) {
-  return async (message: ChildMessage) => {
+  return async (message: StorageChildMessage) => {
     if (message.kind !== "domain.event") return;
     broadcast(message.event);
     if (message.event.type === "document.saved") {
       getAgent()?.post({
         kind: "project.changed",
+        protocolVersion: PROTOCOL_VERSION,
         projectRevision: message.event.projectRevision,
         documentRevision: message.event.document.revision,
       });
     } else if (message.event.type === "source.imported") {
-      const seed = await storage.call<ObservationSeed>("agent.seed");
+      const seed = await storage.call("agent.seed");
       getAgent()?.post({
         kind: "project.changed",
+        protocolVersion: PROTOCOL_VERSION,
         projectRevision: seed.projectRevision,
         documentRevision: seed.documentRevision,
       });
@@ -47,28 +54,34 @@ export function createAgentMessageHandler({
   addActivity,
   broadcast,
 }: {
-  storage: ProcessEndpoint;
-  getAgent: () => ProcessEndpoint | undefined;
+  storage: OperationCaller<typeof StorageOperations>;
+  getAgent: () => PostEndpoint | undefined;
   setRuntime: (runtime: Partial<AgentRuntime>) => void;
-  addActivity: (activity: Omit<AgentActivity, "updatedAt">) => AgentActivity;
+  addActivity: (activity: AgentActivityInput) => AgentActivity;
   broadcast: (event: DesktopEvent) => void;
 }) {
-  return async (message: ChildMessage) => {
+  return async (message: AgentChildMessage) => {
     if (message.kind === "storage.request") {
+      let response: StorageForwardResult;
       try {
-        const result = await storage.call(message.method, message.params);
-        getAgent()?.post({
-          kind: "storage.result",
+        const result = await storage.call(message.operation, message.params as never);
+        response = {
+          kind: "storage.success",
+          protocolVersion: PROTOCOL_VERSION,
           id: message.id,
+          operation: message.operation,
           result,
-        });
+        } as StorageForwardResult;
       } catch (error) {
-        getAgent()?.post({
-          kind: "storage.result",
+        response = {
+          kind: "storage.failure",
+          protocolVersion: PROTOCOL_VERSION,
           id: message.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
+          operation: message.operation,
+          error: toContractError(error),
+        } as StorageForwardResult;
       }
+      getAgent()?.post(response);
     } else if (message.kind === "agent.runtime") {
       setRuntime(message.runtime);
     } else if (message.kind === "agent.activity") {

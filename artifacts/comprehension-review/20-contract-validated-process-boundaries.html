@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contract-validated process boundaries</title>
+  <style>
+    :root {
+      --bg: #f7f4ef;
+      --paper: #fffdf9;
+      --ink: #25211c;
+      --muted: #6f675c;
+      --line: #ded6ca;
+      --soft: #efe7db;
+      --accent: #415f77;
+      --accent-2: #74573d;
+      --danger: #8b3d35;
+      --code-bg: #1f2428;
+      --code-ink: #f1eee8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.58 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(65, 95, 119, 0.12), transparent 32rem),
+        var(--bg);
+    }
+    header {
+      padding: 4.5rem 1.5rem 2.5rem;
+      border-bottom: 1px solid var(--line);
+    }
+    main { max-width: 1120px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
+    .hero, section {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 0.8rem;
+      font-size: clamp(2.2rem, 5vw, 4.4rem);
+      line-height: 1.03;
+      letter-spacing: -0.055em;
+    }
+    h2 {
+      margin: 3.2rem 0 1rem;
+      font-size: clamp(1.45rem, 3vw, 2rem);
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+    }
+    h3 { margin: 1.7rem 0 0.6rem; font-size: 1.05rem; }
+    p { margin: 0.75rem 0; }
+    .dek { color: var(--muted); font-size: 1.12rem; max-width: 760px; }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 1.4rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .pill {
+      padding: 0.22rem 0.6rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 253, 249, 0.7);
+    }
+    .panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 1.25rem;
+      box-shadow: 0 12px 34px rgba(37, 33, 28, 0.06);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin: 1.2rem 0;
+    }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card {
+      background: rgba(255, 253, 249, 0.78);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1rem;
+    }
+    .card h3 { margin-top: 0; color: var(--accent); }
+    .map {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 0.55rem;
+      align-items: stretch;
+      margin: 1.3rem 0;
+    }
+    .node {
+      padding: 0.95rem;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--paper);
+      min-height: 7rem;
+    }
+    .node strong { display: block; color: var(--accent); margin-bottom: 0.35rem; }
+    .arrow {
+      align-self: center;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    pre {
+      margin: 1rem 0;
+      padding: 1rem;
+      overflow: auto;
+      border-radius: 14px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font: 0.86rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    p code, li code {
+      background: var(--soft);
+      padding: 0.12rem 0.32rem;
+      border-radius: 6px;
+      font-size: 0.92em;
+    }
+    mark {
+      color: inherit;
+      background: rgba(236, 196, 102, 0.28);
+      padding: 0.05rem 0.18rem;
+      border-radius: 4px;
+    }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: rgba(65, 95, 119, 0.08);
+      padding: 0.9rem 1rem;
+      border-radius: 0 14px 14px 0;
+      margin: 1rem 0;
+    }
+    .warning { border-left-color: var(--danger); background: rgba(139, 61, 53, 0.08); }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 0.72rem 0.55rem; }
+    th { color: var(--accent-2); font-size: 0.9rem; }
+    details {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.8rem 1rem;
+      background: rgba(255, 253, 249, 0.72);
+      margin: 0.8rem 0;
+    }
+    summary { cursor: pointer; font-weight: 700; }
+    .small { color: var(--muted); font-size: 0.92rem; }
+    .files { columns: 2; column-gap: 2rem; color: var(--muted); }
+    .files code { break-inside: avoid; display: block; margin-bottom: 0.3rem; }
+    @media (max-width: 820px) {
+      .grid, .grid.two, .map { grid-template-columns: 1fr; }
+      .arrow { display: none; }
+      .files { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <h1>Contract-validated process boundaries</h1>
+      <p class="dek">This change turns the Electron renderer, main process, storage utility process, and agent utility process into typed RPC peers with runtime validation at each crossing. The behaviour is still the Scribe desktop flow, but messages now carry explicit operations, protocol versions, success/failure envelopes, and bounded structured errors.</p>
+      <div class="meta">
+        <span class="pill">28 changed files</span>
+        <span class="pill">Main area: shared contracts and process transports</span>
+        <span class="pill">Tests run: 6 files, 28 passing</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>The change in one pass</h2>
+      <p>Before this diff, <code>src/shared/contracts.ts</code> mostly listed channel names and broad TypeScript-only message shapes. A child RPC request used a free-form <code>method: string</code>; a response used one <code>rpc.result</code> shape with optional <code>result</code> and <code>error</code> fields.</p>
+      <pre><code>// removed shape from src/shared/contracts.ts
+export type RpcRequest = {
+  kind: "rpc";
+  id: string;
+  method: string;
+  params?: unknown;
+};
+
+export type RpcResult = {
+  kind: "rpc.result";
+  id: string;
+  result?: unknown;
+  error?: string;
+};</code></pre>
+      <p>The new file defines TypeBox schemas for domain snapshots, events, operation registries, RPC envelopes, and parent/child process messages. That means the same source now describes both compile-time types and runtime checks.</p>
+      <pre><code>export const PROTOCOL_VERSION = 1 as const;
+export const ProtocolVersionSchema = Type.Literal(PROTOCOL_VERSION);
+
+function operation&lt;Params extends TSchema, Result extends TSchema&gt;(params: Params, result: Result) {
+  return { params, result, error: ContractErrorSchema } as const;
+}
+
+export const StorageOperations = {
+  hydrate: operation(noParams, WorkspaceSnapshotSchema),
+  "workspace.repair": operation(noParams, repairResult),
+  "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
+  "suggestions.save": operation(PersistedSuggestionStateSchema, noResult),
+  "source.import": operation(Type.Object({ path: text(10_000) }, strict), SourceSnapshotSchema),
+  "agent.seed": operation(noParams, ObservationSeedSchema),
+  "agent.suggestions.list": operation(noParams, Type.Object({
+    live: Type.Array(SuggestionItemSchema), pinned: Type.Array(SuggestionItemSchema),
+    workspace: Type.Array(SuggestionItemSchema),
+  }, strict)),
+  "agent.suggestion.create": operation(suggestionMutation, accepted),
+  "agent.suggestion.update": operation(suggestionMutation, accepted),
+  "agent.suggestion.retract": operation(Type.Object({ id: identifier, expectedDocumentRevision: revision }, strict), accepted),
+  "development.suggestion.create": operation(Type.Object({ item: SuggestionItemSchema }, strict), accepted),
+} as const;</code></pre>
+      <div class="callout">
+        <p>The important behavioural change is not a new user-facing feature. It is a stricter boundary rule: process messages, IPC payloads, persisted JSON projections, and desktop events are rejected or converted to structured errors when they do not match the shared contract.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>The route map now has validators at every handoff</h2>
+      <div class="map">
+        <div class="node"><strong>Renderer</strong>Calls <code>window.scribe</code>. Preload validates invoke params and results.</div>
+        <div class="arrow">-&gt;</div>
+        <div class="node"><strong>Main process</strong>Registers renderer operations, validates inputs and outputs, then calls storage or agent.</div>
+        <div class="arrow">-&gt;</div>
+        <div class="node"><strong>Utility processes</strong>Child RPC, storage transport, and agent transport exchange protocol-versioned envelopes.</div>
+      </div>
+      <p>Several files changed, but most of them are adapting to this one contract owner:</p>
+      <div class="grid">
+        <div class="card">
+          <h3><code>src/shared/contracts.ts</code></h3>
+          <p>Defines schemas, operation registries, RPC message unions, protocol version, and error conversion helpers.</p>
+        </div>
+        <div class="card">
+          <h3><code>desktop/*transport.ts</code></h3>
+          <p>Turns requests and responses into validated envelopes. Agent-to-storage forwarding now has separate success and failure messages.</p>
+        </div>
+        <div class="card">
+          <h3><code>desktop/storage/*</code></h3>
+          <p>Validates operation params and results, plus persisted document blocks, suggestion state, and outbox event JSON.</p>
+        </div>
+      </div>
+      <p class="small">Changed files include: <code>desktop/child-rpc.ts</code>, <code>desktop/ipc-routing.ts</code>, <code>desktop/preload-bridge.ts</code>, <code>desktop/process-messages.ts</code>, <code>desktop/agent-transport.ts</code>, <code>desktop/storage-transport.ts</code>, <code>desktop/agent.ts</code>, <code>desktop/storage.ts</code>, <code>desktop/storage/operations.ts</code>, <code>desktop/storage/repositories.ts</code>, <code>src/shared/contracts.ts</code>, <code>src/shared/desktop.ts</code>, and the matching tests.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Follow one renderer save</h2>
+      <p>A document save now gets checked three times before the database accepts it: preload checks the renderer input, main IPC checks again before forwarding, and storage operations validate before touching disk or SQLite.</p>
+      <pre><code>// desktop/preload-bridge.ts
+async function invoke&lt;Name extends OperationName&lt;typeof RendererOperations&gt;&gt;(
+  ipcRenderer: PreloadIpcRenderer,
+  operation: Name,
+  channel: string,
+  params?: OperationParams&lt;typeof RendererOperations, Name&gt;,
+): Promise&lt;OperationResult&lt;typeof RendererOperations, Name&gt;&gt; {
+  const definition = RendererOperations[operation];
+  const input = parseOrContractError(definition.params, params, `preload.${operation}.params`);
+  const result = await (input === undefined
+    ? ipcRenderer.invoke(channel)
+    : ipcRenderer.invoke(channel, input));
+  return parseOrContractError(
+    definition.result,
+    result,
+    `preload.${operation}.result`,
+  ) as OperationResult&lt;typeof RendererOperations, Name&gt;;
+}</code></pre>
+      <pre><code>// desktop/ipc-routing.ts
+const register = &lt;Name extends OperationName&lt;typeof RendererOperations&gt;&gt;(
+  operation: Name,
+  channel: string,
+  handler: (event: MainInvokeEvent, params: OperationParams&lt;typeof RendererOperations, Name&gt;) =&gt;
+    OperationResult&lt;typeof RendererOperations, Name&gt; | Promise&lt;OperationResult&lt;typeof RendererOperations, Name&gt;&gt;,
+) =&gt; {
+  ipcMain.handle(channel, async (event, ...args) =&gt; {
+    if (!validateSender(event.sender)) throw new Error("Unknown renderer");
+    try {
+      const params = parseOrContractError(
+        RendererOperations[operation].params,
+        args[0],
+        `main-ipc.${operation}.params`,
+      ) as OperationParams&lt;typeof RendererOperations, Name&gt;;
+      return parseOrContractError(
+        RendererOperations[operation].result,
+        await handler(event, params),
+        `main-ipc.${operation}.result`,
+      );
+    } catch (error) {
+      logger.error(`Renderer operation failed: ${operation}`, error);
+      const contract = toContractError(error);
+      const external = new Error(contract.message) as Error &amp; { contract?: typeof contract };
+      external.name = contract.code;
+      external.contract = contract;
+      throw external;
+    }
+  });
+};</code></pre>
+      <p>The storage implementation still preserves the previous consistency behaviour: file write first, transaction second, repair if the transaction fails. The new part is that <code>StorageOperationContracts["document.save"].params</code> is used inside the operation itself.</p>
+      <pre><code>// desktop/storage/operations.ts
+private async performDocumentSave(params: unknown): Promise&lt;DocumentSnapshot&gt; {
+  const input = parseOrContractError(
+    StorageOperationContracts["document.save"].params,
+    params,
+    "storage.document.save.params",
+  );
+  if (input.documentId !== this.deps.documentId) throw new Error("Invalid document identity");
+
+  const current = this.deps.documents.get(this.deps.documentId);
+  if (input.expectedRevision !== current.revision) throw new Error("DOCUMENT_REVISION_CONFLICT");
+  if (
+    JSON.stringify(input.blocks) === JSON.stringify(current.blocks) &amp;&amp;
+    input.markdown === current.markdown
+  ) return current;
+
+  await this.deps.files.writeDraft(input.markdown);
+  // transaction and repair path follow...
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>Agent/storage forwarding changed shape</h2>
+      <p>The agent can still ask storage for suggestion and seed operations, but the message no longer says <code>method</code> and no longer receives a generic <code>storage.result</code>. The agent sends a <code>storage.request</code> with <code>operation</code>, and main replies with either <code>storage.success</code> or <code>storage.failure</code>.</p>
+      <div class="grid two">
+        <div class="card">
+          <h3>Agent side</h3>
+          <pre><code>this.postMessage({
+  kind: "storage.request",
+  protocolVersion: PROTOCOL_VERSION,
+  id,
+  operation,
+  params,
+} as StorageForwardRequest);</code></pre>
+        </div>
+        <div class="card">
+          <h3>Main process reply</h3>
+          <pre><code>response = {
+  kind: "storage.failure",
+  protocolVersion: PROTOCOL_VERSION,
+  id: message.id,
+  operation: message.operation,
+  error: toContractError(error),
+} as StorageForwardResult;</code></pre>
+        </div>
+      </div>
+      <p><code>ChildRpc</code> also correlates by both <code>id</code> and <code>operation</code>. A response with the right ID but the wrong operation is ignored rather than completing the wrong promise.</p>
+      <pre><code>// desktop/child-rpc.ts
+private handleRpcResult(message: Extract&lt;ChildMessage, { kind: "rpc.success" | "rpc.failure" }&gt;) {
+  const request = this.pending.get(message.id);
+  if (!request || request.operation !== message.operation) return;
+  this.pending.delete(message.id);
+  if (message.kind === "rpc.failure") {
+    request.reject(new RemoteContractError(message.error));
+    return;
+  }
+  try {
+    request.resolve(parseOrContractError(
+      request.resultSchema,
+      message.result,
+      `${this.boundary}.${request.operation}.result`,
+    ));
+  } catch (error) {
+    request.reject(error instanceof Error ? error : new Error("Invalid RPC result"));
+  }
+}</code></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Errors are now contracts too</h2>
+      <p>The old code often sent an error string. The new boundary error has a code, message, retry flag, and bounded primitive details. Two domain errors are mapped to stable retryable errors; everything else becomes a generic internal error.</p>
+      <pre><code>export function toContractError(error: unknown): ContractError {
+  if (error instanceof ContractValidationError) return error.contract;
+  if (typeof error === "object" &amp;&amp; error !== null &amp;&amp; "contract" in error &amp;&amp; Check(ContractErrorSchema, error.contract)) {
+    return error.contract as ContractError;
+  }
+  if (error instanceof Error &amp;&amp; error.message === "DOCUMENT_REVISION_CONFLICT") {
+    return { code: "DOCUMENT_REVISION_CONFLICT", message: "The document changed before it could be saved", retryable: true };
+  }
+  if (error instanceof Error &amp;&amp; error.message === "STALE_SUGGESTION_REVISION") {
+    return { code: "STALE_SUGGESTION_REVISION", message: "The suggestion targets an older document revision", retryable: true };
+  }
+  return { code: "INTERNAL_ERROR", message: "The operation could not be completed", retryable: false };
+}</code></pre>
+      <p>The validation helper deliberately avoids echoing rejected payloads. It records the boundary and up to five short issue strings.</p>
+      <pre><code>const clean = (value: string, max = 160) =&gt; value.replace(/[\r\n\t]+/g, " ").slice(0, max);
+export function parseOrContractError&lt;Schema extends TSchema&gt;(
+  schema: Schema,
+  value: unknown,
+  boundary: string,
+): Static&lt;Schema&gt; {
+  if (Check(schema, value)) return value as Static&lt;Schema&gt;;
+  const [, errors] = Errors(schema, value);
+  const details: Record&lt;string, string&gt; = { boundary: clean(boundary, 100) };
+  errors.slice(0, 5).forEach((issue, index) =&gt; {
+    details[`issue${index + 1}`] = clean(`${issue.instancePath || "/"}: ${issue.message}`);
+  });
+  throw new ContractValidationError({
+    code: "CONTRACT_VALIDATION_FAILED",
+    message: `Invalid data at ${clean(boundary, 100)}`,
+    retryable: false,
+    details,
+  });
+}</code></pre>
+      <div class="callout warning">
+        <p>Risk to remember: malformed child messages are logged or sent to stderr and then ignored. If a child sends a malformed response for a pending call, this code does not add a timeout; that request remains pending until the process exits or is disposed.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Persisted data is part of the boundary now</h2>
+      <p>The repositories validate data read from SQLite and data written back to SQLite. This extends the contract past IPC into durable JSON columns.</p>
+      <pre><code>// desktop/storage/repositories.ts
+export class SuggestionRepository implements SuggestionStore {
+  get(projectId: string): PersistedSuggestionState {
+    const row = this.db.prepare(
+      "SELECT state_json FROM suggestion_state WHERE project_id = ?",
+    ).get(projectId) as { state_json: string } | undefined;
+    if (!row) throw new Error(`Suggestion projection not found: ${projectId}`);
+    return parseOrContractError(
+      PersistedSuggestionStateSchema,
+      parseJson(row.state_json, "suggestion projection"),
+      "persisted.suggestion-projection",
+    );
+  }
+
+  put(projectId: string, state: PersistedSuggestionState) {
+    const validated = parseOrContractError(
+      PersistedSuggestionStateSchema,
+      state,
+      "persisted.suggestion-projection.write",
+    );
+    // writes JSON.stringify(validated)
+  }
+}</code></pre>
+      <p>This matters because <code>src/suggestions/state.ts</code> no longer owns a hand-written persisted-state type. It derives the type from <code>PersistedSuggestionStateSchema</code>, while keeping local helper types for entries and workspace rectangles.</p>
+      <pre><code>export type WorkspacePinRect = Static&lt;typeof WorkspacePinRectSchema&gt;;
+export type PersistedSuggestionState = Static&lt;typeof PersistedSuggestionStateSchema&gt;;</code></pre>
+    </section>
+
+    <section class="panel">
+      <h2>How this fits the recent history</h2>
+      <p>The git log gives useful context for why this diff is shaped this way.</p>
+      <table>
+        <thead><tr><th>Recent commit</th><th>What it set up</th><th>How this change follows it</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>82ec51a Suggestion schema and capabilities</code></td>
+            <td>Introduced a runtime schema for suggestion items.</td>
+            <td>The new contracts import <code>SuggestionItemSchema</code> and use it in renderer, storage, event, and persisted suggestion schemas.</td>
+          </tr>
+          <tr>
+            <td><code>76425b6 Extract workspace application services</code> and <code>29b9eef split oversized modules</code></td>
+            <td>Moved code into smaller service modules.</td>
+            <td>The new validators are threaded through those modules instead of re-centralizing behaviour in one large file.</td>
+          </tr>
+          <tr>
+            <td><code>5372f2f Storage service layering and consistency</code></td>
+            <td>Split storage into service, operations, repositories, workspace files, outbox, and RPC operation mapping.</td>
+            <td>This diff puts explicit schemas at those layer seams, especially <code>rpc-operations.ts</code>, <code>operations.ts</code>, and <code>repositories.ts</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small">The intent is inferred from the code and commit sequence, not from an issue or design note.</p>
+    </section>
+
+    <section>
+      <h2>Test signals</h2>
+      <p>The new and updated tests mostly check contract enforcement rather than new UI outcomes.</p>
+      <ul>
+        <li><code>src/shared/contracts.test.ts</code> checks operation inventory, strict params/results, protocol-version rejection, safe validation details, and error mapping.</li>
+        <li><code>desktop/child-rpc.test.ts</code> checks protocol-versioned ready messages, out-of-order responses, remote structured failures, and structured startup errors.</li>
+        <li><code>desktop/transport.test.ts</code> checks storage success/failure envelopes and agent storage forwarding correlation.</li>
+        <li><code>desktop/ipc-routing.test.ts</code> and <code>desktop/preload-bridge.test.ts</code> check renderer route validation and exact channel calls.</li>
+        <li><code>desktop/storage/layers.test.ts</code> adds persisted JSON rejection cases.</li>
+      </ul>
+      <p>Verification run for this review:</p>
+      <pre><code>npm test -- --run src/shared/contracts.test.ts desktop/child-rpc.test.ts \
+  desktop/transport.test.ts desktop/ipc-routing.test.ts \
+  desktop/preload-bridge.test.ts desktop/process-messages.test.ts
+
+Test Files  6 passed (6)
+Tests       28 passed (28)</code></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Maintenance notes for the next change</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>When adding an operation</h3>
+          <p>Add it to the right registry in <code>src/shared/contracts.ts</code>. Then update routing, transport tests, and any channel mapping. The tests now expect registry inventory to match fixtures.</p>
+        </div>
+        <div class="card">
+          <h3>When changing a message shape</h3>
+          <p>Update both schema unions and derived types. Check every producer includes <code>protocolVersion: PROTOCOL_VERSION</code>, and every consumer parses with the matching schema.</p>
+        </div>
+        <div class="card">
+          <h3>When debugging a hung RPC</h3>
+          <p>Start by checking whether a response was rejected by validation or ignored because the <code>id</code>/<code>operation</code> pair did not match a pending request.</p>
+        </div>
+        <div class="card">
+          <h3>When debugging hidden data loss fears</h3>
+          <p>Look at <code>toContractError</code> and <code>parseOrContractError</code>. They intentionally avoid exposing rejected payload content, so logs may contain less raw data than before.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Comprehension check</h2>
+      <details>
+        <summary>1. A renderer calls <code>saveDocument</code> without <code>expectedRevision</code>. Where is the first rejection expected?</summary>
+        <p>In <code>desktop/preload-bridge.ts</code>. The generic <code>invoke</code> helper validates params against <code>RendererOperations["document.save"].params</code> before it calls <code>ipcRenderer.invoke</code>.</p>
+      </details>
+      <details>
+        <summary>2. Why did the response shape split into <code>rpc.success</code> and <code>rpc.failure</code>?</summary>
+        <p>The code now validates result and error paths with different schemas. A success carries a typed <code>result</code>; a failure carries a structured <code>ContractError</code>. This avoids the old ambiguous <code>rpc.result</code> shape where both <code>result</code> and <code>error</code> were optional.</p>
+      </details>
+      <details>
+        <summary>3. What would break if a new storage operation were added only to <code>createStorageRequestHandler</code>?</summary>
+        <p>Callers could not safely construct or validate it through the shared operation registry. The operation would be missing from <code>StorageOperations</code>, the RPC request/result schemas, derived operation types, and the inventory tests.</p>
+      </details>
+      <details>
+        <summary>4. An agent storage request fails because of a stale document revision. What should the agent receive?</summary>
+        <p>Main catches the storage call failure in <code>createAgentMessageHandler</code>, converts it through <code>toContractError</code>, and posts <code>storage.failure</code>. For <code>STALE_SUGGESTION_REVISION</code>, the error has code <code>STALE_SUGGESTION_REVISION</code>, a safe message, and <code>retryable: true</code>.</p>
+      </details>
+      <details>
+        <summary>5. Where would you start debugging if an RPC promise never resolves after a child sent a response?</summary>
+        <p>Check whether the response matched the expected schema and protocol version, then check whether <code>ChildRpc.handleRpcResult</code> found the same <code>id</code> and <code>operation</code>. Invalid child messages are ignored after logging, and mismatched results do not settle the pending request.</p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>

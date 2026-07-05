@@ -26,7 +26,9 @@ export function safeActivityPayload(payload: unknown): unknown {
   } catch {
     return "[unserializable payload]";
   }
-  if (Buffer.byteLength(serialized, "utf8") <= MAX_PAYLOAD_BYTES) return redacted;
+  if (Buffer.byteLength(serialized, "utf8") <= MAX_PAYLOAD_BYTES) {
+    return JSON.parse(serialized) as unknown;
+  }
   return {
     truncated: true,
     preview: Buffer.from(serialized, "utf8")

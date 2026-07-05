@@ -8,6 +8,7 @@ import {
   type DesktopProcess,
 } from "./startup";
 import { ChildStartupError } from "./child-rpc";
+import { AgentOperations, StorageOperations } from "../src/shared/contracts";
 
 function processHarness(ready: Promise<void>, calls: string[], name: string) {
   return {
@@ -23,7 +24,7 @@ function processHarness(ready: Promise<void>, calls: string[], name: string) {
       calls.push(`${name}.post:${(message as { kind: string }).kind}`);
     }),
     kill: vi.fn(),
-  } as DesktopProcess;
+  } as unknown as DesktopProcess<typeof StorageOperations> & DesktopProcess<typeof AgentOperations>;
 }
 
 describe("desktop startup", () => {
@@ -72,6 +73,7 @@ describe("desktop startup", () => {
     ]);
     expect(agent.post).toHaveBeenCalledWith({
       kind: "project.changed",
+      protocolVersion: 1,
       projectRevision: 7,
       documentRevision: 3,
     });

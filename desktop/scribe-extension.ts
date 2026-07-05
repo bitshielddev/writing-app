@@ -3,7 +3,14 @@ import { randomUUID } from "node:crypto";
 import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
-import { ScribeLoopState, type PersistedScribeLoopState } from "./scribe-loop.js";
+import { ScribeLoopState, PersistedScribeLoopStateSchema } from "./scribe-loop.js";
+import { parseOrContractError } from "../src/shared/contracts.js";
+import {
+  StorageOperations,
+  type OperationArgs,
+  type OperationName,
+  type OperationResult,
+} from "../src/shared/contracts.js";
 import type { AgentActivity } from "../src/shared/desktop.js";
 import type { SuggestionItem } from "../src/suggestions/types.js";
 import {
@@ -32,7 +39,10 @@ export type ScribeRevision = {
 
 export type ScribeExtensionHost = {
   loop: ScribeLoopState;
-  storageCall<T>(method: string, params?: unknown): Promise<T>;
+  storageCall<Name extends OperationName<typeof StorageOperations>>(
+    operation: Name,
+    ...args: OperationArgs<typeof StorageOperations, Name>
+  ): Promise<OperationResult<typeof StorageOperations, Name>>;
   runtime(): void;
   activity(input: Omit<AgentActivity, "updatedAt">): void;
   wake(): void;
@@ -61,7 +71,7 @@ function toolResult(value: unknown, isError = false) {
 
 export async function executeSuggestionMutation(
   host: ScribeExtensionHost,
-  method: string,
+  method: "agent.suggestion.create" | "agent.suggestion.update" | "agent.suggestion.retract",
   params: Record<string, unknown>,
 ) {
   const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
@@ -70,7 +80,10 @@ export async function executeSuggestionMutation(
   }
   try {
     return toolResult(
-      await host.storageCall(method, { ...params, expectedDocumentRevision }),
+      await host.storageCall(method, {
+        ...params,
+        expectedDocumentRevision,
+      } as never),
     );
   } catch (error) {
     host.wake();
@@ -88,8 +101,14 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
     pi.on("session_start", (_event, ctx) => {
       const restored = ctx.sessionManager.getEntries()
         .filter((entry) => entry.type === "custom" && entry.customType === SCRIBE_LOOP_ENTRY)
-        .at(-1) as { data?: PersistedScribeLoopState } | undefined;
-      if (restored?.data) host.loop = new ScribeLoopState(restored.data);
+        .at(-1);
+      if (restored && "data" in restored) {
+        host.loop = new ScribeLoopState(parseOrContractError(
+          PersistedScribeLoopStateSchema,
+          restored.data,
+          "persisted.pi.scribe-loop-state",
+        ));
+      }
       pi.setSessionName("Scribe writing partner");
     });
 

@@ -7,6 +7,11 @@ import {
 } from "../src/shared/contracts";
 import type { DesktopEvent } from "../src/shared/desktop";
 import {
+  createDocumentSnapshot,
+  createSourceSnapshot,
+  createWorkspaceSnapshot,
+} from "../src/test/desktopBridgeHarness";
+import {
   createDesktopBridge,
   createDesktopDevelopmentBridge,
   exposePreloadBridges,
@@ -14,7 +19,15 @@ import {
 } from "./preload-bridge";
 
 function ipcHarness() {
-  const invoke = vi.fn(async () => undefined);
+  const invoke = vi.fn(async (channel: string) => {
+    if (channel === DESKTOP_INVOKE_CHANNELS.hydrate) return createWorkspaceSnapshot();
+    if (channel === DESKTOP_INVOKE_CHANNELS.startAgent) return { status: "working", cycleCount: 1 };
+    if (channel === DESKTOP_INVOKE_CHANNELS.stopAgent) return { status: "stopped", cycleCount: 1 };
+    if (channel === DESKTOP_INVOKE_CHANNELS.saveDocument) return createDocumentSnapshot();
+    if (channel === DESKTOP_INVOKE_CHANNELS.importSource) return createSourceSnapshot();
+    if (channel === DEVELOPMENT_SUGGESTION_CHANNEL) return { accepted: true };
+    return undefined;
+  });
   const on = vi.fn();
   const removeListener = vi.fn();
   return {

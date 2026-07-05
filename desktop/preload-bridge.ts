@@ -2,44 +2,62 @@ import {
   DESKTOP_EVENT_CHANNEL,
   DESKTOP_INVOKE_CHANNELS,
   DEVELOPMENT_SUGGESTION_CHANNEL,
+  DesktopEventSchema,
+  RendererOperations,
+  type OperationName,
+  type OperationParams,
+  type OperationResult,
+  parseOrContractError,
 } from "../src/shared/contracts.js";
 import type {
   DesktopBridge,
   DesktopDevelopmentBridge,
-  DesktopEvent,
 } from "../src/shared/desktop.js";
 
 export type PreloadIpcRenderer = {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>;
-  on(
-    channel: string,
-    listener: (event: unknown, payload: DesktopEvent) => void,
-  ): unknown;
-  removeListener(
-    channel: string,
-    listener: (event: unknown, payload: DesktopEvent) => void,
-  ): unknown;
+  on(channel: string, listener: (event: unknown, payload: unknown) => void): unknown;
+  removeListener(channel: string, listener: (event: unknown, payload: unknown) => void): unknown;
 };
 
 export type PreloadContextBridge = {
   exposeInMainWorld(name: string, value: unknown): void;
 };
 
-export function createDesktopBridge(
+async function invoke<Name extends OperationName<typeof RendererOperations>>(
   ipcRenderer: PreloadIpcRenderer,
-): DesktopBridge {
+  operation: Name,
+  channel: string,
+  params?: OperationParams<typeof RendererOperations, Name>,
+): Promise<OperationResult<typeof RendererOperations, Name>> {
+  const definition = RendererOperations[operation];
+  const input = parseOrContractError(definition.params, params, `preload.${operation}.params`);
+  const result = await (input === undefined
+    ? ipcRenderer.invoke(channel)
+    : ipcRenderer.invoke(channel, input));
+  return parseOrContractError(
+    definition.result,
+    result,
+    `preload.${operation}.result`,
+  ) as OperationResult<typeof RendererOperations, Name>;
+}
+
+export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBridge {
   return {
-    hydrate: () => ipcRenderer.invoke(DESKTOP_INVOKE_CHANNELS.hydrate) as ReturnType<DesktopBridge["hydrate"]>,
-    startAgent: () => ipcRenderer.invoke(DESKTOP_INVOKE_CHANNELS.startAgent) as ReturnType<DesktopBridge["startAgent"]>,
-    stopAgent: () => ipcRenderer.invoke(DESKTOP_INVOKE_CHANNELS.stopAgent) as ReturnType<DesktopBridge["stopAgent"]>,
-    saveDocument: (input) =>
-      ipcRenderer.invoke(DESKTOP_INVOKE_CHANNELS.saveDocument, input) as ReturnType<DesktopBridge["saveDocument"]>,
-    saveSuggestionState: (state) =>
-      ipcRenderer.invoke(DESKTOP_INVOKE_CHANNELS.saveSuggestionState, state) as ReturnType<DesktopBridge["saveSuggestionState"]>,
-    importSource: () =>
-      ipcRenderer.invoke(DESKTOP_INVOKE_CHANNELS.importSource) as ReturnType<DesktopBridge["importSource"]>,
+    hydrate: () => invoke(ipcRenderer, "hydrate", DESKTOP_INVOKE_CHANNELS.hydrate),
+    startAgent: () => invoke(ipcRenderer, "agent.start", DESKTOP_INVOKE_CHANNELS.startAgent),
+    stopAgent: () => invoke(ipcRenderer, "agent.stop", DESKTOP_INVOKE_CHANNELS.stopAgent),
+    saveDocument: (input) => invoke(ipcRenderer, "document.save", DESKTOP_INVOKE_CHANNELS.saveDocument, input),
+    saveSuggestionState: (state) => invoke(ipcRenderer, "suggestions.save", DESKTOP_INVOKE_CHANNELS.saveSuggestionState, state),
+    importSource: () => invoke(ipcRenderer, "source.import", DESKTOP_INVOKE_CHANNELS.importSource),
     subscribe(listener) {
-      const handler = (_event: unknown, payload: DesktopEvent) => listener(payload);
+      const handler = (_event: unknown, payload: unknown) => {
+        try {
+          listener(parseOrContractError(DesktopEventSchema, payload, "preload.desktop-event"));
+        } catch (error) {
+          console.error("Discarded invalid desktop event", error);
+        }
+      };
       ipcRenderer.on(DESKTOP_EVENT_CHANNEL, handler);
       return () => ipcRenderer.removeListener(DESKTOP_EVENT_CHANNEL, handler);
     },
@@ -50,8 +68,12 @@ export function createDesktopDevelopmentBridge(
   ipcRenderer: PreloadIpcRenderer,
 ): DesktopDevelopmentBridge {
   return {
-    createSuggestion: (item) =>
-      ipcRenderer.invoke(DEVELOPMENT_SUGGESTION_CHANNEL, item) as ReturnType<DesktopDevelopmentBridge["createSuggestion"]>,
+    createSuggestion: (item) => invoke(
+      ipcRenderer,
+      "development.suggestion.create",
+      DEVELOPMENT_SUGGESTION_CHANNEL,
+      item,
+    ),
   };
 }
 
@@ -64,8 +86,7 @@ export function exposePreloadBridges({
   ipcRenderer: PreloadIpcRenderer;
   development: boolean;
 }) {
-  const bridge = createDesktopBridge(ipcRenderer);
-  contextBridge.exposeInMainWorld("scribe", bridge);
+  contextBridge.exposeInMainWorld("scribe", createDesktopBridge(ipcRenderer));
   if (development) {
     contextBridge.exposeInMainWorld(
       "scribeDevelopment",

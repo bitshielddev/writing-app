@@ -2,6 +2,12 @@ import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 
 import { ChildRpc, ChildStartupError, type UtilityProcessAdapter } from "./child-rpc";
+import {
+  AgentChildMessageSchema,
+  AgentOperations,
+  PROTOCOL_VERSION,
+  type AgentChildMessage,
+} from "../src/shared/contracts";
 
 class FakeUtilityProcess extends EventEmitter {
   readonly posted: unknown[] = [];
@@ -16,11 +22,14 @@ class FakeUtilityProcess extends EventEmitter {
 function createRpc(onMessage = vi.fn()) {
   const child = new FakeUtilityProcess();
   const ids = ["first", "second", "third"];
-  const rpc = new ChildRpc(
+  const rpc = new ChildRpc<typeof AgentOperations, AgentChildMessage>(
     child as unknown as UtilityProcessAdapter,
     () => ids.shift() ?? "extra",
     onMessage,
     vi.fn(),
+    AgentOperations,
+    AgentChildMessageSchema,
+    "test-agent",
   );
   return { child, rpc, onMessage };
 }
@@ -28,48 +37,48 @@ function createRpc(onMessage = vi.fn()) {
 describe("ChildRpc", () => {
   it("becomes ready once and correlates out-of-order successful results", async () => {
     const { child, rpc } = createRpc();
-    child.emit("message", { kind: "ready" });
-    child.emit("message", { kind: "ready" });
+    child.emit("message", { kind: "ready", protocolVersion: PROTOCOL_VERSION });
+    child.emit("message", { kind: "ready", protocolVersion: PROTOCOL_VERSION });
     await rpc.ready;
 
-    const first = rpc.call<string>("first.method", { value: 1 });
-    const second = rpc.call<string>("second.method");
+    const first = rpc.call("agent.start", { projectRevision: 1, documentRevision: 1 });
+    const second = rpc.call("agent.stop");
     await Promise.resolve();
     expect(child.posted).toEqual([
       {
-        kind: "rpc",
+        kind: "rpc", protocolVersion: PROTOCOL_VERSION,
         id: "first",
-        method: "first.method",
-        params: { value: 1 },
+        operation: "agent.start",
+        params: { projectRevision: 1, documentRevision: 1 },
       },
       {
-        kind: "rpc",
+        kind: "rpc", protocolVersion: PROTOCOL_VERSION,
         id: "second",
-        method: "second.method",
+        operation: "agent.stop",
         params: undefined,
       },
     ]);
 
-    child.emit("message", { kind: "rpc.result", id: "second", result: "two" });
-    child.emit("message", { kind: "rpc.result", id: "first", result: "one" });
-    await expect(second).resolves.toBe("two");
-    await expect(first).resolves.toBe("one");
+    child.emit("message", { kind: "rpc.success", protocolVersion: 1, id: "second", operation: "agent.stop", result: { status: "stopped", cycleCount: 1 } });
+    child.emit("message", { kind: "rpc.success", protocolVersion: 1, id: "first", operation: "agent.start", result: { status: "working", cycleCount: 1 } });
+    await expect(second).resolves.toMatchObject({ status: "stopped" });
+    await expect(first).resolves.toMatchObject({ status: "working" });
   });
 
   it("rejects only the correlated remote error and ignores unknown responses", async () => {
     const { child, rpc, onMessage } = createRpc();
-    child.emit("message", { kind: "ready" });
-    const failed = rpc.call("failed");
-    const successful = rpc.call("successful");
+    child.emit("message", { kind: "ready", protocolVersion: 1 });
+    const failed = rpc.call("agent.start", { projectRevision: 1, documentRevision: 1 });
+    const successful = rpc.call("agent.stop");
     await Promise.resolve();
 
-    child.emit("message", { kind: "rpc.result", id: "unknown", result: true });
+    child.emit("message", { kind: "rpc.success", protocolVersion: 1, id: "unknown", operation: "agent.stop", result: { status: "stopped", cycleCount: 1 } });
     child.emit("message", { kind: "unrelated" });
-    child.emit("message", { kind: "rpc.result", id: "first", error: "remote failure" });
-    child.emit("message", { kind: "rpc.result", id: "second", result: 42 });
+    child.emit("message", { kind: "rpc.failure", protocolVersion: 1, id: "first", operation: "agent.start", error: { code: "AGENT_UNAVAILABLE", message: "remote failure", retryable: false } });
+    child.emit("message", { kind: "rpc.success", protocolVersion: 1, id: "second", operation: "agent.stop", result: { status: "stopped", cycleCount: 1 } });
 
     await expect(failed).rejects.toThrow("remote failure");
-    await expect(successful).resolves.toBe(42);
+    await expect(successful).resolves.toMatchObject({ status: "stopped" });
     expect(onMessage).not.toHaveBeenCalled();
   });
 
@@ -85,10 +94,12 @@ describe("ChildRpc", () => {
     const { child, rpc } = createRpc();
     child.emit("message", {
       kind: "startup.error",
+      protocolVersion: 1,
       error: {
         code: "DATABASE_TOO_NEW",
         message: "Version 9 is newer than this application",
-        databasePath: "/workspace/scribe.sqlite3",
+        retryable: false,
+        details: { databasePath: "/workspace/scribe.sqlite3" },
       },
     });
     await expect(rpc.ready).rejects.toEqual(expect.objectContaining<Partial<ChildStartupError>>({
@@ -108,16 +119,16 @@ describe("ChildRpc", () => {
       kind: "startup.error",
       error: { code: "DATABASE_CORRUPT", message: "invalid", databasePath: 5 },
     });
-    child.emit("message", { kind: "ready" });
+    child.emit("message", { kind: "ready", protocolVersion: 1 });
     return expect(rpc.ready).resolves.toBeUndefined();
   });
 
   it("rejects all pending work after exit and cleanup is idempotent", async () => {
     const { child, rpc } = createRpc();
-    child.emit("message", { kind: "ready" });
+    child.emit("message", { kind: "ready", protocolVersion: 1 });
     await rpc.ready;
-    const first = rpc.call("one");
-    const second = rpc.call("two");
+    const first = rpc.call("agent.stop");
+    const second = rpc.call("agent.stop");
     await Promise.resolve();
 
     child.emit("exit", 9);

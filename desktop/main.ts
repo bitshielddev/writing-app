@@ -30,16 +30,27 @@ import type {
   DesktopEvent,
 } from "../src/shared/desktop.js";
 import {
+  AgentChildMessageSchema,
+  AgentOperations,
   DESKTOP_EVENT_CHANNEL,
-  type ChildMessage,
+  DesktopEventSchema,
+  PROTOCOL_VERSION,
+  StorageChildMessageSchema,
+  StorageOperations,
+  type AgentChildMessage,
+  type OperationArgs,
+  type OperationName,
+  type OperationRegistry,
+  type StorageChildMessage,
+  parseOrContractError,
 } from "../src/shared/contracts.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const developmentServerUrl = process.env.VITE_DEV_SERVER_URL;
 const isDevelopment = import.meta.env.DEV;
 const measureStartup = process.argv.includes("--measure-startup");
-let storage: ChildRpc;
-let agent: ChildRpc;
+let storage: ChildRpc<typeof StorageOperations, StorageChildMessage>;
+let agent: ChildRpc<typeof AgentOperations, AgentChildMessage>;
 let workspaceWindow: BrowserWindow | undefined;
 let mockSuggestionWindow: BrowserWindow | undefined;
 let runtime: AgentRuntime = {
@@ -48,10 +59,13 @@ let runtime: AgentRuntime = {
 };
 const activity = new ActivityRing();
 
-function spawnChild(
+function spawnChild<Registry extends OperationRegistry, Message extends StorageChildMessage | AgentChildMessage>(
   modulePath: string,
   args: string[],
-  onMessage?: (message: ChildMessage) => void,
+  registry: Registry,
+  messageSchema: typeof StorageChildMessageSchema | typeof AgentChildMessageSchema,
+  boundary: string,
+  onMessage?: (message: Message) => void,
 ) {
   const child = utilityProcess.fork(modulePath, args, {
     cwd: app.getPath("userData"),
@@ -60,12 +74,27 @@ function spawnChild(
       ? "ScribeAI Agent"
       : "ScribeAI Storage",
   });
-  return new ChildRpc(child, randomUUID, onMessage);
+  return new ChildRpc<Registry, Message>(
+    child,
+    randomUUID,
+    onMessage,
+    console.error,
+    registry,
+    messageSchema,
+    boundary,
+  );
 }
 
 function broadcast(event: DesktopEvent) {
+  let validated: DesktopEvent;
+  try {
+    validated = parseOrContractError(DesktopEventSchema, event, "main.desktop-event");
+  } catch (error) {
+    console.error("Discarded invalid desktop event", error);
+    return;
+  }
   for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send(DESKTOP_EVENT_CHANNEL, event);
+    window.webContents.send(DESKTOP_EVENT_CHANNEL, validated);
   }
 }
 
@@ -211,21 +240,21 @@ async function start() {
   const projectWorkspace = join(userDataPath, "projects", "default-project");
   const agentDir = join(userDataPath, "pi");
   const sessionDirectory = join(projectWorkspace, ".pi", "sessions");
-  const handleStorageMessage = createStorageMessageHandler({
-    storage: {
-      call: <T,>(method: string, params?: unknown) =>
-        storage.call<T>(method, params),
-      post: (message) => storage.post(message),
+  const storageEndpoint = {
+    call<Name extends OperationName<typeof StorageOperations>>(
+      operation: Name,
+      ...args: OperationArgs<typeof StorageOperations, Name>
+    ) {
+      return storage.call(operation, ...args);
     },
+  };
+  const handleStorageMessage = createStorageMessageHandler({
+    storage: storageEndpoint,
     getAgent: () => agent,
     broadcast,
   });
   const handleAgentMessage = createAgentMessageHandler({
-    storage: {
-      call: <T,>(method: string, params?: unknown) =>
-        storage.call<T>(method, params),
-      post: (message) => storage.post(message),
-    },
+    storage: storageEndpoint,
     getAgent: () => agent,
     setRuntime,
     addActivity: (item) => activity.add(item),
@@ -236,6 +265,9 @@ async function start() {
       storage = spawnChild(
         join(here, "storage.js"),
         [dbPath, projectWorkspace],
+        StorageOperations,
+        StorageChildMessageSchema,
+        "storage-process",
         (message) => void handleStorageMessage(message),
       );
       return storage;
@@ -244,6 +276,9 @@ async function start() {
       agent = spawnChild(
         join(here, "agent.js"),
         [projectWorkspace, agentDir, sessionDirectory],
+        AgentOperations,
+        AgentChildMessageSchema,
+        "agent-process",
         (message) => void handleAgentMessage(message),
       );
       return agent;
@@ -276,7 +311,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  agent?.post({ kind: "shutdown" });
+  agent?.post({ kind: "shutdown", protocolVersion: PROTOCOL_VERSION });
   agent?.kill();
   storage?.kill();
 });

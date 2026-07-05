@@ -3,9 +3,11 @@ import type { DatabaseSync } from "node:sqlite";
 import type { DesktopEvent, DocumentSnapshot, SourceSnapshot } from "../../src/shared/desktop.js";
 import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
 import {
-  formatSuggestionValidationIssues,
-  parseSuggestionItem,
-} from "../../src/suggestions/validation.js";
+  DesktopEventSchema,
+  DocumentBlocksSchema,
+  PersistedSuggestionStateSchema,
+  parseOrContractError,
+} from "../../src/shared/contracts.js";
 
 export type ProjectSnapshot = { id: string; name: string; revision: number };
 export type PendingEvent = { sequence: number; event: DesktopEvent };
@@ -37,27 +39,16 @@ export interface EventOutbox {
   markDispatched(sequence: number): void;
 }
 
-function parseJson<T>(value: string): T {
-  return JSON.parse(value) as T;
+function parseJson(value: string, format: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error(`Invalid persisted ${format} JSON`);
+  }
 }
 
 export function assertSuggestionProjection(value: unknown): asserts value is PersistedSuggestionState {
-  if (typeof value !== "object" || value === null) throw new Error("Invalid suggestion projection");
-  const state = value as Partial<PersistedSuggestionState>;
-  const collections = [state.entries, state.pinnedEntries, state.workspacePins];
-  if (collections.some((collection) => !Array.isArray(collection))) {
-    throw new Error("Invalid suggestion projection");
-  }
-  for (const collection of collections as Array<Array<{ item?: unknown }>>) {
-    for (const entry of collection) {
-      const parsed = parseSuggestionItem(entry?.item);
-      if (!parsed.success) {
-        throw new Error(
-          `Invalid suggestion projection item: ${formatSuggestionValidationIssues(parsed.issues)}`,
-        );
-      }
-    }
-  }
+  parseOrContractError(PersistedSuggestionStateSchema, value, "persisted.suggestion-projection");
 }
 
 export class ProjectRepository implements ProjectStore {
@@ -95,7 +86,11 @@ export class DocumentRepository implements DocumentStore {
       id: row.id,
       projectId: row.project_id,
       title: row.title,
-      blocks: parseJson<unknown[]>(row.blocks_json),
+      blocks: parseOrContractError(
+        DocumentBlocksSchema,
+        parseJson(row.blocks_json, "document blocks"),
+        "persisted.document-blocks",
+      ),
       markdown: row.markdown,
       schemaVersion: row.schema_version,
       revision: row.revision,
@@ -104,10 +99,15 @@ export class DocumentRepository implements DocumentStore {
   }
 
   save(id: string, blocks: unknown[], markdown: string, updatedAt: number) {
+    const validatedBlocks = parseOrContractError(
+      DocumentBlocksSchema,
+      blocks,
+      "persisted.document-blocks.write",
+    );
     const result = this.db.prepare(
       `UPDATE documents SET blocks_json = ?, markdown = ?, revision = revision + 1, updated_at = ?
        WHERE id = ?`,
-    ).run(JSON.stringify(blocks), markdown, updatedAt, id);
+    ).run(JSON.stringify(validatedBlocks), markdown, updatedAt, id);
     if (result.changes !== 1) throw new Error(`Document not found: ${id}`);
     return this.get(id);
   }
@@ -172,15 +172,22 @@ export class SuggestionRepository implements SuggestionStore {
       "SELECT state_json FROM suggestion_state WHERE project_id = ?",
     ).get(projectId) as { state_json: string } | undefined;
     if (!row) throw new Error(`Suggestion projection not found: ${projectId}`);
-    const state = parseJson<PersistedSuggestionState>(row.state_json);
-    assertSuggestionProjection(state);
-    return state;
+    return parseOrContractError(
+      PersistedSuggestionStateSchema,
+      parseJson(row.state_json, "suggestion projection"),
+      "persisted.suggestion-projection",
+    );
   }
 
   put(projectId: string, state: PersistedSuggestionState) {
+    const validated = parseOrContractError(
+      PersistedSuggestionStateSchema,
+      state,
+      "persisted.suggestion-projection.write",
+    );
     const result = this.db.prepare(
       "UPDATE suggestion_state SET state_json = ?, updated_at = ? WHERE project_id = ?",
-    ).run(JSON.stringify(state), Date.now(), projectId);
+    ).run(JSON.stringify(validated), Date.now(), projectId);
     if (result.changes !== 1) throw new Error(`Suggestion projection not found: ${projectId}`);
   }
 }
@@ -189,16 +196,28 @@ export class OutboxRepository implements EventOutbox {
   constructor(private readonly db: DatabaseSync) {}
 
   enqueue(event: DesktopEvent) {
+    const validated = parseOrContractError(
+      DesktopEventSchema,
+      event,
+      "persisted.outbox-event.write",
+    );
     this.db.prepare(
       "INSERT INTO event_outbox (event_json, created_at) VALUES (?, ?)",
-    ).run(JSON.stringify(event), Date.now());
+    ).run(JSON.stringify(validated), Date.now());
   }
 
   pending(): PendingEvent[] {
     const rows = this.db.prepare(
       "SELECT sequence, event_json FROM event_outbox WHERE dispatched_at IS NULL ORDER BY sequence",
     ).all() as Array<{ sequence: number; event_json: string }>;
-    return rows.map((row) => ({ sequence: row.sequence, event: parseJson(row.event_json) }));
+    return rows.map((row) => ({
+      sequence: row.sequence,
+      event: parseOrContractError(
+        DesktopEventSchema,
+        parseJson(row.event_json, "outbox event"),
+        "persisted.outbox-event",
+      ),
+    }));
   }
 
   markDispatched(sequence: number) {

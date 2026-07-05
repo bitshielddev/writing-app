@@ -6,16 +6,15 @@ import type {
   SourceSnapshot,
   WorkspaceSnapshot,
 } from "../../src/shared/desktop.js";
-import { trimSuggestionEntries } from "../../src/suggestions/state.js";
-import type { SuggestionEvent, SuggestionItem } from "../../src/suggestions/types.js";
 import {
-  formatSuggestionValidationIssues,
-  parseSuggestionItem,
-} from "../../src/suggestions/validation.js";
+  StorageOperations as StorageOperationContracts,
+  parseOrContractError,
+} from "../../src/shared/contracts.js";
+import { trimSuggestionEntries } from "../../src/suggestions/state.js";
+import type { SuggestionEvent } from "../../src/suggestions/types.js";
 import type { TransactionManager } from "./database-lifecycle.js";
 import type { OutboxDispatcher } from "./outbox.js";
 import {
-  assertSuggestionProjection,
   type DocumentStore,
   type EventOutbox,
   type ProjectStore,
@@ -81,15 +80,12 @@ export class StorageOperations {
   }
 
   private async performDocumentSave(params: unknown): Promise<DocumentSnapshot> {
-    const input = params as {
-      documentId?: unknown; blocks?: unknown; markdown?: unknown; expectedRevision?: unknown;
-    };
-    if (
-      input.documentId !== this.deps.documentId ||
-      !Array.isArray(input.blocks) ||
-      typeof input.markdown !== "string" ||
-      !Number.isInteger(input.expectedRevision)
-    ) throw new Error("Invalid document save request");
+    const input = parseOrContractError(
+      StorageOperationContracts["document.save"].params,
+      params,
+      "storage.document.save.params",
+    );
+    if (input.documentId !== this.deps.documentId) throw new Error("Invalid document identity");
 
     const current = this.deps.documents.get(this.deps.documentId);
     if (input.expectedRevision !== current.revision) throw new Error("DOCUMENT_REVISION_CONFLICT");
@@ -108,8 +104,8 @@ export class StorageOperations {
         const now = Date.now();
         const document = this.deps.documents.save(
           this.deps.documentId,
-          input.blocks as unknown[],
-          input.markdown as string,
+          input.blocks,
+          input.markdown,
           now,
         );
         this.deps.projects.incrementRevision(this.deps.projectId, now);
@@ -139,8 +135,11 @@ export class StorageOperations {
   }
 
   async importSource(params: unknown): Promise<SourceSnapshot> {
-    const sourcePath = (params as { path?: unknown }).path;
-    if (typeof sourcePath !== "string") throw new Error("Invalid source import request");
+    const { path: sourcePath } = parseOrContractError(
+      StorageOperationContracts["source.import"].params,
+      params,
+      "storage.source.import.params",
+    );
     const copied = await this.deps.files.copySource(sourcePath);
     const id = randomUUID();
     let source: SourceSnapshot;
@@ -178,10 +177,14 @@ export class StorageOperations {
   }
 
   saveSuggestionState(params: unknown) {
-    assertSuggestionProjection(params);
+    const state = parseOrContractError(
+      StorageOperationContracts["suggestions.save"].params,
+      params,
+      "storage.suggestions.save.params",
+    );
     this.deps.suggestions.put(this.deps.projectId, {
-      ...params,
-      entries: trimSuggestionEntries(params.entries),
+      ...state,
+      entries: trimSuggestionEntries(state.entries),
     });
   }
 
@@ -208,8 +211,12 @@ export class StorageOperations {
   }
 
   async createSuggestion(params: unknown) {
-    const input = params as { item?: unknown; expectedDocumentRevision?: unknown };
-    const item = this.parsedSuggestion(input.item, "Invalid suggestion");
+    const input = parseOrContractError(
+      StorageOperationContracts["agent.suggestion.create"].params,
+      params,
+      "storage.agent.suggestion.create.params",
+    );
+    const item = input.item;
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
       const state = this.deps.suggestions.get(this.deps.projectId);
@@ -226,7 +233,11 @@ export class StorageOperations {
   }
 
   createDevelopmentSuggestion(params: unknown) {
-    const item = this.parsedSuggestion((params as { item?: unknown }).item, "Invalid development suggestion");
+    const { item } = parseOrContractError(
+      StorageOperationContracts["development.suggestion.create"].params,
+      params,
+      "storage.development.suggestion.create.params",
+    );
     return this.createSuggestion({
       item,
       expectedDocumentRevision: this.deps.documents.get(this.deps.documentId).revision,
@@ -234,8 +245,12 @@ export class StorageOperations {
   }
 
   async updateSuggestion(params: unknown) {
-    const input = params as { item?: unknown; expectedDocumentRevision?: unknown };
-    const item = this.parsedSuggestion(input.item, "Invalid suggestion");
+    const input = parseOrContractError(
+      StorageOperationContracts["agent.suggestion.update"].params,
+      params,
+      "storage.agent.suggestion.update.params",
+    );
+    const item = input.item;
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
       const state = this.deps.suggestions.get(this.deps.projectId);
@@ -251,25 +266,22 @@ export class StorageOperations {
   }
 
   async retractSuggestion(params: unknown) {
-    const input = params as { id?: unknown; expectedDocumentRevision?: unknown };
-    if (typeof input.id !== "string") throw new Error("Invalid suggestion retraction");
+    const input = parseOrContractError(
+      StorageOperationContracts["agent.suggestion.retract"].params,
+      params,
+      "storage.agent.suggestion.retract.params",
+    );
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
       const state = this.deps.suggestions.get(this.deps.projectId);
       if (!state.entries.some((entry) => entry.item.id === input.id)) return { accepted: false };
       state.entries = state.entries.filter((entry) => entry.item.id !== input.id);
       this.deps.suggestions.put(this.deps.projectId, state);
-      this.emitSuggestion({ type: "suggestion.retracted", id: input.id as string });
+      this.emitSuggestion({ type: "suggestion.retracted", id: input.id });
       return { accepted: true };
     });
     await this.deps.dispatcher.dispatch();
     return result;
-  }
-
-  private parsedSuggestion(value: unknown, context: string): SuggestionItem {
-    const parsed = parseSuggestionItem(value);
-    if (parsed.success) return parsed.value;
-    throw new Error(`${context}: ${formatSuggestionValidationIssues(parsed.issues)}`);
   }
 
   private assertCurrentRevision(expected: unknown) {

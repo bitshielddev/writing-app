@@ -1,32 +1,51 @@
-import type { RpcRequest, RpcResult } from "../src/shared/contracts.js";
-
-function isRpcRequest(value: unknown): value is RpcRequest {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Partial<RpcRequest>;
-  return (
-    candidate.kind === "rpc" &&
-    typeof candidate.id === "string" &&
-    typeof candidate.method === "string"
-  );
-}
+import {
+  PROTOCOL_VERSION,
+  StorageOperations,
+  StorageRpcRequestSchema,
+  type StorageRpcRequest,
+  type StorageRpcResult,
+  parseOrContractError,
+  toContractError,
+} from "../src/shared/contracts.js";
 
 export function createStorageTransport(
-  handleRequest: (method: string, params?: unknown) => unknown | Promise<unknown>,
-  postMessage: (message: RpcResult) => void,
+  handleRequest: (operation: string, params?: unknown) => unknown | Promise<unknown>,
+  postMessage: (message: StorageRpcResult) => void,
+  logger: Pick<Console, "error"> = console,
 ) {
   return async (value: unknown) => {
-    if (!isRpcRequest(value)) return;
+    let request;
     try {
-      postMessage({
-        kind: "rpc.result",
-        id: value.id,
-        result: await handleRequest(value.method, value.params),
-      });
+      request = parseOrContractError(
+        StorageRpcRequestSchema,
+        value,
+        "storage.request",
+      ) as StorageRpcRequest;
     } catch (error) {
+      logger.error("Rejected invalid storage request", error);
+      return;
+    }
+    try {
+      const result = parseOrContractError(
+        StorageOperations[request.operation].result,
+        await handleRequest(request.operation, request.params),
+        `storage.${request.operation}.result`,
+      );
       postMessage({
-        kind: "rpc.result",
-        id: value.id,
-        error: error instanceof Error ? error.message : String(error),
+        kind: "rpc.success",
+        protocolVersion: PROTOCOL_VERSION,
+        id: request.id,
+        operation: request.operation,
+        result,
+      } as StorageRpcResult);
+    } catch (error) {
+      logger.error(`Storage operation failed: ${request.operation}`, error);
+      postMessage({
+        kind: "rpc.failure",
+        protocolVersion: PROTOCOL_VERSION,
+        id: request.id,
+        operation: request.operation,
+        error: toContractError(error),
       });
     }
   };

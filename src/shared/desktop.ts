@@ -1,104 +1,44 @@
-import type { SuggestionEvent, SuggestionItem } from "../suggestions/types";
-import type { PersistedSuggestionState } from "../suggestions/state";
+import type { Static } from "typebox";
 
+import type { SuggestionItem } from "../suggestions/types";
+import type {
+  AgentActivityInputSchema,
+  AgentActivityKindSchema,
+  AgentActivitySchema,
+  AgentRuntimeSchema,
+  AgentStatusSchema,
+  DesktopEventSchema,
+  DocumentSnapshotSchema,
+  ObservationSeedSchema,
+  OperationParams,
+  OperationResult,
+  RendererOperations,
+  SourceSnapshotSchema,
+  WorkspaceSnapshotSchema,
+} from "./contracts";
+
+export type AgentStatus = Static<typeof AgentStatusSchema>;
+export type AgentRuntime = Static<typeof AgentRuntimeSchema>;
+export type AgentActivityKind = Static<typeof AgentActivityKindSchema>;
+export type AgentActivity = Static<typeof AgentActivitySchema>;
+export type AgentActivityInput = Static<typeof AgentActivityInputSchema>;
+export type DocumentSnapshot = Static<typeof DocumentSnapshotSchema>;
+export type SourceSnapshot = Static<typeof SourceSnapshotSchema>;
+export type WorkspaceSnapshot = Static<typeof WorkspaceSnapshotSchema>;
+export type DesktopEvent = Static<typeof DesktopEventSchema>;
+export type ObservationSeed = Static<typeof ObservationSeedSchema>;
 export type { PersistedSuggestionState } from "../suggestions/state";
 
-export type AgentStatus =
-  | "offline"
-  | "stopped"
-  | "working"
-  | "waiting"
-  | "capped"
-  | "error";
-
-export type AgentRuntime = {
-  status: AgentStatus;
-  sessionId?: string;
-  activeRevision?: number;
-  cycleCount: number;
-  error?: string;
-};
-
-export type AgentActivityKind =
-  | "lifecycle"
-  | "message"
-  | "reasoning"
-  | "tool"
-  | "provider"
-  | "loop"
-  | "error";
-
-export type AgentActivity = {
-  id: string;
-  kind: AgentActivityKind;
-  timestamp: number;
-  updatedAt: number;
-  title: string;
-  text?: string;
-  payload?: unknown;
-  status?: AgentStatus;
-};
-
-export type DocumentSnapshot = {
-  id: string;
-  projectId: string;
-  title: string;
-  blocks: unknown[];
-  markdown: string;
-  schemaVersion: number;
-  revision: number;
-  updatedAt: number;
-};
-
-export type SourceSnapshot = {
-  id: string;
-  projectId: string;
-  title: string;
-  storagePath: string;
-  bytes: number;
-  updatedAt: number;
-};
-
-export type WorkspaceSnapshot = {
-  project: { id: string; name: string; revision: number };
-  document: DocumentSnapshot;
-  sources: SourceSnapshot[];
-  suggestions: PersistedSuggestionState;
-  agent: AgentRuntime;
-  activity: AgentActivity[];
-};
-
-export type DesktopEvent =
-  | { type: "suggestion.event"; event: SuggestionEvent }
-  | { type: "agent.runtime"; runtime: AgentRuntime }
-  | { type: "agent.activity"; activity: AgentActivity }
-  | { type: "document.saved"; document: DocumentSnapshot; projectRevision: number }
-  | { type: "source.imported"; source: SourceSnapshot; projectRevision: number };
-
 export type DesktopBridge = {
-  hydrate(): Promise<WorkspaceSnapshot>;
-  startAgent(): Promise<AgentRuntime>;
-  stopAgent(): Promise<AgentRuntime>;
-  saveDocument(input: {
-    documentId: string;
-    blocks: unknown[];
-    markdown: string;
-    expectedRevision: number;
-  }): Promise<DocumentSnapshot>;
-  saveSuggestionState(state: PersistedSuggestionState): Promise<void>;
-  importSource(): Promise<SourceSnapshot | undefined>;
+  hydrate(): Promise<OperationResult<typeof RendererOperations, "hydrate">>;
+  startAgent(): Promise<OperationResult<typeof RendererOperations, "agent.start">>;
+  stopAgent(): Promise<OperationResult<typeof RendererOperations, "agent.stop">>;
+  saveDocument(input: OperationParams<typeof RendererOperations, "document.save">): Promise<OperationResult<typeof RendererOperations, "document.save">>;
+  saveSuggestionState(state: OperationParams<typeof RendererOperations, "suggestions.save">): Promise<OperationResult<typeof RendererOperations, "suggestions.save">>;
+  importSource(): Promise<OperationResult<typeof RendererOperations, "source.import">>;
   subscribe(listener: (event: DesktopEvent) => void): () => void;
 };
 
 export type DesktopDevelopmentBridge = {
   createSuggestion(item: SuggestionItem): Promise<{ accepted: boolean }>;
-};
-
-export type ObservationSeed = {
-  projectId: string;
-  projectName: string;
-  projectRevision: number;
-  documentId: string;
-  documentTitle: string;
-  documentRevision: number;
 };

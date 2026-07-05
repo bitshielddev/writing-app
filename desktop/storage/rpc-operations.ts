@@ -1,4 +1,8 @@
-import type { StorageRpcMethod } from "../../src/shared/contracts.js";
+import {
+  StorageOperations as StorageOperationContracts,
+  type StorageRpcMethod,
+  parseOrContractError,
+} from "../../src/shared/contracts.js";
 import type { StorageOperations } from "./operations.js";
 
 type Operation = (params?: unknown) => unknown | Promise<unknown>;
@@ -19,8 +23,20 @@ export function createStorageRequestHandler(operations: StorageOperations) {
   } satisfies Record<StorageRpcMethod, Operation>;
 
   return async (method: string, params?: unknown) => {
-    const operation = operationMap[method as StorageRpcMethod] as Operation | undefined;
-    if (!operation) throw new Error(`Unknown storage method: ${method}`);
-    return await operation(params);
+    if (!Object.prototype.hasOwnProperty.call(operationMap, method)) {
+      throw new Error("Unknown storage operation");
+    }
+    const name = method as StorageRpcMethod;
+    const input = parseOrContractError(
+      StorageOperationContracts[name].params,
+      params,
+      `storage.${name}.params`,
+    );
+    const result = await (operationMap[name] as Operation)(input);
+    return parseOrContractError(
+      StorageOperationContracts[name].result,
+      result,
+      `storage.${name}.result`,
+    );
   };
 }

@@ -26,11 +26,12 @@ describe("main process message adapters", () => {
     const document = createDocumentSnapshot({ revision: 8 });
     const event = { type: "document.saved" as const, document, projectRevision: 13 };
 
-    await receive({ kind: "domain.event", event });
+    await receive({ kind: "domain.event", protocolVersion: 1, event });
 
     expect(broadcast).toHaveBeenCalledWith(event);
     expect(agent.post).toHaveBeenCalledWith({
       kind: "project.changed",
+      protocolVersion: 1,
       projectRevision: 13,
       documentRevision: 8,
     });
@@ -48,6 +49,7 @@ describe("main process message adapters", () => {
 
     await receive({
       kind: "domain.event",
+      protocolVersion: 1,
       event: {
         type: "source.imported",
         source: createSourceSnapshot(),
@@ -58,6 +60,7 @@ describe("main process message adapters", () => {
     expect(storage.call).toHaveBeenCalledWith("agent.seed");
     expect(agent.post).toHaveBeenCalledWith({
       kind: "project.changed",
+      protocolVersion: 1,
       projectRevision: 14,
       documentRevision: 9,
     });
@@ -79,19 +82,22 @@ describe("main process message adapters", () => {
 
     await receive({
       kind: "storage.request",
+      protocolVersion: 1,
       id: "one",
-      method: "agent.suggestion.create",
-      params: { item: true },
+      operation: "agent.suggestion.retract",
+      params: { id: "suggestion", expectedDocumentRevision: 1 },
     });
     await receive({
       kind: "storage.request",
+      protocolVersion: 1,
       id: "two",
-      method: "agent.suggestion.update",
+      operation: "agent.suggestions.list",
+      params: undefined,
     });
 
     expect(agent.post.mock.calls.map((call) => call[0])).toEqual([
-      { kind: "storage.result", id: "one", result: { accepted: true } },
-      { kind: "storage.result", id: "two", error: "storage failed" },
+      { kind: "storage.success", protocolVersion: 1, id: "one", operation: "agent.suggestion.retract", result: { accepted: true } },
+      { kind: "storage.failure", protocolVersion: 1, id: "two", operation: "agent.suggestions.list", error: { code: "INTERNAL_ERROR", message: "The operation could not be completed", retryable: false } },
     ]);
   });
 
@@ -118,10 +124,12 @@ describe("main process message adapters", () => {
 
     await receive({
       kind: "agent.runtime",
+      protocolVersion: 1,
       runtime: { status: "working", cycleCount: 2 },
     });
     await receive({
       kind: "agent.activity",
+      protocolVersion: 1,
       activity: {
         id: "activity",
         kind: "message",

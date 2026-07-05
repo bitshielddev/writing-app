@@ -1,73 +1,73 @@
-import type { AgentParentMessage } from "../src/shared/contracts.js";
-
-type StorageRequest = {
-  kind: "storage.request";
-  id: string;
-  method: string;
-  params?: unknown;
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isRevision(value: unknown) {
-  return (
-    isRecord(value) &&
-    Number.isInteger(value.projectRevision) &&
-    Number.isInteger(value.documentRevision)
-  );
-}
-
-function asParentMessage(value: unknown): AgentParentMessage | undefined {
-  if (!isRecord(value) || typeof value.kind !== "string") return undefined;
-  if (value.kind === "shutdown") return { kind: "shutdown" };
-  if (value.kind === "storage.result" && typeof value.id === "string") {
-    if (value.error !== undefined && typeof value.error !== "string") return undefined;
-    return value as AgentParentMessage;
-  }
-  if (value.kind === "project.changed" && isRevision(value)) {
-    return value as AgentParentMessage;
-  }
-  if (
-    value.kind === "rpc" &&
-    typeof value.id === "string" &&
-    (value.method === "agent.stop" ||
-      (value.method === "agent.start" && isRevision(value.params)))
-  ) {
-    return value as AgentParentMessage;
-  }
-  return undefined;
-}
+import {
+  AgentParentMessageSchema,
+  PROTOCOL_VERSION,
+  RemoteContractError,
+  StorageOperations,
+  type AgentParentMessage,
+  type AgentRpcRequest,
+  type OperationArgs,
+  type OperationName,
+  type OperationResult,
+  type StorageForwardRequest,
+  type StorageForwardResult,
+  parseOrContractError,
+} from "../src/shared/contracts.js";
 
 export class AgentStorageClient {
-  private readonly pending = new Map<
-    string,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >();
+  private readonly pending = new Map<string, {
+    operation: OperationName<typeof StorageOperations>;
+    resolve: (value: unknown) => void;
+    reject: (error: Error) => void;
+  }>();
 
   constructor(
     private readonly createId: () => string,
-    private readonly postMessage: (message: StorageRequest) => void,
+    private readonly postMessage: (message: StorageForwardRequest) => void,
   ) {}
 
-  call<T>(method: string, params?: unknown): Promise<T> {
+  call<Name extends OperationName<typeof StorageOperations>>(
+    operation: Name,
+    ...args: OperationArgs<typeof StorageOperations, Name>
+  ): Promise<OperationResult<typeof StorageOperations, Name>> {
+    const params = parseOrContractError(
+      StorageOperations[operation].params,
+      args[0],
+      `agent-to-storage.${operation}.params`,
+    );
     const id = this.createId();
-    return new Promise<T>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       this.pending.set(id, {
-        resolve: (value) => resolve(value as T),
+        operation,
+        resolve: (value) => resolve(value as OperationResult<typeof StorageOperations, Name>),
         reject,
       });
-      this.postMessage({ kind: "storage.request", id, method, params });
+      this.postMessage({
+        kind: "storage.request",
+        protocolVersion: PROTOCOL_VERSION,
+        id,
+        operation,
+        params,
+      } as StorageForwardRequest);
     });
   }
 
-  handleResult(message: Extract<AgentParentMessage, { kind: "storage.result" }>) {
+  handleResult(message: StorageForwardResult) {
     const request = this.pending.get(message.id);
-    if (!request) return;
+    if (!request || request.operation !== message.operation) return;
     this.pending.delete(message.id);
-    if (message.error) request.reject(new Error(message.error));
-    else request.resolve(message.result);
+    if (message.kind === "storage.failure") {
+      request.reject(new RemoteContractError(message.error));
+      return;
+    }
+    try {
+      request.resolve(parseOrContractError(
+        StorageOperations[request.operation].result,
+        message.result,
+        `agent-to-storage.${request.operation}.result`,
+      ));
+    } catch (error) {
+      request.reject(error instanceof Error ? error : new Error("Invalid storage result"));
+    }
   }
 }
 
@@ -76,22 +76,30 @@ export function createAgentParentTransport({
   handleControl,
   handleProjectChanged,
   handleShutdown,
+  logger = console,
 }: {
   storage: AgentStorageClient;
-  handleControl: (message: Extract<AgentParentMessage, { kind: "rpc" }>) => void;
+  handleControl: (message: AgentRpcRequest) => void;
   handleProjectChanged: (
     message: Extract<AgentParentMessage, { kind: "project.changed" }>,
   ) => void;
   handleShutdown: () => void;
+  logger?: Pick<Console, "error">;
 }) {
   return (value: unknown) => {
-    const message = asParentMessage(value);
-    if (!message) return;
+    let message: AgentParentMessage;
+    try {
+      message = parseOrContractError(AgentParentMessageSchema, value, "agent.parent-message") as AgentParentMessage;
+    } catch (error) {
+      logger.error("Rejected invalid agent parent message", error);
+      return;
+    }
     switch (message.kind) {
       case "rpc":
         handleControl(message);
         break;
-      case "storage.result":
+      case "storage.success":
+      case "storage.failure":
         storage.handleResult(message);
         break;
       case "project.changed":

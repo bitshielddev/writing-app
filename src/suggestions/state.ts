@@ -1,3 +1,6 @@
+import type { Static } from "typebox";
+
+import type { PersistedSuggestionStateSchema, WorkspacePinRectSchema } from "../shared/contracts";
 import type { SuggestionItem } from "./types";
 
 export const SUGGESTION_ENTRY_LIMIT = 30;
@@ -13,12 +16,7 @@ export type PersistedPinnedEntry = PersistedInboxEntry & {
   pinnedAt: number;
 };
 
-export type WorkspacePinRect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
+export type WorkspacePinRect = Static<typeof WorkspacePinRectSchema>;
 
 export type PersistedWorkspacePin = WorkspacePinRect & {
   item: SuggestionItem;
@@ -27,13 +25,7 @@ export type PersistedWorkspacePin = WorkspacePinRect & {
   zIndex: number;
 };
 
-export type PersistedSuggestionState = {
-  entries: PersistedInboxEntry[];
-  pinnedEntries: PersistedPinnedEntry[];
-  workspacePins: PersistedWorkspacePin[];
-  seenKeys: Record<string, true>;
-  nextZIndex: number;
-};
+export type PersistedSuggestionState = Static<typeof PersistedSuggestionStateSchema>;
 
 export function createEmptySuggestionState(): PersistedSuggestionState {
   return {

@@ -1,6 +1,7 @@
 import { DatabaseStartupError } from "./database.js";
 import { createStorageTransport } from "./storage-transport.js";
 import { createStorageService } from "./storage/service.js";
+import { PROTOCOL_VERSION } from "../src/shared/contracts.js";
 
 export async function startStorageProcess(
   databasePath: string | undefined,
@@ -16,7 +17,11 @@ export async function startStorageProcess(
       databasePath,
       workspaceRoot,
       publishEvent(event) {
-        process.parentPort?.postMessage({ kind: "domain.event", event });
+        process.parentPort?.postMessage({
+          kind: "domain.event",
+          protocolVersion: PROTOCOL_VERSION,
+          event,
+        });
       },
     });
   } catch (error) {
@@ -30,10 +35,12 @@ export async function startStorageProcess(
         );
     process.parentPort?.postMessage({
       kind: "startup.error",
+      protocolVersion: PROTOCOL_VERSION,
       error: {
         code: startupError.code,
-        message: startupError.message,
-        databasePath: startupError.databasePath,
+        message: "The workspace database could not be opened",
+        retryable: false,
+        details: { databasePath: startupError.databasePath },
       },
     });
     throw startupError;
@@ -48,7 +55,7 @@ export async function startStorageProcess(
     void receive(data);
   });
   process.once("exit", () => service.close());
-  process.parentPort?.postMessage({ kind: "ready" });
+  process.parentPort?.postMessage({ kind: "ready", protocolVersion: PROTOCOL_VERSION });
   await service.dispatchPendingEvents();
   return service;
 }

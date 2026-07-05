@@ -1,4 +1,6 @@
 import type { AgentStatus } from "../src/shared/desktop.js";
+import { Type, type Static } from "typebox";
+import { AgentStatusSchema } from "../src/shared/contracts.js";
 
 export type ScribeLoopSnapshot = {
   latestRevision: number;
@@ -11,16 +13,17 @@ export type ScribeLoopSnapshot = {
   error?: string;
 };
 
-export type PersistedScribeLoopState = Pick<
-  ScribeLoopSnapshot,
-  | "latestRevision"
-  | "latestDocumentRevision"
-  | "activeRevision"
-  | "activeDocumentRevision"
-  | "yieldedRevision"
-  | "cycleCount"
-  | "status"
->;
+const loopRevision = Type.Integer({ minimum: -1 });
+export const PersistedScribeLoopStateSchema = Type.Object({
+  latestRevision: loopRevision,
+  latestDocumentRevision: loopRevision,
+  activeRevision: Type.Optional(loopRevision),
+  activeDocumentRevision: Type.Optional(loopRevision),
+  yieldedRevision: Type.Optional(loopRevision),
+  cycleCount: Type.Integer({ minimum: 0, maximum: 5 }),
+  status: AgentStatusSchema,
+}, { additionalProperties: false });
+export type PersistedScribeLoopState = Static<typeof PersistedScribeLoopStateSchema>;
 
 export class ScribeLoopState {
   private state: ScribeLoopSnapshot;

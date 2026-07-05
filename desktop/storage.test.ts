@@ -68,7 +68,7 @@ describe("desktop storage service", () => {
 
     await expect(handleStorageRequest("agent.suggestion.create", {
       item,
-      expectedDocumentRevision: snapshot.document.revision - 1,
+      expectedDocumentRevision: snapshot.document.revision + 1,
     })).rejects.toThrow("STALE_SUGGESTION_REVISION");
     await handleStorageRequest("agent.suggestion.create", {
       item,
@@ -140,7 +140,7 @@ describe("desktop storage service", () => {
       }),
     ).resolves.toBeUndefined();
     await expect(handleStorageRequest("unknown.method")).rejects.toThrow(
-      "Unknown storage method: unknown.method",
+      "Unknown storage operation",
     );
   });
 

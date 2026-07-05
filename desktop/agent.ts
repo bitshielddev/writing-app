@@ -22,8 +22,20 @@ import {
 } from "./scribe-extension.js";
 import { ScribeLoopState } from "./scribe-loop.js";
 import { activitiesFromSessionEvent } from "./agent-events.js";
+import { safeActivityPayload } from "./activity.js";
 import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
-import type { AgentParentMessage } from "../src/shared/contracts.js";
+import {
+  PROTOCOL_VERSION,
+  AgentActivityMessageSchema,
+  AgentRuntimeMessageSchema,
+  StorageOperations,
+  type AgentRpcRequest,
+  type OperationName,
+  type OperationArgs,
+  type OperationResult,
+  toContractError,
+  parseOrContractError,
+} from "../src/shared/contracts.js";
 import {
   AgentStorageClient,
   createAgentParentTransport,
@@ -45,16 +57,30 @@ const storageClient = new AgentStorageClient(randomUUID, (message) =>
   process.parentPort?.postMessage(message),
 );
 
-function storageCall<T>(method: string, params?: unknown): Promise<T> {
-  return storageClient.call<T>(method, params);
+function storageCall<Name extends OperationName<typeof StorageOperations>>(
+  operation: Name,
+  ...args: OperationArgs<typeof StorageOperations, Name>
+): Promise<OperationResult<typeof StorageOperations, Name>> {
+  return storageClient.call(operation, ...args);
 }
 
 function postRuntime(value: AgentRuntime) {
-  process.parentPort?.postMessage({ kind: "agent.runtime", runtime: value });
+  process.parentPort?.postMessage(parseOrContractError(AgentRuntimeMessageSchema, {
+    kind: "agent.runtime",
+    protocolVersion: PROTOCOL_VERSION,
+    runtime: value,
+  }, "agent.outgoing.runtime"));
 }
 
 function postActivity(value: Omit<AgentActivity, "updatedAt">) {
-  process.parentPort?.postMessage({ kind: "agent.activity", activity: value });
+  const activity = value.payload === undefined
+    ? value
+    : { ...value, payload: safeActivityPayload(value.payload) };
+  process.parentPort?.postMessage(parseOrContractError(AgentActivityMessageSchema, {
+    kind: "agent.activity",
+    protocolVersion: PROTOCOL_VERSION,
+    activity,
+  }, "agent.outgoing.activity"));
 }
 
 const host: ScribeExtensionHost = {
@@ -214,18 +240,26 @@ async function stopAgent() {
 
 let controlQueue = Promise.resolve();
 
-function handleControl(message: Extract<AgentParentMessage, { kind: "rpc" }>) {
+function handleControl(message: AgentRpcRequest) {
   controlQueue = controlQueue.then(async () => {
     try {
-      const result = message.method === "agent.start"
-        ? await startAgent(message.params as ScribeRevision)
+      const result = message.operation === "agent.start"
+        ? await startAgent(message.params)
         : await stopAgent();
-      process.parentPort?.postMessage({ kind: "rpc.result", id: message.id, result });
+      process.parentPort?.postMessage({
+        kind: "rpc.success",
+        protocolVersion: PROTOCOL_VERSION,
+        id: message.id,
+        operation: message.operation,
+        result,
+      });
     } catch (error) {
       process.parentPort?.postMessage({
-        kind: "rpc.result",
+        kind: "rpc.failure",
+        protocolVersion: PROTOCOL_VERSION,
         id: message.id,
-        error: error instanceof Error ? error.message : String(error),
+        operation: message.operation,
+        error: toContractError(error),
       });
     }
   });
@@ -335,4 +369,7 @@ initialize()
       status: "offline",
     });
   })
-  .finally(() => process.parentPort?.postMessage({ kind: "ready" }));
+  .finally(() => process.parentPort?.postMessage({
+    kind: "ready",
+    protocolVersion: PROTOCOL_VERSION,
+  }));

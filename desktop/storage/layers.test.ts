@@ -7,7 +7,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceSnapshot } from "../../src/shared/desktop";
 import { createStorageService, type StorageService } from "./service";
-import { DocumentRepository, ProjectRepository } from "./repositories";
+import {
+  DocumentRepository,
+  OutboxRepository,
+  ProjectRepository,
+  SuggestionRepository,
+} from "./repositories";
 import { NodeWorkspaceFiles, type WorkspaceFiles } from "./workspace-files";
 
 const workspaces: string[] = [];
@@ -65,6 +70,30 @@ describe("storage database and repositories", () => {
     const untouched = await second.handleRequest("hydrate") as WorkspaceSnapshot;
     expect(untouched.document.markdown).toBe("# New Page\n");
     expect(untouched.document.revision).toBe(0);
+  });
+
+  it("rejects malformed persisted document, suggestion, and outbox JSON at load", async () => {
+    const instance = await service();
+    const db = instance.database.db;
+    const documents = new DocumentRepository(db);
+    const suggestions = new SuggestionRepository(db);
+    const outbox = new OutboxRepository(db);
+
+    db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
+      .run("not-json", "default-document");
+    expect(() => documents.get("default-document"))
+      .toThrow("Invalid persisted document blocks JSON");
+    db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
+      .run("[]", "default-document");
+
+    db.prepare("UPDATE suggestion_state SET state_json = ? WHERE project_id = ?")
+      .run(JSON.stringify({ entries: [] }), "default-project");
+    expect(() => suggestions.get("default-project"))
+      .toThrow("Invalid data at persisted.suggestion-projection");
+
+    db.prepare("INSERT INTO event_outbox (event_json, created_at) VALUES (?, ?)")
+      .run(JSON.stringify({ type: "unknown" }), 1);
+    expect(() => outbox.pending()).toThrow("Invalid data at persisted.outbox-event");
   });
 });
 

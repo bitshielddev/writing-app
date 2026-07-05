@@ -1,9 +1,14 @@
-import type { ObservationSeed } from "../src/shared/desktop.js";
+import {
+  AgentOperations,
+  PROTOCOL_VERSION,
+  StorageOperations,
+  type OperationCaller,
+  type OperationRegistry,
+} from "../src/shared/contracts.js";
 import { ChildStartupError } from "./child-rpc.js";
 
-export type DesktopProcess = {
+export type DesktopProcess<Registry extends OperationRegistry> = OperationCaller<Registry> & {
   ready: Promise<void>;
-  call<T>(method: string, params?: unknown): Promise<T>;
   post(message: unknown): void;
   kill(): void;
 };
@@ -15,9 +20,12 @@ export async function startDesktop({
   installMenu,
   createWindow,
 }: {
-  spawnStorage: () => DesktopProcess;
-  spawnAgent: () => DesktopProcess;
-  registerIpc: (storage: DesktopProcess, agent: DesktopProcess) => void;
+  spawnStorage: () => DesktopProcess<typeof StorageOperations>;
+  spawnAgent: () => DesktopProcess<typeof AgentOperations>;
+  registerIpc: (
+    storage: DesktopProcess<typeof StorageOperations>,
+    agent: DesktopProcess<typeof AgentOperations>,
+  ) => void;
   installMenu: () => void;
   createWindow: () => void;
 }) {
@@ -32,9 +40,10 @@ export async function startDesktop({
   installMenu();
   createWindow();
 
-  const seed = await storage.call<ObservationSeed>("agent.seed");
+  const seed = await storage.call("agent.seed");
   agent.post({
     kind: "project.changed",
+    protocolVersion: PROTOCOL_VERSION,
     projectRevision: seed.projectRevision,
     documentRevision: seed.documentRevision,
   });
