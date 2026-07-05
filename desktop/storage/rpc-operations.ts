@@ -1,0 +1,26 @@
+import type { StorageRpcMethod } from "../../src/shared/contracts.js";
+import type { StorageOperations } from "./operations.js";
+
+type Operation = (params?: unknown) => unknown | Promise<unknown>;
+
+export function createStorageRequestHandler(operations: StorageOperations) {
+  const operationMap = {
+    hydrate: () => operations.hydrate(),
+    "workspace.repair": () => operations.repairWorkspace(),
+    "document.save": (params) => operations.saveDocument(params),
+    "suggestions.save": (params) => operations.saveSuggestionState(params),
+    "source.import": (params) => operations.importSource(params),
+    "agent.seed": () => operations.getObservationSeed(),
+    "agent.suggestions.list": () => operations.listSuggestions(),
+    "agent.suggestion.create": (params) => operations.createSuggestion(params),
+    "agent.suggestion.update": (params) => operations.updateSuggestion(params),
+    "agent.suggestion.retract": (params) => operations.retractSuggestion(params),
+    "development.suggestion.create": (params) => operations.createDevelopmentSuggestion(params),
+  } satisfies Record<StorageRpcMethod, Operation>;
+
+  return async (method: string, params?: unknown) => {
+    const operation = operationMap[method as StorageRpcMethod] as Operation | undefined;
+    if (!operation) throw new Error(`Unknown storage method: ${method}`);
+    return await operation(params);
+  };
+}

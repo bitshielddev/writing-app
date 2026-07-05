@@ -1,20 +1,31 @@
 // @vitest-environment node
 
-import { afterAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import {
-  closeStorageForTest,
-  getWorkspacePathsForTest,
-  handleStorageRequest,
-} from "./storage";
+import { createStorageService, type StorageService } from "./storage/service";
 import type { SourceSnapshot, WorkspaceSnapshot } from "../src/shared/desktop";
 import type { TextSuggestion } from "../src/suggestions/types";
 
 describe("desktop storage service", () => {
-  afterAll(async () => closeStorageForTest());
+  let service: StorageService;
+  let workspaceRoot: string;
+
+  beforeEach(async () => {
+    workspaceRoot = await mkdtemp(join(tmpdir(), "scribe-storage-test-"));
+    service = createStorageService({ databasePath: ":memory:", workspaceRoot });
+    await service.operations.repairWorkspace();
+  });
+
+  afterEach(async () => {
+    service.close();
+    await rm(workspaceRoot, { recursive: true, force: true });
+  });
+
+  const handleStorageRequest = (method: string, params?: unknown) =>
+    service.handleRequest(method, params);
 
   it("saves block JSON and Markdown before returning the durable revision", async () => {
     const initial = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
@@ -27,12 +38,12 @@ describe("desktop storage service", () => {
 
     expect(saved.revision).toBe(initial.document.revision + 1);
     expect(saved.markdown).toBe("Persisted draft\n");
-    expect(await readFile(getWorkspacePathsForTest().draftPath, "utf8"))
+    expect(await readFile(service.paths.draftPath, "utf8"))
       .toBe("Persisted draft\n");
   });
 
   it("repairs a damaged draft mirror from SQLite", async () => {
-    const { draftPath } = getWorkspacePathsForTest();
+    const { draftPath } = service.paths;
     await writeFile(draftPath, "damaged mirror", "utf8");
     const result = await handleStorageRequest("workspace.repair") as { repaired: boolean };
     const snapshot = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
@@ -75,6 +86,21 @@ describe("desktop storage service", () => {
     };
     expect(seed.documentRevision).toBe(snapshot.document.revision);
 
+    const initialItem: TextSuggestion = {
+      id: "rpc-suggestion",
+      dedupeKey: "rpc-suggestion",
+      kind: "snippet",
+      title: "Initial title",
+      summary: "Summary",
+      body: "Body",
+      insertText: "Insert",
+      sourceLabels: [],
+      createdAt: 20,
+    };
+    await handleStorageRequest("agent.suggestion.create", {
+      item: initialItem,
+      expectedDocumentRevision: snapshot.document.revision,
+    });
     const listed = await handleStorageRequest("agent.suggestions.list") as {
       live: TextSuggestion[];
     };

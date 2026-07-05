@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Storage service extraction and consistency review</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f5ef;
+      --paper: #fffdfa;
+      --ink: #24211c;
+      --muted: #6f6a60;
+      --line: #ded8cc;
+      --code-bg: #1f2428;
+      --code-ink: #edf2f4;
+      --accent: #426b69;
+      --accent-soft: #dfeceb;
+      --warn: #8a5a18;
+      --warn-soft: #fff1d6;
+      --good: #3f6f45;
+      --good-soft: #e4f0df;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #ebe6d8 0, var(--bg) 340px);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    .frame {
+      display: grid;
+      grid-template-columns: minmax(190px, 250px) minmax(0, 900px);
+      gap: 36px;
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 34px 28px 60px;
+    }
+    nav {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 253, 250, 0.82);
+      backdrop-filter: blur(10px);
+      font-size: 14px;
+    }
+    nav .eyebrow { margin-bottom: 10px; }
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 7px 0;
+      border-top: 1px solid rgba(222, 216, 204, 0.62);
+    }
+    nav a:hover { color: var(--accent); }
+    main {
+      min-width: 0;
+    }
+    header {
+      margin-bottom: 26px;
+      padding: 34px;
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(247,245,239,0.74));
+      box-shadow: 0 18px 48px rgba(80, 72, 57, 0.08);
+    }
+    h1 {
+      max-width: 820px;
+      margin: 0 0 14px;
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 0.98;
+      letter-spacing: -0.035em;
+    }
+    h2 {
+      margin: 42px 0 13px;
+      font-size: 27px;
+      line-height: 1.12;
+      letter-spacing: -0.018em;
+    }
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+    }
+    p { margin: 0 0 14px; }
+    .lead {
+      max-width: 760px;
+      color: #49443c;
+      font-size: 18px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+    section {
+      margin: 24px 0;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--paper);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fffaf2;
+    }
+    .card h3 { margin-top: 0; }
+    .map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 18px 0 8px;
+    }
+    .map div {
+      padding: 13px;
+      border-radius: 15px;
+      background: var(--accent-soft);
+      border: 1px solid #c7dbd8;
+      min-height: 86px;
+    }
+    .map strong { display: block; margin-bottom: 6px; color: #274b49; }
+    ul { padding-left: 22px; margin-top: 8px; }
+    li + li { margin-top: 6px; }
+    code.inline {
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: #eee7da;
+      color: #3b342c;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow-x: auto;
+      margin: 16px 0;
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.48;
+      border: 1px solid #11161a;
+    }
+    pre mark {
+      display: inline-block;
+      width: 100%;
+      margin: 0 -4px;
+      padding: 0 4px;
+      border-radius: 4px;
+      background: rgba(233, 196, 106, 0.18);
+      color: inherit;
+    }
+    .note, .risk, .pass {
+      margin: 16px 0;
+      padding: 15px 17px;
+      border-radius: 16px;
+      border: 1px solid;
+    }
+    .note { background: var(--accent-soft); border-color: #c7dbd8; }
+    .risk { background: var(--warn-soft); border-color: #efcf92; }
+    .pass { background: var(--good-soft); border-color: #bfd7b7; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 11px 10px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+    th { color: #4f4a42; background: #f3eee4; }
+    details {
+      margin: 12px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fffaf2;
+    }
+    summary { cursor: pointer; font-weight: 700; }
+    .history {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 12px 18px;
+      align-items: start;
+      margin-top: 12px;
+    }
+    .history code { color: var(--accent); font-weight: 700; }
+    .small { color: var(--muted); font-size: 14px; }
+    @media (max-width: 860px) {
+      .frame { display: block; padding: 18px; }
+      nav { position: static; margin-bottom: 20px; }
+      .grid, .map { grid-template-columns: 1fr; }
+      section, header { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <nav aria-label="Review navigation">
+      <div class="eyebrow">Review path</div>
+      <a href="#orientation">Orientation</a>
+      <a href="#shape">New storage shape</a>
+      <a href="#save-path">Document save path</a>
+      <a href="#events">Event dispatch</a>
+      <a href="#boundaries">Tests and boundaries</a>
+      <a href="#risks">Risks</a>
+      <a href="#check">Comprehension check</a>
+    </nav>
+
+    <main>
+      <header>
+        <div class="eyebrow">Comprehension review</div>
+        <h1>Storage is now a service with sharper failure boundaries</h1>
+        <p class="lead">This diff turns <code class="inline">desktop/storage.ts</code> from a 503-line process script with embedded persistence logic into a thin Electron worker entrypoint. The storage behavior now lives behind <code class="inline">createStorageService</code>, with repositories, file operations, transactions, RPC mapping, and event dispatch separated enough to test failure cases directly.</p>
+      </header>
+
+      <section id="orientation">
+        <h2>The short version, grounded in the diff</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>What moved</h3>
+            <p>Most of the old top-level functions in <code class="inline">desktop/storage.ts</code> moved into files under <code class="inline">desktop/storage/</code>. The old entrypoint now only validates startup arguments, creates a service, wires the transport, and starts pending event dispatch.</p>
+          </div>
+          <div class="card">
+            <h3>What changed behaviorally</h3>
+            <p>Document saves are serialized and re-check the expected revision inside the database transaction. If the draft file is written but the database transaction fails, the draft mirror is repaired from SQLite.</p>
+          </div>
+          <div class="card">
+            <h3>What became testable</h3>
+            <p>The service accepts injected workspace file handlers, event publishers, loggers, and workspace roots. The new layer tests simulate disk failures, database trigger failures, publisher failures, and concurrent saves.</p>
+          </div>
+          <div class="card">
+            <h3>What changed for callers</h3>
+            <p>The previous test exports <code class="inline">handleStorageRequest</code>, <code class="inline">getWorkspacePathsForTest</code>, and <code class="inline">closeStorageForTest</code> are gone. Tests now create isolated <code class="inline">StorageService</code> instances.</p>
+          </div>
+        </div>
+
+        <div class="history" aria-label="Relevant git history">
+          <code>f2a6258</code><span>introduced suggestion save queue/retry work on the frontend side.</span>
+          <code>575709c</code><span>moved database startup into <code class="inline">desktop/database.ts</code>, keeping corruption/startup handling explicit.</span>
+          <code>82ec51a</code><span>expanded suggestion schema and storage-facing validation paths.</span>
+          <code>76425b6</code><span>extracted workspace application services in the renderer.</span>
+          <code>29b9eef</code><span>continued the same refactoring direction by splitting oversized frontend modules.</span>
+        </div>
+        <p class="small">This storage change fits that history: persistence code is being moved out of monolithic files while preserving the existing desktop RPC contract.</p>
+      </section>
+
+      <section id="shape">
+        <h2>The new storage shape</h2>
+        <p>The main design move is dependency assembly in one place. <code class="inline">createStorageService</code> opens the database, bootstraps rows, constructs repositories, builds file and event adapters, then exposes a narrow service object.</p>
+
+        <div class="map">
+          <div><strong>Entrypoint</strong><span><code class="inline">desktop/storage.ts</code> handles process startup and transport.</span></div>
+          <div><strong>Service factory</strong><span><code class="inline">service.ts</code> owns composition and cleanup on construction failure.</span></div>
+          <div><strong>Operations</strong><span><code class="inline">operations.ts</code> contains storage use cases.</span></div>
+          <div><strong>Adapters</strong><span>Repositories, outbox, and workspace files wrap SQLite, publishing, and disk IO.</span></div>
+        </div>
+
+        <pre><code>export function createStorageService(options: CreateStorageServiceOptions) {
+  const projectId = options.projectId ?? DEFAULT_PROJECT_ID;
+  const documentId = options.documentId ?? DEFAULT_DOCUMENT_ID;
+  const paths = createStoragePaths(options.workspaceRoot);
+  const database = new SqliteDatabaseLifecycle(options.databasePath);
+  try {
+    database.run(() =&gt; bootstrapWorkspace(database.db, projectId, documentId));
+    const projects = new ProjectRepository(database.db);
+    const documents = new DocumentRepository(database.db);
+    const sources = new SourceRepository(database.db);
+    const suggestions = new SuggestionRepository(database.db);
+    const outbox = new OutboxRepository(database.db);
+    const files = options.createWorkspaceFiles?.(paths) ?? new NodeWorkspaceFiles(paths);
+    const publisher: EventPublisher = {
+      publish: options.publishEvent ?? (() =&gt; undefined),
+    };
+    const dispatcher = new OutboxDispatcher(outbox, publisher);
+    const operations = new StorageOperations({
+      projectId,
+      documentId,
+      paths,
+      transactions: database,
+      projects,
+      documents,
+      sources,
+      suggestions,
+      outbox,
+      dispatcher,
+      files,
+      logger: options.logger,
+    });
+    return {
+      paths,
+      database,
+      operations,
+      handleRequest: createStorageRequestHandler(operations),
+      dispatchPendingEvents: () =&gt; dispatcher.dispatch(),
+      close: () =&gt; database.close(),
+    };
+  } catch (error) {
+    database.close();
+    throw error;
+  }
+}</code></pre>
+
+        <p>Two details matter for future maintainers:</p>
+        <ul>
+          <li>The service can be created without <code class="inline">process.parentPort</code>, so tests no longer rely on module-level globals or a shared in-memory database.</li>
+          <li>The <code class="inline">catch</code> in the factory closes the database if construction fails after opening SQLite. That is a lifecycle invariant, not just cleanup style.</li>
+        </ul>
+      </section>
+
+      <section id="save-path">
+        <h2>The save path now defends both revision and mirror consistency</h2>
+        <p>The document save path is the most important behavioral change. The old code checked the expected revision before writing <code class="inline">draft.md</code>, then updated SQLite. The new code queues document saves, writes the draft, checks the revision again inside the transaction, and repairs the draft if the transaction fails.</p>
+
+        <pre><code>async saveDocument(params: unknown): Promise&lt;DocumentSnapshot&gt; {
+  const previous = this.documentOperation;
+  let release!: () =&gt; void;
+<mark>  this.documentOperation = new Promise&lt;void&gt;((resolve) =&gt; {
+    release = resolve;
+  });
+  await previous;</mark>
+  try {
+    return await this.performDocumentSave(params);
+  } finally {
+    release();
+  }
+}</code></pre>
+
+        <p>This queue is only for document saves. It stops two concurrent requests from both using the same revision after they have both passed validation. The second request still runs, but by then the persisted document revision has changed, so it should fail with <code class="inline">DOCUMENT_REVISION_CONFLICT</code>.</p>
+
+        <pre><code>await this.deps.files.writeDraft(input.markdown);
+let saved: DocumentSnapshot;
+try {
+  saved = this.deps.transactions.run(() =&gt; {
+<mark>    if (input.expectedRevision !== this.deps.documents.get(this.deps.documentId).revision) {
+      throw new Error("DOCUMENT_REVISION_CONFLICT");
+    }</mark>
+    const now = Date.now();
+    const document = this.deps.documents.save(
+      this.deps.documentId,
+      input.blocks as unknown[],
+      input.markdown as string,
+      now,
+    );
+    this.deps.projects.incrementRevision(this.deps.projectId, now);
+    this.deps.outbox.enqueue({
+      type: "document.saved",
+      document,
+      projectRevision: this.deps.projects.get(this.deps.projectId).revision,
+    });
+    return document;
+  });
+} catch (error) {
+  try {
+<mark>    await this.deps.files.repairDraft(
+      this.deps.documents.get(this.deps.documentId).markdown,
+    );</mark>
+  } catch (repairError) {
+    throw new AggregateError(
+      [error, repairError],
+      "Document save failed and draft repair failed",
+      { cause: repairError },
+    );
+  }
+  throw error;
+}
+await this.deps.dispatcher.dispatch();
+return saved;</code></pre>
+
+        <div class="note">
+          <p><strong>Follow the state:</strong> on a successful save, <code class="inline">draft.md</code>, the <code class="inline">documents</code> row, project revision, and the event outbox advance together. On a transaction failure after the draft write, the database remains authoritative and <code class="inline">repairDraft</code> pulls the file mirror back to the database markdown.</p>
+        </div>
+      </section>
+
+      <section id="events">
+        <h2>Events are still durable, but dispatch is now an explicit collaborator</h2>
+        <p>The old storage file queued events and flushed them from module-level code. The extracted version makes the outbox a repository and gives dispatch its own small class.</p>
+
+        <pre><code>export class OutboxDispatcher {
+  private activeDispatch: Promise&lt;void&gt; = Promise.resolve();
+
+  constructor(
+    private readonly repository: EventOutbox,
+    private readonly publisher: EventPublisher,
+  ) {}
+
+  dispatch() {
+<mark>    const dispatch = this.activeDispatch.then(() =&gt; this.deliverPending());
+    this.activeDispatch = dispatch.catch(() =&gt; undefined);</mark>
+    return dispatch;
+  }
+
+  private async deliverPending() {
+    for (const row of this.repository.pending()) {
+<mark>      await this.publisher.publish(row.event);
+      this.repository.markDispatched(row.sequence);</mark>
+    }
+  }
+}</code></pre>
+
+        <p>Marking happens after publish, so a thrown publisher leaves the row pending. The dispatcher serializes overlapping dispatch calls through <code class="inline">activeDispatch</code>. Startup also dispatches pending events after the worker announces readiness:</p>
+
+        <pre><code>await service.operations.repairWorkspace();
+const receive = createStorageTransport(
+  service.handleRequest,
+  (message) =&gt; process.parentPort?.postMessage(message),
+);
+process.parentPort?.on("message", ({ data }: { data: unknown }) =&gt; {
+  void receive(data);
+});
+process.once("exit", () =&gt; service.close());
+process.parentPort?.postMessage({ kind: "ready" });
+<mark>await service.dispatchPendingEvents();</mark></code></pre>
+
+        <div class="risk">
+          <p><strong>Operational consequence:</strong> methods such as <code class="inline">document.save</code>, <code class="inline">source.import</code>, and suggestion mutations now await dispatch after committing. The layer test confirms that a publisher failure rejects the request while leaving the committed database change and pending outbox row intact. Consumers need to treat a rejected request after commit as possible for event-publishing failures.</p>
+        </div>
+      </section>
+
+      <section id="boundaries">
+        <h2>RPC surface preserved, test surface changed</h2>
+        <p>The desktop RPC method names are still centralized in one map and checked against <code class="inline">StorageRpcMethod</code>. Unknown methods still throw the same shape of error.</p>
+
+        <pre><code>export function createStorageRequestHandler(operations: StorageOperations) {
+  const operationMap = {
+    hydrate: () =&gt; operations.hydrate(),
+    "workspace.repair": () =&gt; operations.repairWorkspace(),
+    "document.save": (params) =&gt; operations.saveDocument(params),
+    "suggestions.save": (params) =&gt; operations.saveSuggestionState(params),
+    "source.import": (params) =&gt; operations.importSource(params),
+    "agent.seed": () =&gt; operations.getObservationSeed(),
+    "agent.suggestions.list": () =&gt; operations.listSuggestions(),
+    "agent.suggestion.create": (params) =&gt; operations.createSuggestion(params),
+    "agent.suggestion.update": (params) =&gt; operations.updateSuggestion(params),
+    "agent.suggestion.retract": (params) =&gt; operations.retractSuggestion(params),
+    "development.suggestion.create": (params) =&gt; operations.createDevelopmentSuggestion(params),
+  } satisfies Record&lt;StorageRpcMethod, Operation&gt;;
+
+  return async (method: string, params?: unknown) =&gt; {
+    const operation = operationMap[method as StorageRpcMethod] as Operation | undefined;
+    if (!operation) throw new Error(`Unknown storage method: ${method}`);
+    return await operation(params);
+  };
+}</code></pre>
+
+        <p>The old broad storage test now creates a fresh service for every test:</p>
+        <pre><code>beforeEach(async () =&gt; {
+  workspaceRoot = await mkdtemp(join(tmpdir(), "scribe-storage-test-"));
+  service = createStorageService({ databasePath: ":memory:", workspaceRoot });
+  await service.operations.repairWorkspace();
+});
+
+async function handleStorageRequest(method: string, params?: unknown) {
+  return service.handleRequest(method, params);
+}</code></pre>
+
+        <p>The new <code class="inline">desktop/storage/layers.test.ts</code> adds focused coverage for the new boundaries:</p>
+        <table>
+          <thead><tr><th>Covered scenario</th><th>Why it matters</th></tr></thead>
+          <tbody>
+            <tr><td>Repository mapping, missing records, explicit rollback/commit</td><td>Confirms the repository layer is not just a mechanical split.</td></tr>
+            <tr><td>Independent service instances</td><td>Guards against hidden process-wide state in tests or service construction.</td></tr>
+            <tr><td>Draft write fails before database mutation</td><td>Verifies no SQLite update happens when the disk write cannot happen.</td></tr>
+            <tr><td>Concurrent document saves with the same revision</td><td>Proves only one request can consume a revision.</td></tr>
+            <tr><td>Database failure after draft write</td><td>Checks that the draft file is repaired back to SQLite state.</td></tr>
+            <tr><td>Outbox publish failure and retry</td><td>Checks that pending rows survive publisher errors and dispatch only once on retry.</td></tr>
+            <tr><td>Source cleanup failure after database failure</td><td>Checks the logged recovery path when copied files cannot be removed.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="pass">
+          <p><strong>Verification run:</strong> <code class="inline">npm test -- desktop/storage.test.ts desktop/storage/layers.test.ts</code> passed with 2 test files and 13 tests.</p>
+        </div>
+      </section>
+
+      <section id="risks">
+        <h2>What future you should keep in mind</h2>
+        <ul>
+          <li><strong>Commit-then-dispatch can reject after persistence.</strong> Because operations await <code class="inline">dispatcher.dispatch()</code> after the transaction, a caller may see an error even though the database commit happened. This is intentional as tested, but it affects retry semantics.</li>
+          <li><strong>Only document saves are serialized.</strong> Suggestion mutations and source imports still rely on their transaction boundaries and revision checks. If future work introduces cross-operation invariants, this queue will not protect them automatically.</li>
+          <li><strong><code class="inline">suggestions.save</code> does not dispatch events.</strong> That matches the moved behavior: it updates the projection after validating items and trimming entries. If a later caller expects domain events from projection replacement, that would be a new requirement.</li>
+          <li><strong>File writes remain outside SQLite transactions.</strong> The code compensates with ordering and repair, but there is no true atomic transaction across disk and SQLite. The tests now document the chosen compensation paths.</li>
+          <li><strong>Entrypoint side effects changed.</strong> Importing <code class="inline">desktop/storage.ts</code> no longer opens an in-memory database unless the module is running as a parent-port worker. Tests and tools should use <code class="inline">createStorageService</code>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Small glossary for this diff</h2>
+        <table>
+          <tbody>
+            <tr><th>Draft mirror</th><td>The workspace file <code class="inline">draft.md</code>. SQLite remains the durable source for document state; the mirror is repaired from the database when needed.</td></tr>
+            <tr><th>Outbox</th><td>The <code class="inline">event_outbox</code> table. Events are inserted during the same transaction as the domain change, then dispatched later and marked with <code class="inline">dispatched_at</code>.</td></tr>
+            <tr><th>Storage service</th><td>The object returned by <code class="inline">createStorageService</code>: paths, database lifecycle, operations, request handler, pending-event dispatch, and close.</td></tr>
+            <tr><th>Workspace files adapter</th><td>The injectable boundary around disk operations such as draft writes, source copies, and source cleanup.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="check">
+        <h2>Comprehension check</h2>
+        <p>Use these as quick review prompts before modifying this area again.</p>
+
+        <details>
+          <summary>1. Two <code class="inline">document.save</code> requests arrive with the same expected revision. What should happen now?</summary>
+          <p>Only one should fulfill. <code class="inline">saveDocument</code> serializes document saves and <code class="inline">performDocumentSave</code> re-checks the expected revision inside the transaction. After the first save increments the document revision, the second request should fail with <code class="inline">DOCUMENT_REVISION_CONFLICT</code>.</p>
+        </details>
+
+        <details>
+          <summary>2. Why does the code repair <code class="inline">draft.md</code> in the catch block after <code class="inline">writeDraft</code>?</summary>
+          <p>The draft file is written before the SQLite transaction. If SQLite then rejects the update, the file could contain markdown that is not in the database. The repair step writes the current database markdown back to the draft mirror.</p>
+        </details>
+
+        <details>
+          <summary>3. A publisher throws while dispatching a committed <code class="inline">document.saved</code> event. What state should you expect?</summary>
+          <p>The document save has already committed, the request rejects because dispatch failed, and the outbox row remains pending because <code class="inline">markDispatched</code> happens only after a successful publish. A later <code class="inline">dispatchPendingEvents()</code> can retry it.</p>
+        </details>
+
+        <details>
+          <summary>4. What would break if tests kept importing <code class="inline">handleStorageRequest</code> from <code class="inline">desktop/storage.ts</code>?</summary>
+          <p>That export no longer exists. The new test boundary is <code class="inline">createStorageService</code>, which avoids module-level storage state and lets each test own its workspace root, database, file adapter, and close lifecycle.</p>
+        </details>
+
+        <details>
+          <summary>5. Where would you start debugging if source import copies a file but the database insert fails?</summary>
+          <p>Start in <code class="inline">StorageOperations.importSource</code>. It calls <code class="inline">files.copySource</code>, then inserts in a transaction. If that transaction fails, it attempts <code class="inline">files.removeSource(copied.destination)</code>; if cleanup fails too, it logs through the injected logger and rethrows the original database failure.</p>
+        </details>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
