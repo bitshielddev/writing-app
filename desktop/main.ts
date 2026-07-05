@@ -15,6 +15,7 @@ import {
 
 import { ActivityRing } from "./activity.js";
 import { ChildRpc } from "./child-rpc.js";
+import { DurableEventBroker } from "./durable-event-broker.js";
 import { registerMainIpc } from "./ipc-routing.js";
 import {
   createAgentMessageHandler,
@@ -27,7 +28,7 @@ import {
 } from "./startup.js";
 import type {
   AgentRuntime,
-  DesktopEvent,
+  DesktopTransportEvent,
 } from "../src/shared/desktop.js";
 import {
   AgentChildMessageSchema,
@@ -58,6 +59,7 @@ let runtime: AgentRuntime = {
   cycleCount: 0,
 };
 const activity = new ActivityRing();
+const durableEvents = new DurableEventBroker(DESKTOP_EVENT_CHANNEL, randomUUID);
 
 function spawnChild<Registry extends OperationRegistry, Message extends StorageChildMessage | AgentChildMessage>(
   modulePath: string,
@@ -85,8 +87,8 @@ function spawnChild<Registry extends OperationRegistry, Message extends StorageC
   );
 }
 
-function broadcast(event: DesktopEvent) {
-  let validated: DesktopEvent;
+function broadcast(event: DesktopTransportEvent) {
+  let validated: DesktopTransportEvent;
   try {
     validated = parseOrContractError(DesktopEventSchema, event, "main.desktop-event");
   } catch (error) {
@@ -141,6 +143,13 @@ function registerIpc() {
       runtime = nextRuntime;
     },
     activitySnapshot: () => activity.snapshot(),
+    eventConsumers: {
+      subscribe: (sender) => durableEvents.subscribe(sender as Electron.WebContents),
+      consumerId: (senderId) => durableEvents.consumerId(senderId),
+      beginHydration: (senderId, restart) => durableEvents.beginHydration(senderId, restart),
+      completeHydration: (senderId, streamId, sequence) =>
+        durableEvents.completeHydration(senderId, streamId, sequence),
+    },
   });
 }
 
@@ -181,6 +190,7 @@ function createWindow() {
     });
   }
   window.on("closed", () => {
+    durableEvents.remove(window.webContents.id);
     if (workspaceWindow === window) workspaceWindow = undefined;
   });
   if (developmentServerUrl) void window.loadURL(developmentServerUrl);
@@ -251,7 +261,7 @@ async function start() {
   const handleStorageMessage = createStorageMessageHandler({
     storage: storageEndpoint,
     getAgent: () => agent,
-    broadcast,
+    broadcast: (event) => durableEvents.publish(event),
   });
   const handleAgentMessage = createAgentMessageHandler({
     storage: storageEndpoint,

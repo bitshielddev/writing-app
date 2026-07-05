@@ -24,7 +24,9 @@ describe("main process message adapters", () => {
       broadcast,
     });
     const document = createDocumentSnapshot({ revision: 8 });
-    const event = { type: "document.saved" as const, document, projectRevision: 13 };
+    const event = { eventId: "event-1", streamId: "document:default-document",
+      sequence: 1, occurredAt: 1,
+      payload: { type: "document.saved" as const, document, projectRevision: 13 } };
 
     await receive({ kind: "domain.event", protocolVersion: 1, event });
 
@@ -32,6 +34,8 @@ describe("main process message adapters", () => {
     expect(agent.post).toHaveBeenCalledWith({
       kind: "project.changed",
       protocolVersion: 1,
+      streamId: "document:default-document",
+      sequence: 1,
       projectRevision: 13,
       documentRevision: 8,
     });
@@ -51,9 +55,10 @@ describe("main process message adapters", () => {
       kind: "domain.event",
       protocolVersion: 1,
       event: {
-        type: "source.imported",
-        source: createSourceSnapshot(),
-        projectRevision: 14,
+        eventId: "event-2", streamId: "document:default-document",
+        sequence: 2, occurredAt: 2,
+        payload: { type: "source.imported",
+          source: createSourceSnapshot(), projectRevision: 14 },
       },
     });
 
@@ -61,6 +66,8 @@ describe("main process message adapters", () => {
     expect(agent.post).toHaveBeenCalledWith({
       kind: "project.changed",
       protocolVersion: 1,
+      streamId: "document:default-document",
+      sequence: 2,
       projectRevision: 14,
       documentRevision: 9,
     });

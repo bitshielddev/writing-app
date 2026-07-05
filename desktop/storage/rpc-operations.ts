@@ -10,6 +10,8 @@ type Operation = (params?: unknown) => unknown | Promise<unknown>;
 export function createStorageRequestHandler(operations: StorageOperations) {
   const operationMap = {
     hydrate: () => operations.hydrate(),
+    "events.replay": (params) => operations.replayEvents(params),
+    "events.acknowledge": (params) => operations.acknowledgeEvents(params),
     "workspace.repair": () => operations.repairWorkspace(),
     "document.save": (params) => operations.saveDocument(params),
     "suggestions.command": (params) => operations.executeSuggestionCommand(params),

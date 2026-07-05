@@ -11,7 +11,8 @@ import type {
   AgentActivity,
   AgentActivityInput,
   AgentRuntime,
-  DesktopEvent,
+  DurableEventEnvelope,
+  EphemeralDesktopEvent,
 } from "../src/shared/desktop.js";
 
 type PostEndpoint = { post(message: unknown): void };
@@ -23,23 +24,28 @@ export function createStorageMessageHandler({
 }: {
   storage: OperationCaller<typeof StorageOperations>;
   getAgent: () => PostEndpoint | undefined;
-  broadcast: (event: DesktopEvent) => void;
+  broadcast: (event: DurableEventEnvelope) => void;
 }) {
   return async (message: StorageChildMessage) => {
     if (message.kind !== "domain.event") return;
     broadcast(message.event);
-    if (message.event.type === "document.saved") {
+    const event = message.event.payload;
+    if (event.type === "document.saved") {
       getAgent()?.post({
         kind: "project.changed",
         protocolVersion: PROTOCOL_VERSION,
-        projectRevision: message.event.projectRevision,
-        documentRevision: message.event.document.revision,
+        streamId: message.event.streamId,
+        sequence: message.event.sequence,
+        projectRevision: event.projectRevision,
+        documentRevision: event.document.revision,
       });
-    } else if (message.event.type === "source.imported") {
+    } else if (event.type === "source.imported") {
       const seed = await storage.call("agent.seed");
       getAgent()?.post({
         kind: "project.changed",
         protocolVersion: PROTOCOL_VERSION,
+        streamId: message.event.streamId,
+        sequence: message.event.sequence,
         projectRevision: seed.projectRevision,
         documentRevision: seed.documentRevision,
       });
@@ -58,7 +64,7 @@ export function createAgentMessageHandler({
   getAgent: () => PostEndpoint | undefined;
   setRuntime: (runtime: Partial<AgentRuntime>) => void;
   addActivity: (activity: AgentActivityInput) => AgentActivity;
-  broadcast: (event: DesktopEvent) => void;
+  broadcast: (event: EphemeralDesktopEvent) => void;
 }) {
   return async (message: AgentChildMessage) => {
     if (message.kind === "storage.request") {

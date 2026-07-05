@@ -23,7 +23,9 @@ Source import accepts only `.md` and `.markdown`. The renderer asks Electron mai
 
 The copied file is only one part of the import. Storage also records source metadata in SQLite, increments the project revision, queues a `source.imported` event, and wakes the agent with the latest document revision. Directly copying files into `sources/` bypasses those steps, so normal source ingestion should go through the Electron import flow.
 
-The fresh schema persists projects, block JSON plus Markdown, source metadata, suggestion projection, and the committed event outbox. It intentionally contains no provider settings, extracted-content index, agent memory, run transcript, or run-history tables. Temporary `suggestionPreview` blocks remain excluded from autosave.
+The fresh schema persists projects, block JSON plus Markdown, source metadata, suggestion projection, and the committed event outbox. Durable document, source, and suggestion events use the `document:default-document` stream, retain a unique event ID and contiguous stream sequence, and remain available after dispatch for paginated replay. Per-consumer cursors record only contiguously applied acknowledgements; a dispatch timestamp is diagnostic, not delivery correctness state. It intentionally contains no provider settings, extracted-content index, agent memory, run transcript, or run-history tables. Temporary `suggestionPreview` blocks remain excluded from autosave.
+
+Renderers subscribe before hydration. Main assigns a process-lifetime consumer ID, buffers events while the snapshot is read, and hands off events above the snapshot's covered sequence. The renderer ignores duplicates, replays gaps in order, acknowledges only after application, and installs a fresh snapshot when history is unavailable or the bounded main buffer overflows. A reload gets a new consumer ID and authoritative snapshot.
 
 ## Pi configuration and session
 
@@ -52,6 +54,8 @@ Suggestion tools include the active document revision. Storage rejects stale mut
 ## Activity diagnostics
 
 Agent lifecycle, message, emitted reasoning, tool, provider, loop, and error events become `agent.activity` desktop events. Main aggregates streaming message/tool updates by ID, recursively redacts credential and header fields, caps each serialized payload at 50 KB, and keeps the latest 500 entries in memory.
+
+Agent runtime and activity are intentionally ephemeral. They have no durable ordering, acknowledgement, or replay guarantee; reloads recover only main's latest in-memory runtime and activity snapshot. Durable project-change notifications carry stream sequences so the agent can detect a gap and refresh its observation seed without replaying model work.
 
 Hydration includes the current launch's ring, so renderer reload retains diagnostics. The ring is not persisted and starts empty on application restart. The writing-partner panel has Suggestions and Activity views. Only runtime status/error text uses live announcements; the chronological diagnostic list is not announced as it streams.
 

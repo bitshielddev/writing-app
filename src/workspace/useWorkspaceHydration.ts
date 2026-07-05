@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 
 import type { WritingEditor, WritingPartialBlock } from "../editor/schema";
+import { DurableEventCoordinator } from "../desktop/durableEventCoordinator";
 import { markPerformance, PERFORMANCE_MARKS } from "../performance/marks";
-import type { DesktopBridge, WorkspaceSnapshot } from "../shared/desktop";
+import type { DesktopBridge, DesktopEvent, WorkspaceSnapshot } from "../shared/desktop";
 
 export type WorkspacePhase = "loading" | "ready" | "failed";
 
@@ -10,38 +11,43 @@ type Options = {
   desktop: DesktopBridge;
   editor: WritingEditor;
   initialize(snapshot: WorkspaceSnapshot): void;
+  onEvent?(event: DesktopEvent): void;
 };
+const ignoreDesktopEvent = () => undefined;
 
-export function useWorkspaceHydration({ desktop, editor, initialize }: Options) {
+export function useWorkspaceHydration({ desktop, editor, initialize, onEvent = ignoreDesktopEvent }: Options) {
   const [phase, setPhase] = useState<WorkspacePhase>("loading");
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     let cancelled = false;
     let frame: number | undefined;
-    void desktop.hydrate().then(
-      (snapshot) => {
+    const coordinator = new DurableEventCoordinator({
+      desktop,
+      applyEvent: onEvent,
+      installSnapshot: (snapshot) => {
         if (cancelled) return;
-        try {
-          if (snapshot.document.blocks.length) {
-            editor.replaceBlocks(
-              editor.document,
-              snapshot.document.blocks as WritingPartialBlock[],
-            );
-          }
-          initialize(snapshot);
-          frame = window.requestAnimationFrame(() => {
-            if (cancelled) return;
-            setPhase("ready");
-            markPerformance(PERFORMANCE_MARKS.hydrationComplete);
-          });
-        } catch (cause) {
-          if (cancelled) return;
-          setError(
-            cause instanceof Error ? cause.message : "The workspace could not be loaded",
+        if (snapshot.document.blocks.length) {
+          editor.replaceBlocks(
+            editor.document,
+            snapshot.document.blocks as WritingPartialBlock[],
           );
-          setPhase("failed");
         }
+        initialize(snapshot);
+      },
+      onError: (cause) => {
+        if (!cancelled) console.error("Desktop event coordination failed", cause);
+      },
+    });
+    const unsubscribe = desktop.subscribe(coordinator.receive);
+    void coordinator.hydrate().then(
+      () => {
+        if (cancelled) return;
+        frame = window.requestAnimationFrame(() => {
+          if (cancelled) return;
+          setPhase("ready");
+          markPerformance(PERFORMANCE_MARKS.hydrationComplete);
+        });
       },
       (cause: unknown) => {
         if (cancelled) return;
@@ -55,9 +61,11 @@ export function useWorkspaceHydration({ desktop, editor, initialize }: Options) 
 
     return () => {
       cancelled = true;
+      coordinator.stop();
+      unsubscribe();
       if (frame !== undefined) window.cancelAnimationFrame(frame);
     };
-  }, [desktop, editor, initialize]);
+  }, [desktop, editor, initialize, onEvent]);
 
   return { phase, error };
 }

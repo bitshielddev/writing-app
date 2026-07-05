@@ -1,4 +1,4 @@
-import type { DesktopEvent } from "../../src/shared/desktop.js";
+import type { DurableEventEnvelope } from "../../src/shared/desktop.js";
 import { bootstrapWorkspace } from "./bootstrap.js";
 import {
   DEFAULT_DOCUMENT_ID,
@@ -24,7 +24,7 @@ export type CreateStorageServiceOptions = {
   workspaceRoot: string;
   projectId?: string;
   documentId?: string;
-  publishEvent?: (event: DesktopEvent) => void | Promise<void>;
+  publishEvent?: (event: DurableEventEnvelope) => void | Promise<void>;
   logger?: Pick<Console, "error">;
   createWorkspaceFiles?: (paths: StoragePaths) => WorkspaceFiles;
 };

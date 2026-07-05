@@ -20,6 +20,7 @@ import {
 
 function ipcHarness() {
   const invoke = vi.fn(async (channel: string) => {
+    if (channel === DESKTOP_INVOKE_CHANNELS.subscribeEvents) return { consumerId: "consumer" };
     if (channel === DESKTOP_INVOKE_CHANNELS.hydrate) return createWorkspaceSnapshot();
     if (channel === DESKTOP_INVOKE_CHANNELS.startAgent) return { status: "working", cycleCount: 1 };
     if (channel === DESKTOP_INVOKE_CHANNELS.stopAgent) return { status: "stopped", cycleCount: 1 };
@@ -63,6 +64,7 @@ describe("preload bridge contract", () => {
     await bridge.importSource();
 
     expect(harness.invoke.mock.calls).toEqual([
+      [DESKTOP_INVOKE_CHANNELS.subscribeEvents],
       [DESKTOP_INVOKE_CHANNELS.hydrate],
       [DESKTOP_INVOKE_CHANNELS.startAgent],
       [DESKTOP_INVOKE_CHANNELS.stopAgent],

@@ -16,7 +16,7 @@ import type {
   AgentRuntime,
 } from "../src/shared/desktop.js";
 
-export type MainInvokeEvent = { sender: { id: number } };
+export type MainInvokeEvent = { sender: { id: number; send?(channel: string, payload: unknown): void } };
 export type IpcMainAdapter = {
   handle(channel: string, handler: (event: MainInvokeEvent, ...args: unknown[]) => unknown): void;
 };
@@ -24,6 +24,12 @@ export type RpcCaller = OperationCaller<typeof StorageOperations> & OperationCal
 export type DialogSelection = { canceled: boolean; filePaths: string[] };
 export type OpenDialogAdapter = {
   show(owner: unknown | undefined, options: unknown): Promise<DialogSelection>;
+};
+export type RendererEventConsumers = {
+  subscribe(sender: MainInvokeEvent["sender"]): string;
+  consumerId(senderId: number): string | undefined;
+  beginHydration(senderId: number, restart?: boolean): void;
+  completeHydration(senderId: number, streamId: string, sequence: number): boolean;
 };
 
 export function registerMainIpc({
@@ -37,6 +43,7 @@ export function registerMainIpc({
   getRuntime,
   setRuntime,
   activitySnapshot,
+  eventConsumers,
   logger = console,
 }: {
   ipcMain: IpcMainAdapter;
@@ -49,6 +56,7 @@ export function registerMainIpc({
   getRuntime: () => AgentRuntime;
   setRuntime: (runtime: AgentRuntime) => void;
   activitySnapshot: () => AgentActivity[];
+  eventConsumers?: RendererEventConsumers;
   logger?: Pick<Console, "error">;
 }) {
   const register = <Name extends OperationName<typeof RendererOperations>>(
@@ -83,15 +91,38 @@ export function registerMainIpc({
     });
   };
 
-  register("hydrate", DESKTOP_INVOKE_CHANNELS.hydrate, async () => {
-    const snapshot = parseOrContractError(
-      StorageOperations.hydrate.result,
-      await storage.call("hydrate"),
-      "main.storage.hydrate.result",
-    );
+  register("events.subscribe", DESKTOP_INVOKE_CHANNELS.subscribeEvents, (event) => ({
+    consumerId: eventConsumers?.subscribe(event.sender) ?? `renderer:${event.sender.id}`,
+  }));
+
+  register("hydrate", DESKTOP_INVOKE_CHANNELS.hydrate, async (event) => {
+    eventConsumers?.beginHydration(event.sender.id);
+    let snapshot: OperationResult<typeof StorageOperations, "hydrate"> | undefined;
+    while (!snapshot) {
+      snapshot = parseOrContractError(
+        StorageOperations.hydrate.result,
+        await storage.call("hydrate"),
+        "main.storage.hydrate.result",
+      );
+      const hydrationComplete = !eventConsumers || eventConsumers.completeHydration(
+        event.sender.id, snapshot.streamId, snapshot.coveredThroughSequence,
+      );
+      if (!hydrationComplete) {
+        eventConsumers.beginHydration(event.sender.id, true);
+        snapshot = undefined;
+      }
+    }
     const runtime = { ...snapshot.agent, ...getRuntime() };
     setRuntime(runtime);
     return { ...snapshot, agent: runtime, activity: activitySnapshot() };
+  });
+
+  register("events.replay", DESKTOP_INVOKE_CHANNELS.replayEvents, (_event, input) =>
+    storage.call("events.replay", input));
+  register("events.acknowledge", DESKTOP_INVOKE_CHANNELS.acknowledgeEvents, (event, input) => {
+    const consumerId = eventConsumers?.consumerId(event.sender.id) ?? `renderer:${event.sender.id}`;
+    if (!consumerId) throw new Error("Renderer must subscribe before acknowledging events");
+    return storage.call("events.acknowledge", { consumerId, ...input });
   });
 
   register("agent.start", DESKTOP_INVOKE_CHANNELS.startAgent, async () => {

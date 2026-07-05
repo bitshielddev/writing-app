@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const DATABASE_VERSION = 3;
+export const DATABASE_VERSION = 4;
 export const MINIMUM_SUPPORTED_DATABASE_VERSION = 2;
 
 export const CURRENT_SCHEMA_SQL = `
@@ -62,10 +62,26 @@ export const CURRENT_SCHEMA_SQL = `
   ) STRICT;
 
   CREATE TABLE event_outbox (
-    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT PRIMARY KEY,
+    stream_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
     event_json TEXT NOT NULL,
+    occurred_at INTEGER NOT NULL,
+    causation_id TEXT,
     created_at INTEGER NOT NULL,
-    dispatched_at INTEGER
+    dispatched_at INTEGER,
+    UNIQUE (stream_id, sequence)
+  ) STRICT;
+
+  CREATE INDEX event_outbox_stream_sequence
+    ON event_outbox (stream_id, sequence);
+
+  CREATE TABLE event_consumer_cursor (
+    consumer_id TEXT NOT NULL,
+    stream_id TEXT NOT NULL,
+    acknowledged_sequence INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (consumer_id, stream_id)
   ) STRICT;
 `;
 
@@ -81,6 +97,39 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
       project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       result_json TEXT NOT NULL,
       created_at INTEGER NOT NULL
+    ) STRICT`);
+  },
+}, {
+  fromVersion: 3,
+  toVersion: 4,
+  name: "sequenced-durable-events",
+  requiresBackup: true,
+  up(db) {
+    db.exec(`ALTER TABLE event_outbox RENAME TO event_outbox_v3`);
+    db.exec(`CREATE TABLE event_outbox (
+      event_id TEXT PRIMARY KEY,
+      stream_id TEXT NOT NULL,
+      sequence INTEGER NOT NULL,
+      event_json TEXT NOT NULL,
+      occurred_at INTEGER NOT NULL,
+      causation_id TEXT,
+      created_at INTEGER NOT NULL,
+      dispatched_at INTEGER,
+      UNIQUE (stream_id, sequence)
+    ) STRICT`);
+    db.exec(`INSERT INTO event_outbox
+      (event_id, stream_id, sequence, event_json, occurred_at, causation_id, created_at, dispatched_at)
+      SELECT 'legacy-default-document-' || sequence, 'document:default-document',
+        sequence, event_json, created_at, NULL, created_at, dispatched_at
+      FROM event_outbox_v3 ORDER BY sequence`);
+    db.exec("DROP TABLE event_outbox_v3");
+    db.exec("CREATE INDEX event_outbox_stream_sequence ON event_outbox (stream_id, sequence)");
+    db.exec(`CREATE TABLE event_consumer_cursor (
+      consumer_id TEXT NOT NULL,
+      stream_id TEXT NOT NULL,
+      acknowledged_sequence INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (consumer_id, stream_id)
     ) STRICT`);
   },
 }];

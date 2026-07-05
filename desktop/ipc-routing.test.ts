@@ -42,6 +42,8 @@ function createHarness(development = true) {
     if (method === "hydrate") return snapshot;
     if (method === "agent.seed") {
       return {
+        streamId: "document:default-document",
+        coveredThroughSequence: 0,
         projectId: "project-1",
         projectName: "Writing project",
         projectRevision: 12,

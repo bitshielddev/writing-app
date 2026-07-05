@@ -74,6 +74,8 @@ describe("desktop startup", () => {
     expect(agent.post).toHaveBeenCalledWith({
       kind: "project.changed",
       protocolVersion: 1,
+      streamId: "document:default-document",
+      sequence: 0,
       projectRevision: 7,
       documentRevision: 3,
     });

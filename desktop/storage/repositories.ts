@@ -1,9 +1,12 @@
 import type { DatabaseSync } from "node:sqlite";
+import { randomUUID } from "node:crypto";
 
-import type { DesktopEvent, DocumentSnapshot, SourceSnapshot } from "../../src/shared/desktop.js";
+import type { DurableEventEnvelope, DurableEventPayload, DocumentSnapshot, SourceSnapshot } from "../../src/shared/desktop.js";
 import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
 import {
-  DesktopEventSchema,
+  DEFAULT_EVENT_STREAM_ID,
+  DurableEventEnvelopeSchema,
+  DurableEventPayloadSchema,
   DocumentBlocksSchema,
   PersistedSuggestionStateSchema,
   SuggestionCommandResultSchema,
@@ -13,7 +16,7 @@ import {
 } from "../../src/shared/contracts.js";
 
 export type ProjectSnapshot = { id: string; name: string; revision: number };
-export type PendingEvent = { sequence: number; event: DesktopEvent };
+export type PendingEvent = DurableEventEnvelope;
 
 export interface ProjectStore {
   get(id: string): ProjectSnapshot;
@@ -41,9 +44,15 @@ export type SuggestionProjection = { state: PersistedSuggestionState; revision: 
 export type SuggestionCommandResult = OperationResult<typeof StorageOperations, "suggestions.command">;
 
 export interface EventOutbox {
-  enqueue(event: DesktopEvent): void;
+  enqueue(event: DurableEventPayload, causationId?: string): DurableEventEnvelope;
   pending(): PendingEvent[];
-  markDispatched(sequence: number): void;
+  markDispatched(eventId: string): void;
+  replay(streamId: string, afterSequence: number, limit?: number): {
+    streamId: string; events: DurableEventEnvelope[]; headSequence: number;
+    hasMore: boolean; historyAvailable: boolean;
+  };
+  head(streamId: string): number;
+  acknowledge(consumerId: string, streamId: string, sequence: number): number;
 }
 
 function parseJson(value: string, format: string): unknown {
@@ -216,34 +225,100 @@ export class SuggestionRepository implements SuggestionStore {
 export class OutboxRepository implements EventOutbox {
   constructor(private readonly db: DatabaseSync) {}
 
-  enqueue(event: DesktopEvent) {
+  enqueue(event: DurableEventPayload, causationId?: string) {
     const validated = parseOrContractError(
-      DesktopEventSchema,
+      DurableEventPayloadSchema,
       event,
       "persisted.outbox-event.write",
     );
+    const streamId = DEFAULT_EVENT_STREAM_ID;
+    const sequence = this.head(streamId) + 1;
+    const eventId = randomUUID();
+    const occurredAt = Date.now();
     this.db.prepare(
-      "INSERT INTO event_outbox (event_json, created_at) VALUES (?, ?)",
-    ).run(JSON.stringify(validated), Date.now());
+      `INSERT INTO event_outbox
+        (event_id, stream_id, sequence, event_json, occurred_at, causation_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(eventId, streamId, sequence, JSON.stringify(validated), occurredAt, causationId ?? null, occurredAt);
+    return { eventId, streamId, sequence, occurredAt, causationId, payload: validated };
   }
 
   pending(): PendingEvent[] {
     const rows = this.db.prepare(
-      "SELECT sequence, event_json FROM event_outbox WHERE dispatched_at IS NULL ORDER BY sequence",
-    ).all() as Array<{ sequence: number; event_json: string }>;
-    return rows.map((row) => ({
-      sequence: row.sequence,
-      event: parseOrContractError(
-        DesktopEventSchema,
-        parseJson(row.event_json, "outbox event"),
-        "persisted.outbox-event",
-      ),
-    }));
+      `SELECT event_id, stream_id, sequence, event_json, occurred_at, causation_id
+       FROM event_outbox WHERE dispatched_at IS NULL ORDER BY stream_id, sequence`,
+    ).all() as PersistedEventRow[];
+    return rows.map(parseEnvelope);
   }
 
-  markDispatched(sequence: number) {
+  markDispatched(eventId: string) {
     this.db.prepare(
-      "UPDATE event_outbox SET dispatched_at = ? WHERE sequence = ?",
-    ).run(Date.now(), sequence);
+      "UPDATE event_outbox SET dispatched_at = ? WHERE event_id = ?",
+    ).run(Date.now(), eventId);
   }
+
+  head(streamId: string) {
+    const row = this.db.prepare(
+      "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM event_outbox WHERE stream_id = ?",
+    ).get(streamId) as { sequence: number };
+    return row.sequence;
+  }
+
+  replay(streamId: string, afterSequence: number, requestedLimit = 100) {
+    const limit = Math.max(1, Math.min(100, requestedLimit));
+    const headSequence = this.head(streamId);
+    if (streamId !== DEFAULT_EVENT_STREAM_ID) {
+      return { streamId, events: [], headSequence, hasMore: false, historyAvailable: false };
+    }
+    const first = this.db.prepare(
+      "SELECT MIN(sequence) AS sequence FROM event_outbox WHERE stream_id = ?",
+    ).get(streamId) as { sequence: number | null };
+    const historyAvailable = afterSequence === 0
+      ? first.sequence === null || first.sequence === 1
+      : afterSequence <= headSequence && (afterSequence === headSequence || this.db.prepare(
+          "SELECT 1 FROM event_outbox WHERE stream_id = ? AND sequence = ?",
+        ).get(streamId, afterSequence) !== undefined);
+    if (!historyAvailable) return { streamId, events: [], headSequence, hasMore: false, historyAvailable };
+    const rows = this.db.prepare(
+      `SELECT event_id, stream_id, sequence, event_json, occurred_at, causation_id
+       FROM event_outbox WHERE stream_id = ? AND sequence > ?
+       ORDER BY sequence LIMIT ?`,
+    ).all(streamId, afterSequence, limit) as PersistedEventRow[];
+    const events = rows.map(parseEnvelope);
+    return { streamId, events, headSequence,
+      hasMore: (events.at(-1)?.sequence ?? afterSequence) < headSequence,
+      historyAvailable: true };
+  }
+
+  acknowledge(consumerId: string, streamId: string, sequence: number) {
+    if (streamId !== DEFAULT_EVENT_STREAM_ID) throw new Error("UNKNOWN_EVENT_STREAM");
+    const head = this.head(streamId);
+    if (sequence > head) throw new Error("ACKNOWLEDGEMENT_PAST_STREAM_HEAD");
+    this.db.prepare(`INSERT INTO event_consumer_cursor
+      (consumer_id, stream_id, acknowledged_sequence, updated_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT (consumer_id, stream_id) DO UPDATE SET
+        acknowledged_sequence = MAX(acknowledged_sequence, excluded.acknowledged_sequence),
+        updated_at = CASE WHEN excluded.acknowledged_sequence > acknowledged_sequence
+          THEN excluded.updated_at ELSE updated_at END`
+    ).run(consumerId, streamId, sequence, Date.now());
+    const row = this.db.prepare(`SELECT acknowledged_sequence FROM event_consumer_cursor
+      WHERE consumer_id = ? AND stream_id = ?`).get(consumerId, streamId) as { acknowledged_sequence: number };
+    return row.acknowledged_sequence;
+  }
+}
+
+type PersistedEventRow = {
+  event_id: string; stream_id: string; sequence: number;
+  event_json: string; occurred_at: number; causation_id: string | null;
+};
+
+function parseEnvelope(row: PersistedEventRow): DurableEventEnvelope {
+  return parseOrContractError(DurableEventEnvelopeSchema, {
+    eventId: row.event_id,
+    streamId: row.stream_id,
+    sequence: row.sequence,
+    occurredAt: row.occurred_at,
+    ...(row.causation_id ? { causationId: row.causation_id } : {}),
+    payload: parseJson(row.event_json, "outbox event"),
+  }, "persisted.outbox-event");
 }

@@ -2,6 +2,7 @@ import type {
   AgentRuntime,
   DesktopBridge,
   DesktopEvent,
+  DesktopTransportEvent,
   DocumentSnapshot,
   SourceSnapshot,
   WorkspaceSnapshot,
@@ -80,6 +81,8 @@ export function createWorkspaceSnapshot(
   overrides: Partial<WorkspaceSnapshot> = {},
 ): WorkspaceSnapshot {
   return {
+    streamId: "document:default-document",
+    coveredThroughSequence: 0,
     project: { id: "project-1", name: "Writing project", revision: 5 },
     document: createDocumentSnapshot(),
     sources: [createSourceSnapshot()],
@@ -104,7 +107,7 @@ export class DesktopBridgeHarness {
     Awaited<ReturnType<DesktopBridge["executeSuggestionCommand"]>>
   >();
   readonly importSource = new ControlledOperation<[], SourceSnapshot | undefined>();
-  private readonly listeners = new Set<(event: DesktopEvent) => void>();
+  private readonly listeners = new Set<(event: DesktopTransportEvent) => void>();
 
   readonly bridge: DesktopBridge = {
     hydrate: this.hydrate.invoke,
@@ -124,6 +127,6 @@ export class DesktopBridgeHarness {
   }
 
   emit(event: DesktopEvent) {
-    for (const listener of this.listeners) listener(event);
+    for (const listener of this.listeners) listener(event as DesktopTransportEvent);
   }
 }

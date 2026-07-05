@@ -38,9 +38,15 @@ const accepted = { accepted: true };
 const command = { commandId: "command", documentId: document.id, expectedSuggestionRevision: 0,
   command: { type: "dismiss" as const, suggestionId: suggestion.id } };
 const commandResult = { commandId: "command", status: "unchanged" as const, suggestionRevision: 0, state };
+const replayResult = { streamId: workspace.streamId, events: [], headSequence: 0,
+  hasMore: false, historyAvailable: true };
 
 const rendererFixtures = {
+  "events.subscribe": { params: undefined, result: { consumerId: "consumer" } },
   hydrate: { params: undefined, result: workspace },
+  "events.replay": { params: { streamId: workspace.streamId, afterSequence: 0 }, result: replayResult },
+  "events.acknowledge": { params: { streamId: workspace.streamId, sequence: 0 },
+    result: { streamId: workspace.streamId, acknowledgedSequence: 0 } },
   "agent.start": { params: undefined, result: { status: "working", cycleCount: 1 } },
   "agent.stop": { params: undefined, result: { status: "stopped", cycleCount: 1 } },
   "document.save": { params: { documentId: document.id, blocks: [], markdown: "", expectedRevision: 0 }, result: document },
@@ -51,11 +57,16 @@ const rendererFixtures = {
 
 const storageFixtures = {
   hydrate: { params: undefined, result: workspace },
+  "events.replay": rendererFixtures["events.replay"],
+  "events.acknowledge": { params: { consumerId: "consumer", streamId: workspace.streamId, sequence: 0 },
+    result: { streamId: workspace.streamId, acknowledgedSequence: 0 } },
   "workspace.repair": { params: undefined, result: { workspaceRoot: "/w", draftPath: "/w/draft.md", sourcesDirectory: "/w/sources", piDirectory: "/w/.pi", repaired: false } },
   "document.save": rendererFixtures["document.save"],
   "suggestions.command": rendererFixtures["suggestions.command"],
   "source.import": { params: { path: "/source.md" }, result: source },
-  "agent.seed": { params: undefined, result: { projectId: "project", projectName: "Project", projectRevision: 1, documentId: "document", documentTitle: "Draft", documentRevision: 1 } },
+  "agent.seed": { params: undefined, result: { streamId: workspace.streamId,
+    coveredThroughSequence: 0, projectId: "project", projectName: "Project",
+    projectRevision: 1, documentId: "document", documentTitle: "Draft", documentRevision: 1 } },
   "agent.suggestions.list": { params: undefined, result: { live: [suggestion], pinned: [], workspace: [] } },
   "agent.suggestion.create": { params: { item: suggestion, expectedDocumentRevision: 1 }, result: accepted },
   "agent.suggestion.update": { params: { item: suggestion, expectedDocumentRevision: 1 }, result: accepted },
@@ -71,7 +82,10 @@ const agentFixtures = {
 describe("process contract inventory", () => {
   it("tracks every renderer invoke operation", () => {
     expect(DESKTOP_INVOKE_CHANNELS).toEqual({
+      subscribeEvents: "scribe:events.subscribe",
       hydrate: "scribe:hydrate",
+      replayEvents: "scribe:events.replay",
+      acknowledgeEvents: "scribe:events.acknowledge",
       startAgent: "scribe:agent.start",
       stopAgent: "scribe:agent.stop",
       saveDocument: "scribe:document.save",
@@ -83,6 +97,8 @@ describe("process contract inventory", () => {
   it("tracks every storage and agent RPC method", () => {
     expect(STORAGE_RPC_METHODS).toEqual([
       "hydrate",
+      "events.replay",
+      "events.acknowledge",
       "workspace.repair",
       "document.save",
       "suggestions.command",

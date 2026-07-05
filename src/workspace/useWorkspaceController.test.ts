@@ -27,6 +27,8 @@ function documentSnapshot(revision: number, blocks: unknown[]): DocumentSnapshot
 
 function snapshot(): WorkspaceSnapshot {
   return {
+    streamId: "document:default-document",
+    coveredThroughSequence: 0,
     project: { id: "project", name: "Project", revision: 3 },
     document: documentSnapshot(3, [{ id: "hydrated", type: "paragraph" }]),
     sources: [

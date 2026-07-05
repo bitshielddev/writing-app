@@ -7,6 +7,7 @@ import type {
   WorkspaceSnapshot,
 } from "../../src/shared/desktop.js";
 import {
+  DEFAULT_EVENT_STREAM_ID,
   StorageOperations as StorageOperationContracts,
   parseOrContractError,
 } from "../../src/shared/contracts.js";
@@ -49,6 +50,8 @@ export class StorageOperations {
 
   hydrate(): WorkspaceSnapshot {
     return {
+      streamId: DEFAULT_EVENT_STREAM_ID,
+      coveredThroughSequence: this.deps.outbox.head(DEFAULT_EVENT_STREAM_ID),
       project: this.deps.projects.get(this.deps.projectId),
       document: this.deps.documents.get(this.deps.documentId),
       sources: this.deps.sources.list(this.deps.projectId),
@@ -57,6 +60,26 @@ export class StorageOperations {
       agent: { status: "offline", cycleCount: 0 },
       activity: [],
     };
+  }
+
+  replayEvents(params: unknown) {
+    const input = parseOrContractError(
+      StorageOperationContracts["events.replay"].params,
+      params,
+      "storage.events.replay.params",
+    );
+    return this.deps.outbox.replay(input.streamId, input.afterSequence, input.limit);
+  }
+
+  acknowledgeEvents(params: unknown) {
+    const input = parseOrContractError(
+      StorageOperationContracts["events.acknowledge"].params,
+      params,
+      "storage.events.acknowledge.params",
+    );
+    return { streamId: input.streamId, acknowledgedSequence: this.deps.outbox.acknowledge(
+      input.consumerId, input.streamId, input.sequence,
+    ) };
   }
 
   async repairWorkspace() {
@@ -227,6 +250,8 @@ export class StorageOperations {
     const project = this.deps.projects.get(this.deps.projectId);
     const document = this.deps.documents.get(this.deps.documentId);
     return {
+      streamId: DEFAULT_EVENT_STREAM_ID,
+      coveredThroughSequence: this.deps.outbox.head(DEFAULT_EVENT_STREAM_ID),
       projectId: project.id,
       projectName: project.name,
       projectRevision: project.revision,
@@ -325,6 +350,6 @@ export class StorageOperations {
     commandId?: string,
   ) {
     this.deps.outbox.enqueue({ type: "suggestion.event", event, commandId,
-      suggestionRevision: projection.revision, state: projection.state });
+      suggestionRevision: projection.revision, state: projection.state }, commandId);
   }
 }

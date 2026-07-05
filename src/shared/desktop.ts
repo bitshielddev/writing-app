@@ -8,6 +8,9 @@ import type {
   AgentRuntimeSchema,
   AgentStatusSchema,
   DesktopEventSchema,
+  DurableEventEnvelopeSchema,
+  DurableEventPayloadSchema,
+  EphemeralDesktopEventSchema,
   DocumentSnapshotSchema,
   ObservationSeedSchema,
   OperationParams,
@@ -25,18 +28,26 @@ export type AgentActivityInput = Static<typeof AgentActivityInputSchema>;
 export type DocumentSnapshot = Static<typeof DocumentSnapshotSchema>;
 export type SourceSnapshot = Static<typeof SourceSnapshotSchema>;
 export type WorkspaceSnapshot = Static<typeof WorkspaceSnapshotSchema>;
-export type DesktopEvent = Static<typeof DesktopEventSchema>;
+/** Events after durable envelope coordination, plus the ephemeral live channel. */
+export type DesktopEvent = Static<typeof DurableEventPayloadSchema> | Static<typeof EphemeralDesktopEventSchema>;
+export type DesktopTransportEvent = Static<typeof DesktopEventSchema>;
+export type DurableEventEnvelope = Static<typeof DurableEventEnvelopeSchema>;
+export type DurableEventPayload = Static<typeof DurableEventPayloadSchema>;
+export type EphemeralDesktopEvent = Static<typeof EphemeralDesktopEventSchema>;
 export type ObservationSeed = Static<typeof ObservationSeedSchema>;
 export type { PersistedSuggestionState } from "../suggestions/state";
 
 export type DesktopBridge = {
+  subscribeEvents?(): Promise<OperationResult<typeof RendererOperations, "events.subscribe">>;
   hydrate(): Promise<OperationResult<typeof RendererOperations, "hydrate">>;
+  replayEvents?(input: OperationParams<typeof RendererOperations, "events.replay">): Promise<OperationResult<typeof RendererOperations, "events.replay">>;
+  acknowledgeEvents?(input: OperationParams<typeof RendererOperations, "events.acknowledge">): Promise<OperationResult<typeof RendererOperations, "events.acknowledge">>;
   startAgent(): Promise<OperationResult<typeof RendererOperations, "agent.start">>;
   stopAgent(): Promise<OperationResult<typeof RendererOperations, "agent.stop">>;
   saveDocument(input: OperationParams<typeof RendererOperations, "document.save">): Promise<OperationResult<typeof RendererOperations, "document.save">>;
   executeSuggestionCommand(input: OperationParams<typeof RendererOperations, "suggestions.command">): Promise<OperationResult<typeof RendererOperations, "suggestions.command">>;
   importSource(): Promise<OperationResult<typeof RendererOperations, "source.import">>;
-  subscribe(listener: (event: DesktopEvent) => void): () => void;
+  subscribe(listener: (event: DesktopTransportEvent) => void): () => void;
 };
 
 export type DesktopDevelopmentBridge = {

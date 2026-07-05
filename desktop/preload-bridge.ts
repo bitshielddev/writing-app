@@ -43,8 +43,18 @@ async function invoke<Name extends OperationName<typeof RendererOperations>>(
 }
 
 export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBridge {
+  let subscription: Promise<{ consumerId: string }> | undefined;
+  const subscribeEvents = () => subscription ??= invoke(
+    ipcRenderer, "events.subscribe", DESKTOP_INVOKE_CHANNELS.subscribeEvents,
+  );
   return {
-    hydrate: () => invoke(ipcRenderer, "hydrate", DESKTOP_INVOKE_CHANNELS.hydrate),
+    subscribeEvents,
+    hydrate: async () => {
+      await subscribeEvents();
+      return invoke(ipcRenderer, "hydrate", DESKTOP_INVOKE_CHANNELS.hydrate);
+    },
+    replayEvents: (input) => invoke(ipcRenderer, "events.replay", DESKTOP_INVOKE_CHANNELS.replayEvents, input),
+    acknowledgeEvents: (input) => invoke(ipcRenderer, "events.acknowledge", DESKTOP_INVOKE_CHANNELS.acknowledgeEvents, input),
     startAgent: () => invoke(ipcRenderer, "agent.start", DESKTOP_INVOKE_CHANNELS.startAgent),
     stopAgent: () => invoke(ipcRenderer, "agent.stop", DESKTOP_INVOKE_CHANNELS.stopAgent),
     saveDocument: (input) => invoke(ipcRenderer, "document.save", DESKTOP_INVOKE_CHANNELS.saveDocument, input),

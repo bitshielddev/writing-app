@@ -91,8 +91,11 @@ describe("storage database and repositories", () => {
     expect(() => suggestions.get("default-project"))
       .toThrow("Invalid data at persisted.suggestion-projection");
 
-    db.prepare("INSERT INTO event_outbox (event_json, created_at) VALUES (?, ?)")
-      .run(JSON.stringify({ type: "unknown" }), 1);
+    db.prepare(`INSERT INTO event_outbox
+      (event_id, stream_id, sequence, event_json, occurred_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)`)
+      .run("invalid-event", "document:default-document", 1,
+        JSON.stringify({ type: "unknown" }), 1, 1);
     expect(() => outbox.pending()).toThrow("Invalid data at persisted.outbox-event");
   });
 });

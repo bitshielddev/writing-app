@@ -197,4 +197,35 @@ describe("desktop storage service", () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
+
+  it("replays retained events in pages and keeps consumer cursors independent and monotonic", async () => {
+    const initial = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
+    await handleStorageRequest("document.save", {
+      documentId: initial.document.id, expectedRevision: initial.document.revision,
+      blocks: [{ type: "paragraph", content: "one" }], markdown: "one\n",
+    });
+    await handleStorageRequest("document.save", {
+      documentId: initial.document.id, expectedRevision: initial.document.revision + 1,
+      blocks: [{ type: "paragraph", content: "two" }], markdown: "two\n",
+    });
+
+    const first = await handleStorageRequest("events.replay", {
+      streamId: initial.streamId, afterSequence: 0, limit: 1,
+    }) as { events: Array<{ sequence: number }>; hasMore: boolean; headSequence: number };
+    const second = await handleStorageRequest("events.replay", {
+      streamId: initial.streamId, afterSequence: 1, limit: 1,
+    }) as typeof first;
+    expect(first).toMatchObject({ headSequence: 2, hasMore: true });
+    expect(first.events.map((event) => event.sequence)).toEqual([1]);
+    expect(second.events.map((event) => event.sequence)).toEqual([2]);
+    expect((service.database.db.prepare("SELECT count(*) AS count FROM event_outbox")
+      .get() as { count: number }).count).toBe(2);
+
+    const acknowledge = (consumerId: string, sequence: number) => handleStorageRequest(
+      "events.acknowledge", { consumerId, streamId: initial.streamId, sequence },
+    ) as Promise<{ acknowledgedSequence: number }>;
+    expect(await acknowledge("renderer-a", 2)).toMatchObject({ acknowledgedSequence: 2 });
+    expect(await acknowledge("renderer-a", 1)).toMatchObject({ acknowledgedSequence: 2 });
+    expect(await acknowledge("renderer-b", 1)).toMatchObject({ acknowledgedSequence: 1 });
+  });
 });

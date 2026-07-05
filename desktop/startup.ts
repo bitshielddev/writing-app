@@ -1,4 +1,5 @@
 import {
+  DEFAULT_EVENT_STREAM_ID,
   AgentOperations,
   PROTOCOL_VERSION,
   StorageOperations,
@@ -44,6 +45,8 @@ export async function startDesktop({
   agent.post({
     kind: "project.changed",
     protocolVersion: PROTOCOL_VERSION,
+    streamId: seed.streamId ?? DEFAULT_EVENT_STREAM_ID,
+    sequence: seed.coveredThroughSequence ?? 0,
     projectRevision: seed.projectRevision,
     documentRevision: seed.documentRevision,
   });

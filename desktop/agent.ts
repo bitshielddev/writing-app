@@ -340,14 +340,36 @@ async function initialize() {
   }
 }
 
+let observedStreamId: string | undefined;
+let observedSequence = 0;
+
+function emitRevision(projectRevision: number, documentRevision: number) {
+  eventBus.emit(SCRIBE_REVISION_EVENT, {
+    projectRevision,
+    documentRevision,
+  } satisfies ScribeRevision);
+}
+
 const handleParentMessage = createAgentParentTransport({
   storage: storageClient,
   handleControl,
-  handleProjectChanged: (data) => {
-    eventBus.emit(SCRIBE_REVISION_EVENT, {
-      projectRevision: data.projectRevision,
-      documentRevision: data.documentRevision,
-    } satisfies ScribeRevision);
+  handleProjectChanged: async (data) => {
+    const nextSequence = data.sequence;
+    const nextStreamId = data.streamId;
+    if (nextStreamId && nextSequence !== undefined) {
+      if (observedStreamId === nextStreamId && nextSequence <= observedSequence) return;
+      const gap = observedStreamId === nextStreamId && nextSequence > observedSequence + 1;
+      if (gap) {
+        const seed = await storageClient.call("agent.seed");
+        observedStreamId = seed.streamId;
+        observedSequence = seed.coveredThroughSequence;
+        emitRevision(seed.projectRevision, seed.documentRevision);
+        return;
+      }
+      observedStreamId = nextStreamId;
+      observedSequence = nextSequence;
+    }
+    emitRevision(data.projectRevision, data.documentRevision);
   },
   handleShutdown: () => session?.dispose(),
 });

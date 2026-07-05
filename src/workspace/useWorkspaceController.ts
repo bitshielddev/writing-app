@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createSuggestionFeedRelay } from "../desktop/desktopClient";
 import type { WritingEditor } from "../editor/schema";
-import type { DesktopBridge, WorkspaceSnapshot } from "../shared/desktop";
+import type { DesktopBridge, DesktopEvent, WorkspaceSnapshot } from "../shared/desktop";
 import { useSuggestionInbox } from "../suggestions/inbox";
 import { useSuggestionKeyboardNavigation } from "../suggestions/keyboardNavigation";
 import { useSuggestionPersistence } from "../suggestions/useSuggestionPersistence";
@@ -26,10 +26,16 @@ export function useWorkspaceController(
     (snapshot: WorkspaceSnapshot) => initializeRef.current(snapshot),
     [],
   );
+  const eventRef = useRef<(event: DesktopEvent) => void>(() => {});
+  const applyDesktopEvent = useCallback(
+    (event: DesktopEvent) => eventRef.current(event),
+    [],
+  );
   const hydration = useWorkspaceHydration({
     desktop,
     editor,
     initialize: initializeSnapshot,
+    onEvent: applyDesktopEvent,
   });
 
   const suggestionFeed = useMemo(() => createSuggestionFeedRelay(), []);
@@ -83,24 +89,14 @@ export function useWorkspaceController(
   const onAgentEvent = agent.onDesktopEvent;
   const onSuggestionEvent = suggestionPersistence.onDesktopEvent;
 
-  useEffect(
-    () =>
-      desktop.subscribe((event) => {
-        onDocumentEvent(event);
-        onSourceEvent(event);
-        onAgentEvent(event);
-        if (event.type === "suggestion.event") {
-          onSuggestionEvent(event);
-        }
-      }),
-    [
-      desktop,
-      onAgentEvent,
-      onDocumentEvent,
-      onSourceEvent,
-      onSuggestionEvent,
-    ],
-  );
+  useEffect(() => {
+    eventRef.current = (event) => {
+      onDocumentEvent(event);
+      onSourceEvent(event);
+      onAgentEvent(event);
+      if (event.type === "suggestion.event") onSuggestionEvent(event);
+    };
+  }, [onAgentEvent, onDocumentEvent, onSourceEvent, onSuggestionEvent]);
 
   const [partnerView, setPartnerView] = useState<"suggestions" | "activity">(
     "suggestions",

@@ -10,6 +10,7 @@ const revision = Type.Integer({ minimum: 0 });
 const timestamp = Type.Number({ minimum: 0 });
 
 export const PROTOCOL_VERSION = 1 as const;
+export const DEFAULT_EVENT_STREAM_ID = "document:default-document" as const;
 export const ProtocolVersionSchema = Type.Literal(PROTOCOL_VERSION);
 export const IdentifierSchema = identifier;
 export const RevisionSchema = revision;
@@ -190,6 +191,8 @@ export const ProjectSnapshotSchema = Type.Object(
 );
 export const ObservationSeedSchema = Type.Object(
   {
+    streamId: identifier,
+    coveredThroughSequence: Type.Integer({ minimum: 0 }),
     projectId: identifier,
     projectName: text(1_000),
     projectRevision: revision,
@@ -200,23 +203,39 @@ export const ObservationSeedSchema = Type.Object(
   strict,
 );
 
-const SuggestionEventSchema = Type.Union([
+export const SuggestionEventSchema = Type.Union([
   Type.Object({ type: Type.Literal("suggestion.added"), item: SuggestionItemSchema }, strict),
   Type.Object({ type: Type.Literal("suggestion.updated"), item: SuggestionItemSchema }, strict),
   Type.Object({ type: Type.Literal("suggestion.retracted"), id: identifier }, strict),
   Type.Object({ type: Type.Literal("suggestion.state.changed"), suggestionId: identifier, commandType: text(100) }, strict),
 ]);
-export const DesktopEventSchema = Type.Union([
+export const DurableEventPayloadSchema = Type.Union([
   Type.Object({ type: Type.Literal("suggestion.event"), event: SuggestionEventSchema,
     commandId: Type.Optional(identifier), suggestionRevision: revision,
     state: PersistedSuggestionStateSchema }, strict),
-  Type.Object({ type: Type.Literal("agent.runtime"), runtime: AgentRuntimeSchema }, strict),
-  Type.Object({ type: Type.Literal("agent.activity"), activity: AgentActivitySchema }, strict),
   Type.Object({ type: Type.Literal("document.saved"), document: DocumentSnapshotSchema, projectRevision: revision }, strict),
   Type.Object({ type: Type.Literal("source.imported"), source: SourceSnapshotSchema, projectRevision: revision }, strict),
 ]);
+export const DurableEventEnvelopeSchema = Type.Object({
+  eventId: identifier,
+  streamId: identifier,
+  sequence: Type.Integer({ minimum: 1 }),
+  occurredAt: timestamp,
+  causationId: Type.Optional(identifier),
+  payload: DurableEventPayloadSchema,
+}, strict);
+export const EphemeralDesktopEventSchema = Type.Union([
+  Type.Object({ type: Type.Literal("agent.runtime"), runtime: AgentRuntimeSchema }, strict),
+  Type.Object({ type: Type.Literal("agent.activity"), activity: AgentActivitySchema }, strict),
+]);
+export const DesktopEventSchema = Type.Union([
+  DurableEventEnvelopeSchema,
+  EphemeralDesktopEventSchema,
+]);
 export const WorkspaceSnapshotSchema = Type.Object(
   {
+    streamId: identifier,
+    coveredThroughSequence: Type.Integer({ minimum: 0 }),
     project: ProjectSnapshotSchema,
     document: DocumentSnapshotSchema,
     sources: Type.Array(SourceSnapshotSchema),
@@ -230,6 +249,26 @@ export const WorkspaceSnapshotSchema = Type.Object(
 
 const noParams = Type.Undefined();
 const accepted = Type.Object({ accepted: Type.Boolean() }, strict);
+const replayParams = Type.Object({
+  streamId: identifier,
+  afterSequence: Type.Integer({ minimum: 0 }),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+}, strict);
+const replayResult = Type.Object({
+  streamId: identifier,
+  events: Type.Array(DurableEventEnvelopeSchema, { maxItems: 100 }),
+  headSequence: Type.Integer({ minimum: 0 }),
+  hasMore: Type.Boolean(),
+  historyAvailable: Type.Boolean(),
+}, strict);
+const rendererAcknowledgeParams = Type.Object({
+  streamId: identifier,
+  sequence: Type.Integer({ minimum: 0 }),
+}, strict);
+const acknowledgeResult = Type.Object({
+  streamId: identifier,
+  acknowledgedSequence: Type.Integer({ minimum: 0 }),
+}, strict);
 const saveDocumentParams = Type.Object(
   {
     documentId: identifier,
@@ -257,7 +296,10 @@ function operation<Params extends TSchema, Result extends TSchema>(params: Param
 }
 
 export const RendererOperations = {
+  "events.subscribe": operation(noParams, Type.Object({ consumerId: identifier }, strict)),
   hydrate: operation(noParams, WorkspaceSnapshotSchema),
+  "events.replay": operation(replayParams, replayResult),
+  "events.acknowledge": operation(rendererAcknowledgeParams, acknowledgeResult),
   "agent.start": operation(noParams, AgentRuntimeSchema),
   "agent.stop": operation(noParams, AgentRuntimeSchema),
   "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
@@ -268,6 +310,12 @@ export const RendererOperations = {
 
 export const StorageOperations = {
   hydrate: operation(noParams, WorkspaceSnapshotSchema),
+  "events.replay": operation(replayParams, replayResult),
+  "events.acknowledge": operation(Type.Object({
+    consumerId: identifier,
+    streamId: identifier,
+    sequence: Type.Integer({ minimum: 0 }),
+  }, strict), acknowledgeResult),
   "workspace.repair": operation(noParams, repairResult),
   "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
   "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
@@ -308,7 +356,10 @@ export interface OperationCaller<Registry extends OperationRegistry> {
 }
 
 export const DESKTOP_INVOKE_CHANNELS = {
+  subscribeEvents: "scribe:events.subscribe",
   hydrate: "scribe:hydrate",
+  replayEvents: "scribe:events.replay",
+  acknowledgeEvents: "scribe:events.acknowledge",
   startAgent: "scribe:agent.start",
   stopAgent: "scribe:agent.stop",
   saveDocument: "scribe:document.save",
@@ -318,7 +369,10 @@ export const DESKTOP_INVOKE_CHANNELS = {
 export const DESKTOP_EVENT_CHANNEL = "scribe:event" as const;
 export const DEVELOPMENT_SUGGESTION_CHANNEL = "scribe:development.suggestion.create" as const;
 export const RENDERER_OPERATION_CHANNELS = {
+  "events.subscribe": DESKTOP_INVOKE_CHANNELS.subscribeEvents,
   hydrate: DESKTOP_INVOKE_CHANNELS.hydrate,
+  "events.replay": DESKTOP_INVOKE_CHANNELS.replayEvents,
+  "events.acknowledge": DESKTOP_INVOKE_CHANNELS.acknowledgeEvents,
   "agent.start": DESKTOP_INVOKE_CHANNELS.startAgent,
   "agent.stop": DESKTOP_INVOKE_CHANNELS.stopAgent,
   "document.save": DESKTOP_INVOKE_CHANNELS.saveDocument,
@@ -330,10 +384,17 @@ export const STORAGE_RPC_METHODS = Object.keys(StorageOperations) as OperationNa
 export type StorageRpcMethod = OperationName<typeof StorageOperations>;
 export const AGENT_RPC_METHODS = Object.keys(AgentOperations) as OperationName<typeof AgentOperations>[];
 export type AgentRpcMethod = OperationName<typeof AgentOperations>;
+export const DURABLE_EVENT_TYPES = {
+  "suggestion.event": true, "document.saved": true, "source.imported": true,
+} as const satisfies Record<Static<typeof DurableEventPayloadSchema>["type"], true>;
+/** Application event names; durable members are enveloped on transport. */
 export const DESKTOP_EVENT_TYPES = {
-  "suggestion.event": true, "agent.runtime": true, "agent.activity": true,
-  "document.saved": true, "source.imported": true,
-} as const satisfies Record<Static<typeof DesktopEventSchema>["type"], true>;
+  "suggestion.event": true,
+  "agent.runtime": true,
+  "agent.activity": true,
+  "document.saved": true,
+  "source.imported": true,
+} as const;
 
 function requestSchemas(registry: OperationRegistry) {
   return Object.entries(registry).map(([name, value]) => Type.Object({
@@ -356,6 +417,7 @@ export const AgentRpcResultSchema = Type.Union(resultSchemas(AgentOperations));
 
 export const ProjectChangedSchema = Type.Object({
   kind: Type.Literal("project.changed"), protocolVersion: ProtocolVersionSchema,
+  streamId: Type.Optional(identifier), sequence: Type.Optional(Type.Integer({ minimum: 0 })),
   projectRevision: revision, documentRevision: revision,
 }, strict);
 export const ShutdownSchema = Type.Object({
@@ -382,7 +444,7 @@ export const StartupErrorMessageSchema = Type.Object({
   error: ContractErrorSchema,
 }, strict);
 export const DomainEventMessageSchema = Type.Object({
-  kind: Type.Literal("domain.event"), protocolVersion: ProtocolVersionSchema, event: DesktopEventSchema,
+  kind: Type.Literal("domain.event"), protocolVersion: ProtocolVersionSchema, event: DurableEventEnvelopeSchema,
 }, strict);
 export const AgentRuntimeMessageSchema = Type.Object({
   kind: Type.Literal("agent.runtime"), protocolVersion: ProtocolVersionSchema, runtime: AgentRuntimeUpdateSchema,

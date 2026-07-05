@@ -1,8 +1,8 @@
-import type { DesktopEvent } from "../../src/shared/desktop.js";
+import type { DurableEventEnvelope } from "../../src/shared/desktop.js";
 import type { EventOutbox } from "./repositories.js";
 
 export interface EventPublisher {
-  publish(event: DesktopEvent): void | Promise<void>;
+  publish(event: DurableEventEnvelope): void | Promise<void>;
 }
 
 export class OutboxDispatcher {
@@ -21,8 +21,8 @@ export class OutboxDispatcher {
 
   private async deliverPending() {
     for (const row of this.repository.pending()) {
-      await this.publisher.publish(row.event);
-      this.repository.markDispatched(row.sequence);
+      await this.publisher.publish(row);
+      this.repository.markDispatched(row.eventId);
     }
   }
 }
