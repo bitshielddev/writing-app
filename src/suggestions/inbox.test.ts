@@ -4,7 +4,7 @@ import {
   inboxReducer,
   initialInboxState,
   persistedSuggestionState,
-} from "./inbox";
+} from "./inboxReducer";
 import type { TextSuggestion } from "./types";
 
 function suggestion(index: number, dedupeKey = `item-${index}`): TextSuggestion {

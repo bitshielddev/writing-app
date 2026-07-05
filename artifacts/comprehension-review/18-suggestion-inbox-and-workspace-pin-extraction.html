@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suggestion inbox and workspace pin extraction</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f4ec;
+      --paper: #fffefa;
+      --ink: #24221f;
+      --muted: #6c655b;
+      --line: #e2dacd;
+      --soft: #f0eadf;
+      --accent: #6d4fd8;
+      --accent-soft: #ebe5ff;
+      --green-soft: #e8f4ed;
+      --warn-soft: #fff4d7;
+      --code-bg: #201f26;
+      --code-ink: #f5f1e8;
+      --code-muted: #bdb6ca;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #ffffff 0, var(--bg) 34rem);
+      color: var(--ink);
+      font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 34px;
+    }
+    h1, h2, h3 { line-height: 1.15; margin: 0; }
+    h1 { font-size: clamp(2rem, 4vw, 4rem); letter-spacing: -0.045em; max-width: 780px; }
+    h2 { font-size: clamp(1.45rem, 2vw, 2rem); letter-spacing: -0.025em; margin-top: 8px; }
+    h3 { font-size: 1.05rem; margin-bottom: 8px; }
+    p { margin: 0 0 1rem; }
+    .lede { color: var(--muted); font-size: 1.08rem; max-width: 760px; margin-top: 18px; }
+    .card {
+      background: color-mix(in srgb, var(--paper) 94%, white);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 18px 48px rgb(52 45 35 / 8%);
+    }
+    .aside { padding: 20px; }
+    .aside .label, .eyebrow {
+      display: inline-block;
+      color: var(--accent);
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .meta-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 0.92rem; }
+    .meta-list code { color: var(--ink); }
+    section { margin-top: 28px; padding: 30px; }
+    .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 0.75fr); gap: 22px; align-items: start; }
+    .map { display: grid; gap: 12px; margin-top: 18px; }
+    .map-row { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+    .map-row code { font-weight: 700; }
+    .map-row p { margin: 0; color: var(--muted); }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.92em; }
+    pre {
+      margin: 16px 0 0;
+      padding: 18px;
+      overflow: auto;
+      border-radius: 18px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font: 13.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      box-shadow: inset 0 0 0 1px rgb(255 255 255 / 7%);
+    }
+    pre .dim { color: var(--code-muted); }
+    pre .mark { color: #fff7a8; }
+    .callout { border-radius: 18px; padding: 18px 18px 16px; border: 1px solid var(--line); background: var(--soft); }
+    .callout.good { background: var(--green-soft); }
+    .callout.warn { background: var(--warn-soft); }
+    .callout p:last-child { margin-bottom: 0; }
+    .flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+    .flow div { padding: 15px; border-radius: 16px; background: #fff; border: 1px solid var(--line); }
+    .flow strong { display: block; margin-bottom: 4px; }
+    .flow span { color: var(--muted); font-size: 0.92rem; }
+    .split-note { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    .mini-table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    .mini-table th, .mini-table td { text-align: left; vertical-align: top; padding: 12px; border-bottom: 1px solid var(--line); }
+    .mini-table th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    details { border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; background: #fff; margin-top: 12px; }
+    summary { cursor: pointer; font-weight: 750; }
+    details p { margin-top: 10px; }
+    .quiz { display: grid; gap: 12px; }
+    .footer { color: var(--muted); margin-top: 24px; font-size: 0.95rem; }
+    @media (max-width: 850px) {
+      .hero, .two-col, .split-note, .flow { grid-template-columns: 1fr; }
+      section { padding: 22px; }
+      .map-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div>
+      <span class="eyebrow">Comprehension review</span>
+      <h1>Suggestion inbox logic and workspace pin UI now have extraction seams.</h1>
+      <p class="lede">
+        This worktree mostly turns two large modules into smaller units. There is one user-visible-ish persistence change to watch: the inbox hook now tries to avoid writing persisted state when only ephemeral UI state changes.
+      </p>
+    </div>
+    <aside class="card aside">
+      <span class="label">Review basis</span>
+      <ul class="meta-list">
+        <li>Current diff: 7 tracked files changed, 9 new files</li>
+        <li>Recent history: <code>76425b6</code> extracted workspace services</li>
+        <li>Tests run: changed Vitest files, all passing</li>
+      </ul>
+    </aside>
+  </header>
+
+  <section class="card">
+    <h2>The shape of the change</h2>
+    <p>
+      Two previous entry files are kept as compatibility surfaces, while their implementation moved behind more focused modules.
+      <code>src/suggestions/inbox.ts</code> is now a barrel for reducer and hook exports. <code>src/components/WorkspacePins.tsx</code> is now a barrel for the extracted workspace pin component tree.
+    </p>
+
+    <div class="map" aria-label="Changed module map">
+      <div class="map-row">
+        <code>src/suggestions/inboxReducer.ts</code>
+        <p>Owns reducer actions, durable-state projection, and selector helpers for sorted entries, selected entry, and unread count.</p>
+      </div>
+      <div class="map-row">
+        <code>src/suggestions/useSuggestionInbox.ts</code>
+        <p>Owns React subscription/effect code and dispatch callbacks. It depends on reducer selectors instead of embedding all state logic.</p>
+      </div>
+      <div class="map-row">
+        <code>src/components/workspacePins/*</code>
+        <p>Splits geometry policy, bounds repair, pointer/keyboard interaction, card rendering, and list rendering.</p>
+      </div>
+      <div class="map-row">
+        <code>DocumentEditor.tsx</code>
+        <p>Uses the shared initial-placement geometry helper instead of duplicating workspace-card size and cascade math.</p>
+      </div>
+      <div class="map-row">
+        <code>scripts/import-cycles.test.mjs</code>
+        <p>Adds a small dependency-cycle guard for the newly extracted modules and earlier workspace service hooks.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card two-col">
+    <div>
+      <h2>The inbox split: reducer remains pure, hook owns React effects</h2>
+      <p>
+        The old <code>inbox.ts</code> combined action reduction, sorting, persistence projection, feed subscription, hydration, and callback creation. The new boundary separates the state machine from React.
+      </p>
+      <p>
+        The reducer file still contains the familiar behavior: dedupe suggestions, protect selected or previewed entries from queue trimming, freeze pinned snapshots, move pins into the workspace, and clear active previews on resolution. The extra exports make those derived views explicit.
+      </p>
+      <pre><code>export function projectPersistedSuggestionState(
+  state: InboxState,
+): PersistedSuggestionState {
+  return {
+    entries: state.entries,
+    pinnedEntries: state.pinnedEntries,
+    workspacePins: state.workspacePins,
+    seenKeys: state.seenKeys,
+    nextZIndex: state.nextZIndex,
+  };
+}
+
+export const persistedSuggestionState = projectPersistedSuggestionState;
+
+export function selectSortedInboxEntries(state: InboxState): InboxEntry[] {
+  return [...state.entries].sort((left, right) =&gt; {
+    if (left.viewed !== right.viewed) return left.viewed ? 1 : -1;
+    return right.item.createdAt - left.item.createdAt;
+  });
+}</code></pre>
+    </div>
+    <aside class="callout good">
+      <h3>Why this matters for maintenance</h3>
+      <p>
+        The hook can now be tested for subscription and persistence behavior without retesting every reducer transition. The reducer can be imported directly by tests and other non-React code without pulling in React hooks.
+      </p>
+      <p>
+        The old import path still works because <code>inbox.ts</code> re-exports the public names, including <code>useSuggestionInbox</code> and the reducer types.
+      </p>
+    </aside>
+  </section>
+
+  <section class="card">
+    <h2>The persistence behavior to keep in your head</h2>
+    <p>
+      <code>useSuggestionInbox</code> now builds a memoized durable state object from only the fields that should be persisted. That excludes <code>selectedId</code> and <code>activePreviewId</code>. The effect writes only after hydration, as before, but it now depends on <code>durableState</code> rather than the entire reducer state.
+    </p>
+    <pre><code>const { entries, nextZIndex, pinnedEntries, seenKeys, workspacePins } = state;
+const durableState = useMemo(
+  () =&gt; ({ entries, pinnedEntries, workspacePins, seenKeys, nextZIndex }),
+  [entries, nextZIndex, pinnedEntries, seenKeys, workspacePins],
+);
+
+useEffect(() =&gt; {
+  if (hydrated) onStateChange?.(durableState);
+}, [durableState, hydrated, onStateChange]);</code></pre>
+
+    <div class="split-note">
+      <div class="callout">
+        <h3>What still persists</h3>
+        <p>
+          Selecting an unread suggestion can still write, because <code>select</code> marks entries as viewed. Viewed state is durable, so the entries array changes and <code>durableState</code> changes.
+        </p>
+      </div>
+      <div class="callout warn">
+        <h3>What should not persist</h3>
+        <p>
+          A plain <code>back</code> transition should not write when it only clears <code>selectedId</code>. The reducer now avoids replacing <code>entries</code> if no withdrawn detail entry was removed.
+        </p>
+      </div>
+    </div>
+
+    <pre><code>case "back": {
+  const entries = state.entries.filter(
+    (entry) =&gt; !entry.withdrawn || entry.item.id === state.activePreviewId,
+  );
+  return {
+    ...state,
+    selectedId: undefined,
+    entries: entries.length === state.entries.length ? state.entries : entries,
+  };
+}</code></pre>
+
+    <p class="footer">
+      The new <code>useSuggestionInbox.test.ts</code> locks this down by expecting no extra <code>onStateChange</code> call after <code>back()</code> in a case where nothing durable changed.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Workspace pins: same public component, smaller moving parts</h2>
+    <p>
+      The old <code>WorkspacePins.tsx</code> held rendering, pointer capture, keyboard movement, bounds observation, clamping, and repair writes in one file. The new path keeps the same top-level import for callers while routing through focused files.
+    </p>
+
+    <div class="flow">
+      <div><strong>Container</strong><span><code>WorkspacePins.tsx</code> filters pending pins and creates interactive cards.</span></div>
+      <div><strong>Behavior hooks</strong><span><code>useWorkspacePinBounds</code> repairs out-of-bounds cards. <code>useWorkspacePinInteraction</code> handles drag, resize, and keyboard edits.</span></div>
+      <div><strong>Presentation</strong><span><code>WorkspacePinCard</code> renders the card and accepts prepared handle props.</span></div>
+    </div>
+
+    <pre><code>function InteractiveWorkspacePin({ pin, bounds, onGeometryChange, onRaise, onReturnToPins }) {
+  const interaction = useWorkspacePinInteraction({
+    id: pin.item.id,
+    rect: { x: pin.x, y: pin.y, width: pin.width, height: pin.height },
+    bounds,
+    onGeometryChange,
+    onRaise,
+  });
+  return (
+    &lt;WorkspacePinCard
+      pin={pin}
+      rect={interaction.draftRect}
+      moveHandleProps={interaction.moveHandleProps}
+      resizeHandleProps={interaction.resizeHandleProps}
+      onRaise={() =&gt; onRaise(pin.item.id)}
+      onReturnToPins={() =&gt; onReturnToPins(pin.item.id)}
+    /&gt;
+  );
+}</code></pre>
+
+    <table class="mini-table">
+      <thead><tr><th>Invariant</th><th>Where it now lives</th></tr></thead>
+      <tbody>
+        <tr><td>Cards keep minimum size and edge padding.</td><td><code>clampWorkspacePinRect</code> in <code>geometry.ts</code></td></tr>
+        <tr><td>Pending initial placements are not rendered or repaired until their first geometry write completes.</td><td><code>WorkspacePins.tsx</code> filter and <code>useWorkspacePinBounds.ts</code> skip</td></tr>
+        <tr><td>A pointer operation commits once, even if cancellation is followed by pointer up.</td><td><code>operationRef</code> clearing in <code>useWorkspacePinInteraction.ts</code></td></tr>
+        <tr><td>Resize repairs write all out-of-range cards after bounds change.</td><td>Animation-frame repair loop in <code>useWorkspacePinBounds.ts</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card two-col">
+    <div>
+      <h2>The geometry policy became shared code</h2>
+      <p>
+        <code>DocumentEditor</code> no longer performs its own width, height, and cascade calculations inline. It asks <code>createInitialWorkspacePinRect</code> to produce the first rectangle from a preferred size, canvas bounds, visible top offset, and stack index.
+      </p>
+      <pre><code>return createInitialWorkspacePinRect({
+  preferredSize: baseSize,
+  bounds: { width: canvas.clientWidth, height: canvas.clientHeight },
+  visibleTop,
+  stackIndex,
+});</code></pre>
+      <p>
+        That helper uses the same minimum size and edge-padding policy as drag, resize, and bounds repair.
+      </p>
+      <pre><code>export const WORKSPACE_PIN_GEOMETRY_POLICY = {
+  edgePadding: 16,
+  minimumWidth: 280,
+  minimumHeight: 180,
+  cascadeStep: 24,
+  cascadeCount: 5,
+} as const;
+
+export function clampWorkspacePinRect(
+  rect: WorkspacePinRect,
+  bounds: WorkspacePinBounds,
+): WorkspacePinRect {
+  const maxWidth = Math.max(minimumWidth, bounds.width - edgePadding * 2);
+  const maxHeight = Math.max(minimumHeight, bounds.height - edgePadding * 2);
+  const width = clamp(rect.width, minimumWidth, maxWidth);
+  const height = clamp(rect.height, minimumHeight, maxHeight);
+  return {
+    x: clamp(rect.x, edgePadding, bounds.width - width - edgePadding),
+    y: clamp(rect.y, edgePadding, bounds.height - height - edgePadding),
+    width,
+    height,
+  };
+}</code></pre>
+    </div>
+    <aside class="callout warn">
+      <h3>Small caveat in the policy</h3>
+      <p>
+        <code>createInitialWorkspacePinRect</code> still uses literal <code>24</code> offsets for the initial x/y placement. The cascade step is named in policy, but the initial inset is not. If a future change wants all spacing controlled by policy, that is one remaining hard-coded value to look for.
+      </p>
+    </aside>
+  </section>
+
+  <section class="card">
+    <h2>Where the behavior can still surprise you</h2>
+    <div class="split-note">
+      <div class="callout warn">
+        <h3>Repair timing moved to an animation frame</h3>
+        <p>
+          Bounds repair is now scheduled through <code>window.requestAnimationFrame</code>. That is consistent with layout measurement work, but tests or callers that expected synchronous repair writes after a resize notification will need to wait a frame.
+        </p>
+      </div>
+      <div class="callout warn">
+        <h3>The cycle test is a guardrail, not a full import parser</h3>
+        <p>
+          <code>scripts/import-cycles.test.mjs</code> scans a fixed list of target modules with a regex. It is useful for these extraction boundaries, but it will not find every possible project cycle unless the list is kept current.
+        </p>
+      </div>
+    </div>
+    <pre><code>const frame = window.requestAnimationFrame(() =&gt; {
+  const repairs = pinsRef.current.flatMap((pin) =&gt; {
+    if (pin.pendingInitialPlacement) return [];
+    const storedRect = { x: pin.x, y: pin.y, width: pin.width, height: pin.height };
+    const nextRect = clampWorkspacePinRect(storedRect, bounds);
+    return workspacePinRectsEqual(storedRect, nextRect)
+      ? []
+      : [{ id: pin.item.id, rect: nextRect }];
+  });
+  repairs.forEach((repair) =&gt; onGeometryChange(repair.id, repair.rect));
+});</code></pre>
+  </section>
+
+  <section class="card">
+    <h2>History context</h2>
+    <p>
+      The previous commit, <code>76425b6 Extract workspace application services</code>, moved workspace controller responsibilities into service hooks. This diff follows the same direction in two adjacent areas: the suggestion inbox is split into reducer versus hook, and the workspace pin UI is split into policy, interaction, bounds, and rendering modules.
+    </p>
+    <p>
+      The commit before that, <code>82ec51a Suggestion schema and capabilities</code>, changed suggestion schema and capability definitions. This current work does not appear to change suggestion schema behavior; the only state type adjustment is moving <code>WorkspacePinRect</code> into <code>state.ts</code> so geometry modules can import a stable persisted-state type without going through the inbox barrel.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Comprehension check</h2>
+    <div class="quiz">
+      <details>
+        <summary>1. Why does <code>useSuggestionInbox</code> build <code>durableState</code> instead of passing the full reducer state to <code>onStateChange</code>?</summary>
+        <p>
+          Because <code>selectedId</code> and <code>activePreviewId</code> are ephemeral UI state. The hook should persist entries, pinned entries, workspace pins, seen keys, and z-index state, but not every selection or preview pointer change.
+        </p>
+      </details>
+      <details>
+        <summary>2. A user selects an unread suggestion and then presses back. Which part should persist, and which part should not?</summary>
+        <p>
+          Selecting can persist because it marks the entry as viewed, which is durable. Pressing back should not persist if it only clears <code>selectedId</code> and does not remove a withdrawn entry.
+        </p>
+      </details>
+      <details>
+        <summary>3. Where would you start debugging if a workspace card can be dragged outside the canvas after this refactor?</summary>
+        <p>
+          Start in <code>src/components/workspacePins/geometry.ts</code>, specifically <code>clampWorkspacePinRect</code>, then check that <code>useWorkspacePinInteraction</code> calls <code>updateDraft</code> for drag and resize and receives correct bounds.
+        </p>
+      </details>
+      <details>
+        <summary>4. What would break if pending initial pins were included in the bounds repair loop?</summary>
+        <p>
+          A pin awaiting its first measured placement could be repaired using stale or placeholder geometry before <code>DocumentEditor</code> writes the intended initial rectangle. The current code skips <code>pendingInitialPlacement</code> in rendering and repair paths.
+        </p>
+      </details>
+      <details>
+        <summary>5. What does the new import-cycle test protect, and what is its limitation?</summary>
+        <p>
+          It protects the named extraction modules from depending on each other in a cycle. Its limitation is scope: it only checks <code>targetModules</code> and uses a simple import regex, so new modules must be added deliberately.
+        </p>
+      </details>
+    </div>
+  </section>
+</main>
+</body>
+</html>

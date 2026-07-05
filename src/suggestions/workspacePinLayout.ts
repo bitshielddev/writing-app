@@ -1,4 +1,4 @@
-import type { WorkspacePinRect } from "./inbox";
+import type { WorkspacePinRect } from "./state";
 import {
   SUGGESTION_CAPABILITIES,
   type SuggestionItem,

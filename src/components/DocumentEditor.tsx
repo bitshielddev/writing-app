@@ -11,6 +11,7 @@ import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
 import { preloadKeybindingHelp } from "../keybindings/loadKeybindingHelp";
 import { markPerformance, PERFORMANCE_MARKS } from "../performance/marks";
 import { WorkspacePins } from "./WorkspacePins";
+import { createInitialWorkspacePinRect } from "./workspacePins/geometry";
 
 type DocumentEditorProps = {
   editor: WritingEditor;
@@ -50,27 +51,15 @@ export function DocumentEditor({
         return undefined;
       }
       const baseSize = getInitialWorkspacePinSize(pin.item);
-      const width = Math.min(
-        baseSize.width,
-        Math.max(280, canvas.clientWidth - 32),
-      );
-      const height = Math.min(
-        baseSize.height,
-        Math.max(180, canvas.clientHeight - 32),
-      );
-      const cascade = (stackIndex % 5) * 24;
       const scrollRect = scroll.getBoundingClientRect();
       const canvasRect = canvas.getBoundingClientRect();
       const visibleTop = Math.max(0, scrollRect.top - canvasRect.top);
-      return {
-        x: Math.max(16, canvas.clientWidth - width - 24 - cascade),
-        y: Math.min(
-          Math.max(16, visibleTop + 24 + cascade),
-          Math.max(16, canvas.clientHeight - height - 16),
-        ),
-        width,
-        height,
-      };
+      return createInitialWorkspacePinRect({
+        preferredSize: baseSize,
+        bounds: { width: canvas.clientWidth, height: canvas.clientHeight },
+        visibleTop,
+        stackIndex,
+      });
     },
     [],
   );

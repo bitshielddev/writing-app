@@ -13,14 +13,17 @@ export type PersistedPinnedEntry = PersistedInboxEntry & {
   pinnedAt: number;
 };
 
-export type PersistedWorkspacePin = {
-  item: SuggestionItem;
-  pinnedAt: number;
-  pendingInitialPlacement: boolean;
+export type WorkspacePinRect = {
   x: number;
   y: number;
   width: number;
   height: number;
+};
+
+export type PersistedWorkspacePin = WorkspacePinRect & {
+  item: SuggestionItem;
+  pinnedAt: number;
+  pendingInitialPlacement: boolean;
   zIndex: number;
 };
 
