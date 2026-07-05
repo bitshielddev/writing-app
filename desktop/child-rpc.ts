@@ -3,6 +3,7 @@ import type { TSchema } from "typebox";
 import {
   AgentChildMessageSchema,
   AgentOperations,
+  BUILD_IDENTIFIER,
   type ChildMessage,
   type ContractError,
   type OperationArgs,
@@ -50,6 +51,19 @@ const defaultChildSchema = { ...StorageChildMessageSchema, anyOf: [
   ...(AgentChildMessageSchema.anyOf ?? []),
 ] } as TSchema;
 
+function malformedReadyError(value: unknown) {
+  if (typeof value !== "object" || value === null || !("kind" in value) || value.kind !== "ready") {
+    return undefined;
+  }
+  const version = "protocolVersion" in value ? value.protocolVersion : undefined;
+  return new ChildStartupError(
+    version !== PROTOCOL_VERSION ? "PROTOCOL_VERSION_MISMATCH" : "MALFORMED_READY_HANDSHAKE",
+    version !== PROTOCOL_VERSION
+      ? `Protocol version mismatch: expected ${PROTOCOL_VERSION}, received ${String(version)}`
+      : "Utility process sent a malformed ready handshake",
+  );
+}
+
 export class ChildRpc<
   Registry extends OperationRegistry = typeof defaultRegistry,
   Message extends ChildMessage = ChildMessage,
@@ -75,11 +89,23 @@ export class ChildRpc<
     try {
       message = parseOrContractError(this.childMessageSchema, value, `${this.boundary}.incoming`) as Message;
     } catch (error) {
+      const readyError = malformedReadyError(value);
+      if (readyError) {
+        this.disposeWithError(readyError);
+        return;
+      }
       this.onStderr(error instanceof Error ? error.message : "Invalid child message");
       return;
     }
     if (this.disposed) return;
     if (message.kind === "ready") {
+      if (!this.isCompatibleReadyMessage(message)) {
+        this.disposeWithError(new ChildStartupError(
+          "PROTOCOL_VERSION_MISMATCH",
+          `Utility process compatibility mismatch for ${this.boundary}`,
+        ));
+        return;
+      }
       if (!this.readySettled) {
         this.readySettled = true;
         this.readyResolve();
@@ -132,6 +158,14 @@ export class ChildRpc<
     }
   }
 
+  private isCompatibleReadyMessage(message: Extract<ChildMessage, { kind: "ready" }>) {
+    if (message.protocolName !== this.expectedProtocolName) return false;
+    if (message.protocolVersion !== PROTOCOL_VERSION) return false;
+    if (message.buildIdentifier !== this.expectedBuildIdentifier) return false;
+    return JSON.stringify([...message.operations].sort()) ===
+      JSON.stringify(Object.keys(this.registry).sort());
+  }
+
   constructor(
     private readonly child: UtilityProcessAdapter,
     private readonly createId: () => string,
@@ -140,6 +174,8 @@ export class ChildRpc<
     private readonly registry: Registry = defaultRegistry as unknown as Registry,
     private readonly childMessageSchema: TSchema = defaultChildSchema,
     private readonly boundary = "utility-process",
+    private readonly expectedProtocolName = "scribe.agent",
+    private readonly expectedBuildIdentifier = BUILD_IDENTIFIER,
   ) {
     child.on("message", this.handleMessage);
     child.on("exit", this.handleExit);

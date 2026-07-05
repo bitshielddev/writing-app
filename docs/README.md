@@ -25,6 +25,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 5. Use [Testing and quality](testing-and-quality.md) before submitting a change.
 6. Read [Desktop runtime](desktop-runtime.md) before changing persistence, IPC, source import, or Pi behaviour.
 7. Use [Extension guide](extension-guide.md) when extending those boundaries or adding a new suggestion kind.
+8. Review [Compatibility](compatibility.md) before changing any durable format, migration, process contract, or operation registry.
 
 ## Current user-visible behavior
 

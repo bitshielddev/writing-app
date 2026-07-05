@@ -5,6 +5,7 @@ import { Type } from "typebox";
 
 import { ScribeLoopState, PersistedScribeLoopStateSchema } from "./scribe-loop.js";
 import { parseOrContractError } from "../src/shared/contracts.js";
+import { COMPATIBILITY_REGISTRY } from "./compatibility.js";
 import {
   StorageOperations,
   type OperationArgs,
@@ -36,6 +37,38 @@ export type ScribeRevision = {
   projectRevision: number;
   documentRevision: number;
 };
+
+export type ScribeLoopEntryEnvelope = {
+  type: typeof SCRIBE_LOOP_ENTRY;
+  version: number;
+  payload: unknown;
+};
+
+export function encodeScribeLoopEntry(loop: ScribeLoopState): ScribeLoopEntryEnvelope {
+  return {
+    type: SCRIBE_LOOP_ENTRY,
+    version: COMPATIBILITY_REGISTRY.piLoopEntry.currentVersion,
+    payload: loop.persisted(),
+  };
+}
+
+export function restoreScribeLoopEntry(value: unknown): {
+  state?: ScribeLoopState;
+  unsupportedVersion?: number;
+} {
+  const isEnvelope = typeof value === "object" && value !== null &&
+    "type" in value && "version" in value && "payload" in value;
+  const version = isEnvelope && typeof value.version === "number" ? value.version : 0;
+  if (version > COMPATIBILITY_REGISTRY.piLoopEntry.currentVersion) {
+    return { unsupportedVersion: version };
+  }
+  const payload = isEnvelope ? value.payload : value;
+  return { state: new ScribeLoopState(parseOrContractError(
+    PersistedScribeLoopStateSchema,
+    payload,
+    "persisted.pi.scribe-loop-state",
+  )) };
+}
 
 export type ScribeExtensionHost = {
   loop: ScribeLoopState;
@@ -96,18 +129,26 @@ export async function executeSuggestionMutation(
 
 export function createScribeExtension(host: ScribeExtensionHost): ExtensionFactory {
   return (pi) => {
-    host.persist = () => pi.appendEntry(SCRIBE_LOOP_ENTRY, host.loop.persisted());
+    host.persist = () => pi.appendEntry(SCRIBE_LOOP_ENTRY, encodeScribeLoopEntry(host.loop));
 
     pi.on("session_start", (_event, ctx) => {
       const restored = ctx.sessionManager.getEntries()
         .filter((entry) => entry.type === "custom" && entry.customType === SCRIBE_LOOP_ENTRY)
         .at(-1);
       if (restored && "data" in restored) {
-        host.loop = new ScribeLoopState(parseOrContractError(
-          PersistedScribeLoopStateSchema,
-          restored.data,
-          "persisted.pi.scribe-loop-state",
-        ));
+        const result = restoreScribeLoopEntry(restored.data);
+        if (result.state) host.loop = result.state;
+        if (result.unsupportedVersion !== undefined) {
+          host.loop = new ScribeLoopState();
+          host.activity({
+            id: `compatibility:pi-loop:${result.unsupportedVersion}`,
+            kind: "error",
+            timestamp: Date.now(),
+            title: "Autonomous resume unavailable",
+            text: `Scribe loop entry version ${result.unsupportedVersion} requires a newer application. The Pi session remains preserved and readable.`,
+            status: "stopped",
+          });
+        }
       }
       pi.setSessionName("Scribe writing partner");
     });

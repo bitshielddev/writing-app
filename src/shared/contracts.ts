@@ -10,6 +10,9 @@ const revision = Type.Integer({ minimum: 0 });
 const timestamp = Type.Number({ minimum: 0 });
 
 export const PROTOCOL_VERSION = 1 as const;
+export const BUILD_IDENTIFIER = "0.1.0" as const;
+export const STORAGE_PROTOCOL_NAME = "scribe.storage" as const;
+export const AGENT_PROTOCOL_NAME = "scribe.agent" as const;
 export const DEFAULT_EVENT_STREAM_ID = "document:default-document" as const;
 export const ProtocolVersionSchema = Type.Literal(PROTOCOL_VERSION);
 export const IdentifierSchema = identifier;
@@ -432,7 +435,16 @@ export const StorageForwardResultSchema = Type.Union(resultSchemas(StorageOperat
   ) }, strict),
 ));
 
-export const ReadyMessageSchema = Type.Object({ kind: Type.Literal("ready"), protocolVersion: ProtocolVersionSchema }, strict);
+export const ReadyMessageSchema = Type.Object({
+  kind: Type.Literal("ready"),
+  protocolName: Type.Union([
+    Type.Literal(STORAGE_PROTOCOL_NAME),
+    Type.Literal(AGENT_PROTOCOL_NAME),
+  ]),
+  protocolVersion: ProtocolVersionSchema,
+  buildIdentifier: Type.String({ minLength: 1, maxLength: 100 }),
+  operations: Type.Array(identifier, { uniqueItems: true, maxItems: 100 }),
+}, strict);
 export const HealthMessageSchema = Type.Object({
   kind: Type.Literal("health"),
   protocolVersion: ProtocolVersionSchema,
@@ -523,6 +535,21 @@ export function parseOrContractError<Schema extends TSchema>(
   });
 }
 
+function durableCompatibilityContractError(error: unknown): ContractError | undefined {
+  if (!(error instanceof Error) || error.name !== "DurableCompatibilityError") return undefined;
+  if (!("format" in error) || typeof error.format !== "string") return undefined;
+  if (!("recordIdentity" in error) || typeof error.recordIdentity !== "string") return undefined;
+  return {
+    code: "UNSUPPORTED_DURABLE_FORMAT",
+    message: error.message,
+    retryable: false,
+    details: {
+      feature: error.format,
+      preservedDataAt: `workspace database quarantine:${error.recordIdentity}`,
+    },
+  };
+}
+
 export function toContractError(error: unknown): ContractError {
   if (error instanceof ContractValidationError) return error.contract;
   if (typeof error === "object" && error !== null && "contract" in error && Check(ContractErrorSchema, error.contract)) {
@@ -534,6 +561,8 @@ export function toContractError(error: unknown): ContractError {
   if (error instanceof Error && error.message === "STALE_SUGGESTION_REVISION") {
     return { code: "STALE_SUGGESTION_REVISION", message: "The suggestion targets an older document revision", retryable: true };
   }
+  const compatibilityError = durableCompatibilityContractError(error);
+  if (compatibilityError) return compatibilityError;
   return { code: "INTERNAL_ERROR", message: "The operation could not be completed", retryable: false };
 }
 

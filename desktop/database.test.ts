@@ -70,11 +70,11 @@ describe("database lifecycle", () => {
   it("creates the complete current schema only for an empty version-0 database", async () => {
     const path = await temporaryPath();
     const db = openApplicationDatabase(path);
-    expect(version(db)).toBe(4);
-    expect(inspectDatabase(db)).toEqual({ kind: "supported", version: 4 });
+    expect(version(db)).toBe(5);
+    expect(inspectDatabase(db)).toEqual({ kind: "supported", version: 5 });
     expect((db.prepare(
       "SELECT count(*) AS count FROM sqlite_schema WHERE type = 'table' AND sql LIKE '%STRICT%'",
-    ).get() as { count: number }).count).toBe(7);
+    ).get() as { count: number }).count).toBe(8);
     db.close();
   });
 
@@ -87,7 +87,7 @@ describe("database lifecycle", () => {
       .get("fixture-document")).toEqual({ markdown: "Keep me\n" });
     expect(db.prepare("SELECT bytes FROM sources WHERE id = ?")
       .get("fixture-source")).toEqual({ bytes: 12 });
-    expect(version(db)).toBe(4);
+    expect(version(db)).toBe(5);
     expect(db.prepare("SELECT revision FROM suggestion_state WHERE project_id = ?")
       .get("fixture-project")).toEqual({ revision: 0 });
     db.close();

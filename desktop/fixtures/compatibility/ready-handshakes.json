@@ -1,0 +1,16 @@
+{
+  "currentStorageV1": {
+    "kind": "ready",
+    "protocolName": "scribe.storage",
+    "protocolVersion": 1,
+    "buildIdentifier": "0.1.0",
+    "operations": ["hydrate", "workspace.repair", "document.save", "source.import", "suggestions.command", "events.replay", "events.acknowledge", "agent.seed", "agent.suggestions.list", "agent.suggestion.create", "agent.suggestion.update", "agent.suggestion.retract"]
+  },
+  "futureStorageV2": {
+    "kind": "ready",
+    "protocolName": "scribe.storage",
+    "protocolVersion": 2,
+    "buildIdentifier": "0.2.0",
+    "operations": []
+  }
+}

@@ -26,6 +26,9 @@ import { safeActivityPayload } from "./activity.js";
 import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
 import {
   PROTOCOL_VERSION,
+  BUILD_IDENTIFIER,
+  AGENT_PROTOCOL_NAME,
+  AGENT_RPC_METHODS,
   AgentActivityMessageSchema,
   AgentRuntimeMessageSchema,
   StorageOperations,
@@ -393,5 +396,8 @@ initialize()
   })
   .finally(() => process.parentPort?.postMessage({
     kind: "ready",
+    protocolName: AGENT_PROTOCOL_NAME,
     protocolVersion: PROTOCOL_VERSION,
+    buildIdentifier: BUILD_IDENTIFIER,
+    operations: AGENT_RPC_METHODS,
   }));

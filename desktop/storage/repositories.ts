@@ -1,8 +1,16 @@
 import type { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
+import type { Static, TSchema } from "typebox";
 
 import type { DurableEventEnvelope, DurableEventPayload, DocumentSnapshot, SourceSnapshot } from "../../src/shared/desktop.js";
 import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
+import {
+  COMPATIBILITY_REGISTRY,
+  DurableCompatibilityError,
+  decodeVersionedJson,
+  encodeVersionedJson,
+  type JsonMigration,
+} from "../compatibility.js";
 import {
   DEFAULT_EVENT_STREAM_ID,
   DurableEventEnvelopeSchema,
@@ -55,11 +63,58 @@ export interface EventOutbox {
   acknowledge(consumerId: string, streamId: string, sequence: number): number;
 }
 
-function parseJson(value: string, format: string): unknown {
+const LEGACY_TO_CURRENT: readonly JsonMigration[] = [{
+  fromVersion: 0,
+  toVersion: 1,
+  migrate: (value) => value,
+}];
+
+function quarantine(db: DatabaseSync, error: DurableCompatibilityError, sourceText: string) {
+  db.prepare(`INSERT INTO durable_json_quarantine
+    (format_name, record_identity, source_text, detected_version, error_code, quarantined_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT (format_name, record_identity) DO NOTHING`
+  ).run(
+    error.format,
+    error.recordIdentity,
+    sourceText,
+    error.detectedVersion ?? null,
+    error.code,
+    Date.now(),
+  );
+}
+
+function decode(db: DatabaseSync, options: Parameters<typeof decodeVersionedJson>[0]) {
   try {
-    return JSON.parse(value);
-  } catch {
-    throw new Error(`Invalid persisted ${format} JSON`);
+    return decodeVersionedJson(options);
+  } catch (error) {
+    if (error instanceof DurableCompatibilityError) quarantine(db, error, options.text);
+    throw error;
+  }
+}
+
+function validatePersisted<Schema extends TSchema>(options: {
+  db: DatabaseSync;
+  schema: Schema;
+  value: unknown;
+  boundary: string;
+  format: string;
+  identity: string;
+  sourceText: string;
+  version: number;
+}): Static<Schema> {
+  try {
+    return parseOrContractError(options.schema, options.value, options.boundary);
+  } catch (error) {
+    const compatibilityError = new DurableCompatibilityError(
+      "DURABLE_JSON_INVALID",
+      options.format,
+      options.identity,
+      options.version,
+      `Invalid persisted ${options.format} data`,
+    );
+    quarantine(options.db, compatibilityError, options.sourceText);
+    throw error;
   }
 }
 
@@ -98,15 +153,30 @@ export class DocumentRepository implements DocumentStore {
       markdown: string; schema_version: number; revision: number; updated_at: number;
     } | undefined;
     if (!row) throw new Error(`Document not found: ${id}`);
+    const policy = COMPATIBILITY_REGISTRY.documentBlocks;
+    const decoded = decode(this.db, {
+      text: row.blocks_json,
+      format: policy.name,
+      currentVersion: policy.currentVersion,
+      minimumReadableVersion: policy.minimumReadableVersion,
+      legacyVersion: 0,
+      payloadKey: "blocks",
+      migrations: LEGACY_TO_CURRENT,
+      recordIdentity: id,
+    });
+    const blocks = validatePersisted({
+      db: this.db, schema: DocumentBlocksSchema, value: decoded.payload,
+      boundary: "persisted.document-blocks", format: policy.name, identity: id,
+      sourceText: row.blocks_json, version: decoded.detectedVersion,
+    });
+    if (decoded.migrated) this.db.prepare(
+      "UPDATE documents SET blocks_json = ? WHERE id = ? AND blocks_json = ?",
+    ).run(encodeVersionedJson(policy.name, policy.currentVersion, blocks, "blocks"), id, row.blocks_json);
     return {
       id: row.id,
       projectId: row.project_id,
       title: row.title,
-      blocks: parseOrContractError(
-        DocumentBlocksSchema,
-        parseJson(row.blocks_json, "document blocks"),
-        "persisted.document-blocks",
-      ),
+      blocks,
       markdown: row.markdown,
       schemaVersion: row.schema_version,
       revision: row.revision,
@@ -123,7 +193,12 @@ export class DocumentRepository implements DocumentStore {
     const result = this.db.prepare(
       `UPDATE documents SET blocks_json = ?, markdown = ?, revision = revision + 1, updated_at = ?
        WHERE id = ?`,
-    ).run(JSON.stringify(validatedBlocks), markdown, updatedAt, id);
+    ).run(encodeVersionedJson(
+      COMPATIBILITY_REGISTRY.documentBlocks.name,
+      COMPATIBILITY_REGISTRY.documentBlocks.currentVersion,
+      validatedBlocks,
+      "blocks",
+    ), markdown, updatedAt, id);
     if (result.changes !== 1) throw new Error(`Document not found: ${id}`);
     return this.get(id);
   }
@@ -188,11 +263,26 @@ export class SuggestionRepository implements SuggestionStore {
       "SELECT state_json, revision FROM suggestion_state WHERE project_id = ?",
     ).get(projectId) as { state_json: string; revision: number } | undefined;
     if (!row) throw new Error(`Suggestion projection not found: ${projectId}`);
-    return { state: parseOrContractError(
-        PersistedSuggestionStateSchema,
-        parseJson(row.state_json, "suggestion projection"),
-        "persisted.suggestion-projection",
-      ), revision: row.revision };
+    const policy = COMPATIBILITY_REGISTRY.suggestionProjection;
+    const decoded = decode(this.db, {
+      text: row.state_json,
+      format: policy.name,
+      currentVersion: policy.currentVersion,
+      minimumReadableVersion: policy.minimumReadableVersion,
+      legacyVersion: 0,
+      payloadKey: "state",
+      migrations: LEGACY_TO_CURRENT,
+      recordIdentity: projectId,
+    });
+    const state = validatePersisted({
+      db: this.db, schema: PersistedSuggestionStateSchema, value: decoded.payload,
+      boundary: "persisted.suggestion-projection", format: policy.name,
+      identity: projectId, sourceText: row.state_json, version: decoded.detectedVersion,
+    });
+    if (decoded.migrated) this.db.prepare(
+      "UPDATE suggestion_state SET state_json = ? WHERE project_id = ? AND state_json = ?",
+    ).run(encodeVersionedJson(policy.name, policy.currentVersion, state, "state"), projectId, row.state_json);
+    return { state, revision: row.revision };
   }
 
   compareAndPut(projectId: string, expectedRevision: number, state: PersistedSuggestionState) {
@@ -203,7 +293,12 @@ export class SuggestionRepository implements SuggestionStore {
     );
     const result = this.db.prepare(
       "UPDATE suggestion_state SET state_json = ?, revision = revision + 1, updated_at = ? WHERE project_id = ? AND revision = ?",
-    ).run(JSON.stringify(validated), Date.now(), projectId, expectedRevision);
+    ).run(encodeVersionedJson(
+      COMPATIBILITY_REGISTRY.suggestionProjection.name,
+      COMPATIBILITY_REGISTRY.suggestionProjection.currentVersion,
+      validated,
+      "state",
+    ), Date.now(), projectId, expectedRevision);
     if (result.changes !== 1) throw new Error("SUGGESTION_REVISION_CONFLICT");
     return this.get(projectId);
   }
@@ -212,13 +307,32 @@ export class SuggestionRepository implements SuggestionStore {
     const row = this.db.prepare("SELECT result_json FROM suggestion_command_receipts WHERE command_id = ?")
       .get(commandId) as { result_json: string } | undefined;
     if (!row) return undefined;
-    return parseOrContractError(SuggestionCommandResultSchema, parseJson(row.result_json, "suggestion command receipt"), "persisted.suggestion-command-receipt");
+    const policy = COMPATIBILITY_REGISTRY.suggestionCommands;
+    const decoded = decode(this.db, {
+      text: row.result_json, format: policy.name, currentVersion: policy.currentVersion,
+      minimumReadableVersion: policy.minimumReadableVersion, legacyVersion: 0,
+      payloadKey: "result", migrations: LEGACY_TO_CURRENT, recordIdentity: commandId,
+    });
+    const result = validatePersisted({
+      db: this.db, schema: SuggestionCommandResultSchema, value: decoded.payload,
+      boundary: "persisted.suggestion-command-receipt", format: policy.name,
+      identity: commandId, sourceText: row.result_json, version: decoded.detectedVersion,
+    });
+    if (decoded.migrated) this.db.prepare(
+      "UPDATE suggestion_command_receipts SET result_json = ? WHERE command_id = ? AND result_json = ?",
+    ).run(encodeVersionedJson(policy.name, policy.currentVersion, result, "result"), commandId, row.result_json);
+    return result;
   }
 
   recordReceipt(projectId: string, result: SuggestionCommandResult) {
     const validated = parseOrContractError(SuggestionCommandResultSchema, result, "persisted.suggestion-command-receipt.write");
     this.db.prepare("INSERT INTO suggestion_command_receipts (command_id, project_id, result_json, created_at) VALUES (?, ?, ?, ?)")
-      .run(result.commandId, projectId, JSON.stringify(validated), Date.now());
+      .run(result.commandId, projectId, encodeVersionedJson(
+        COMPATIBILITY_REGISTRY.suggestionCommands.name,
+        COMPATIBILITY_REGISTRY.suggestionCommands.currentVersion,
+        validated,
+        "result",
+      ), Date.now());
   }
 }
 
@@ -239,7 +353,12 @@ export class OutboxRepository implements EventOutbox {
       `INSERT INTO event_outbox
         (event_id, stream_id, sequence, event_json, occurred_at, causation_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(eventId, streamId, sequence, JSON.stringify(validated), occurredAt, causationId ?? null, occurredAt);
+    ).run(eventId, streamId, sequence, encodeVersionedJson(
+      COMPATIBILITY_REGISTRY.suggestionEvents.name,
+      COMPATIBILITY_REGISTRY.suggestionEvents.currentVersion,
+      validated,
+      "event",
+    ), occurredAt, causationId ?? null, occurredAt);
     return { eventId, streamId, sequence, occurredAt, causationId, payload: validated };
   }
 
@@ -248,7 +367,7 @@ export class OutboxRepository implements EventOutbox {
       `SELECT event_id, stream_id, sequence, event_json, occurred_at, causation_id
        FROM event_outbox WHERE dispatched_at IS NULL ORDER BY stream_id, sequence`,
     ).all() as PersistedEventRow[];
-    return rows.map(parseEnvelope);
+    return this.parseContiguous(rows);
   }
 
   markDispatched(eventId: string) {
@@ -284,7 +403,7 @@ export class OutboxRepository implements EventOutbox {
        FROM event_outbox WHERE stream_id = ? AND sequence > ?
        ORDER BY sequence LIMIT ?`,
     ).all(streamId, afterSequence, limit) as PersistedEventRow[];
-    const events = rows.map(parseEnvelope);
+    const events = this.parseContiguous(rows);
     return { streamId, events, headSequence,
       hasMore: (events.at(-1)?.sequence ?? afterSequence) < headSequence,
       historyAvailable: true };
@@ -305,6 +424,30 @@ export class OutboxRepository implements EventOutbox {
       WHERE consumer_id = ? AND stream_id = ?`).get(consumerId, streamId) as { acknowledged_sequence: number };
     return row.acknowledged_sequence;
   }
+
+  private parseContiguous(rows: PersistedEventRow[]) {
+    const events: DurableEventEnvelope[] = [];
+    for (const row of rows) {
+      try {
+        events.push(parseEnvelope(this.db, row));
+      } catch (error) {
+        if (error instanceof DurableCompatibilityError) break;
+        if (error instanceof Error && error.name === "ContractValidationError") {
+          const compatibilityError = new DurableCompatibilityError(
+            "DURABLE_JSON_INVALID",
+            COMPATIBILITY_REGISTRY.suggestionEvents.name,
+            row.event_id,
+            undefined,
+            "Invalid persisted event payload",
+          );
+          quarantine(this.db, compatibilityError, row.event_json);
+          break;
+        }
+        throw error;
+      }
+    }
+    return events;
+  }
 }
 
 type PersistedEventRow = {
@@ -312,13 +455,27 @@ type PersistedEventRow = {
   event_json: string; occurred_at: number; causation_id: string | null;
 };
 
-function parseEnvelope(row: PersistedEventRow): DurableEventEnvelope {
+function parseEnvelope(db: DatabaseSync, row: PersistedEventRow): DurableEventEnvelope {
+  const policy = COMPATIBILITY_REGISTRY.suggestionEvents;
+  const decoded = decode(db, {
+    text: row.event_json, format: policy.name, currentVersion: policy.currentVersion,
+    minimumReadableVersion: policy.minimumReadableVersion, legacyVersion: 0,
+    payloadKey: "event", migrations: LEGACY_TO_CURRENT, recordIdentity: row.event_id,
+  });
+  const payload = validatePersisted({
+    db, schema: DurableEventPayloadSchema, value: decoded.payload,
+    boundary: "persisted.outbox-event.payload", format: policy.name,
+    identity: row.event_id, sourceText: row.event_json, version: decoded.detectedVersion,
+  });
+  if (decoded.migrated) db.prepare(
+    "UPDATE event_outbox SET event_json = ? WHERE event_id = ? AND event_json = ?",
+  ).run(encodeVersionedJson(policy.name, policy.currentVersion, payload, "event"), row.event_id, row.event_json);
   return parseOrContractError(DurableEventEnvelopeSchema, {
     eventId: row.event_id,
     streamId: row.stream_id,
     sequence: row.sequence,
     occurredAt: row.occurred_at,
     ...(row.causation_id ? { causationId: row.causation_id } : {}),
-    payload: parseJson(row.event_json, "outbox event"),
+    payload,
   }, "persisted.outbox-event");
 }

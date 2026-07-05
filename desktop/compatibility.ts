@@ -1,0 +1,215 @@
+export const COMPATIBILITY_REGISTRY = {
+  database: {
+    name: "scribe.sqlite",
+    currentVersion: 5,
+    minimumReadableVersion: 2,
+    minimumMigratableVersion: 2,
+    newerVersionBehavior: "reject-read-only",
+  },
+  documentBlocks: {
+    name: "scribe.blocks",
+    currentVersion: 1,
+    minimumReadableVersion: 0,
+    minimumMigratableVersion: 0,
+    newerVersionBehavior: "preserve-quarantine-reject",
+  },
+  suggestionCommands: {
+    name: "scribe.suggestion-command-result",
+    currentVersion: 1,
+    minimumReadableVersion: 0,
+    minimumMigratableVersion: 0,
+    newerVersionBehavior: "preserve-quarantine-reject",
+  },
+  suggestionEvents: {
+    name: "scribe.event",
+    currentVersion: 1,
+    minimumReadableVersion: 0,
+    minimumMigratableVersion: 0,
+    newerVersionBehavior: "preserve-quarantine-stop-projection",
+  },
+  suggestionProjection: {
+    name: "scribe.suggestion-projection",
+    currentVersion: 1,
+    minimumReadableVersion: 0,
+    minimumMigratableVersion: 0,
+    newerVersionBehavior: "preserve-quarantine-reject",
+  },
+  piLoopEntry: {
+    name: "scribe.pi.loop-state",
+    currentVersion: 1,
+    minimumReadableVersion: 0,
+    minimumMigratableVersion: 0,
+    newerVersionBehavior: "preserve-disable-resume",
+  },
+  storageProtocol: {
+    name: "scribe.storage",
+    currentVersion: 1,
+    minimumReadableVersion: 1,
+    minimumMigratableVersion: 1,
+    newerVersionBehavior: "reject-startup",
+  },
+  agentProtocol: {
+    name: "scribe.agent",
+    currentVersion: 1,
+    minimumReadableVersion: 1,
+    minimumMigratableVersion: 1,
+    newerVersionBehavior: "reject-startup",
+  },
+} as const;
+
+export type JsonMigration = {
+  fromVersion: number;
+  toVersion: number;
+  migrate(value: unknown): unknown;
+};
+
+export function validateJsonMigrationRegistry(
+  migrations: readonly JsonMigration[],
+  minimumVersion: number,
+  currentVersion: number,
+) {
+  const edges = new Map<number, JsonMigration>();
+  for (const migration of migrations) {
+    if (migration.toVersion !== migration.fromVersion + 1) {
+      throw new Error(`JSON migration ${migration.fromVersion}->${migration.toVersion} must advance exactly one version`);
+    }
+    if (edges.has(migration.fromVersion)) {
+      throw new Error(`Duplicate JSON migration from version ${migration.fromVersion}`);
+    }
+    edges.set(migration.fromVersion, migration);
+  }
+  for (let version = minimumVersion; version < currentVersion; version += 1) {
+    if (!edges.has(version)) {
+      throw new Error(`No contiguous JSON migration path from version ${version} to ${currentVersion}`);
+    }
+  }
+  if (edges.size !== currentVersion - minimumVersion) {
+    throw new Error(`JSON migration registry must contain only versions ${minimumVersion} through ${currentVersion}`);
+  }
+}
+
+export function migrateJson(
+  value: unknown,
+  fromVersion: number,
+  currentVersion: number,
+  migrations: readonly JsonMigration[],
+) {
+  const applicable = migrations.filter((item) => item.fromVersion >= fromVersion);
+  validateJsonMigrationRegistry(applicable, fromVersion, currentVersion);
+  let migrated = value;
+  for (let version = fromVersion; version < currentVersion; version += 1) {
+    migrated = applicable.find((item) => item.fromVersion === version)!.migrate(migrated);
+  }
+  return migrated;
+}
+
+export type VersionedEnvelope = { format: string; version: number; payload: unknown };
+
+export class DurableCompatibilityError extends Error {
+  constructor(
+    readonly code: "DURABLE_JSON_INVALID" | "DURABLE_FORMAT_TOO_NEW" | "DURABLE_FORMAT_UNSUPPORTED",
+    readonly format: string,
+    readonly recordIdentity: string,
+    readonly detectedVersion: number | undefined,
+    message: string,
+  ) {
+    super(message);
+    this.name = "DurableCompatibilityError";
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseDurableJson(text: string, format: string, recordIdentity: string) {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new DurableCompatibilityError(
+      "DURABLE_JSON_INVALID", format, recordIdentity, undefined,
+      `Invalid persisted ${format} JSON`,
+    );
+  }
+}
+
+function inspectEnvelope(source: unknown, payloadKey: string, legacyVersion: number) {
+  const sourceRecord = isRecord(source) ? source : undefined;
+  const enveloped = Boolean(
+    sourceRecord && "format" in sourceRecord && "version" in sourceRecord && payloadKey in sourceRecord,
+  );
+  const detectedVersion = enveloped && sourceRecord && Number.isInteger(sourceRecord.version)
+    ? sourceRecord.version as number
+    : legacyVersion;
+  return { sourceRecord, enveloped, detectedVersion };
+}
+
+function assertSupportedEnvelope(options: {
+  enveloped: boolean;
+  sourceRecord?: Record<string, unknown>;
+  detectedVersion: number;
+  format: string;
+  recordIdentity: string;
+  currentVersion: number;
+  minimumReadableVersion: number;
+}) {
+  if (options.enveloped && options.sourceRecord?.format !== options.format) {
+    throw new DurableCompatibilityError(
+      "DURABLE_FORMAT_UNSUPPORTED", options.format, options.recordIdentity, options.detectedVersion,
+      `Unsupported durable format for ${options.format}`,
+    );
+  }
+  if (options.detectedVersion > options.currentVersion) {
+    throw new DurableCompatibilityError(
+      "DURABLE_FORMAT_TOO_NEW", options.format, options.recordIdentity, options.detectedVersion,
+      `${options.format} version ${options.detectedVersion} requires a newer ScribeAI release. The original data was preserved in the workspace database quarantine.`,
+    );
+  }
+  if (options.detectedVersion < options.minimumReadableVersion) {
+    throw new DurableCompatibilityError(
+      "DURABLE_FORMAT_UNSUPPORTED", options.format, options.recordIdentity, options.detectedVersion,
+      `${options.format} version ${options.detectedVersion} is no longer supported`,
+    );
+  }
+}
+
+export function decodeVersionedJson(options: {
+  text: string;
+  format: string;
+  currentVersion: number;
+  minimumReadableVersion: number;
+  legacyVersion: number;
+  legacyPayload?: (value: unknown) => unknown;
+  payloadKey?: string;
+  migrations: readonly JsonMigration[];
+  recordIdentity: string;
+}) {
+  const source = parseDurableJson(options.text, options.format, options.recordIdentity);
+  const payloadKey = options.payloadKey ?? "payload";
+  const { sourceRecord, enveloped, detectedVersion } = inspectEnvelope(
+    source, payloadKey, options.legacyVersion,
+  );
+  assertSupportedEnvelope({ ...options, sourceRecord, enveloped, detectedVersion });
+  const payload = enveloped ? sourceRecord![payloadKey] : (options.legacyPayload?.(source) ?? source);
+  try {
+    return {
+      payload: migrateJson(payload, detectedVersion, options.currentVersion, options.migrations),
+      detectedVersion,
+      migrated: !enveloped || detectedVersion !== options.currentVersion,
+    };
+  } catch (error) {
+    throw new DurableCompatibilityError(
+      "DURABLE_JSON_INVALID", options.format, options.recordIdentity, detectedVersion,
+      `Could not migrate persisted ${options.format} data: ${error instanceof Error ? error.message : "invalid data"}`,
+    );
+  }
+}
+
+export function encodeVersionedJson(
+  format: string,
+  version: number,
+  payload: unknown,
+  payloadKey = "payload",
+) {
+  return JSON.stringify({ format, version, [payloadKey]: payload });
+}

@@ -1,0 +1,27 @@
+{
+  "documentBlocks": {
+    "legacyV0": [{ "type": "paragraph", "content": "legacy" }],
+    "currentV1": { "format": "scribe.blocks", "version": 1, "blocks": [{ "type": "paragraph", "content": "current" }] },
+    "futureV2": { "format": "scribe.blocks", "version": 2, "blocks": [{ "type": "paragraph", "content": "future" }] }
+  },
+  "suggestionProjection": {
+    "legacyV0": { "entries": [], "pinnedEntries": [], "workspacePins": [], "seenKeys": {}, "nextZIndex": 1 },
+    "currentV1": { "format": "scribe.suggestion-projection", "version": 1, "state": { "entries": [], "pinnedEntries": [], "workspacePins": [], "seenKeys": {}, "nextZIndex": 1 } },
+    "futureV2": { "format": "scribe.suggestion-projection", "version": 2, "state": { "entries": [], "pinnedEntries": [], "workspacePins": [], "seenKeys": {}, "nextZIndex": 1 } }
+  },
+  "suggestionCommandResult": {
+    "legacyV0": { "commandId": "legacy-command", "status": "unchanged", "suggestionRevision": 0, "state": { "entries": [], "pinnedEntries": [], "workspacePins": [], "seenKeys": {}, "nextZIndex": 1 } },
+    "currentV1": { "format": "scribe.suggestion-command-result", "version": 1, "result": { "commandId": "current-command", "status": "unchanged", "suggestionRevision": 0, "state": { "entries": [], "pinnedEntries": [], "workspacePins": [], "seenKeys": {}, "nextZIndex": 1 } } },
+    "futureV2": { "format": "scribe.suggestion-command-result", "version": 2, "result": {} }
+  },
+  "event": {
+    "legacyV0": { "type": "suggestion.event", "event": { "type": "suggestion.state.changed", "suggestionId": "legacy", "commandType": "dismiss" }, "suggestionRevision": 1, "state": { "entries": [], "pinnedEntries": [], "workspacePins": [], "seenKeys": {}, "nextZIndex": 1 } },
+    "currentV1": { "format": "scribe.event", "version": 1, "event": { "type": "suggestion.event", "event": { "type": "suggestion.state.changed", "suggestionId": "current", "commandType": "dismiss" }, "suggestionRevision": 2, "state": { "entries": [], "pinnedEntries": [], "workspacePins": [], "seenKeys": {}, "nextZIndex": 1 } } },
+    "futureV2": { "format": "scribe.event", "version": 2, "event": { "opaque": true } }
+  },
+  "piLoopEntry": {
+    "legacyV0": { "latestRevision": 2, "latestDocumentRevision": 2, "cycleCount": 0, "status": "waiting" },
+    "currentV1": { "type": "scribe.loop-state", "version": 1, "payload": { "latestRevision": 3, "latestDocumentRevision": 3, "cycleCount": 0, "status": "waiting" } },
+    "futureV2": { "type": "scribe.loop-state", "version": 2, "payload": { "opaque": true } }
+  }
+}

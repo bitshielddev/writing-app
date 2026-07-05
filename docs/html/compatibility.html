@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Version, migrate, reject, preserve, and recover durable formats and packaged process protocols." />
+    <meta name="theme-color" content="#f7f8fc" />
+    <title>Durable-format and process compatibility · ScribeAI docs</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+    <script>try{const t=localStorage.getItem("scribe-docs-theme");if(t){document.documentElement.dataset.theme=t}else if(matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.dataset.theme="dark"}}catch{}</script>
+    <script src="assets/search-index.js" defer></script>
+    <script src="assets/site.js" defer></script>
+  </head>
+  <body data-page="compatibility.html">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="reading-progress" aria-hidden="true"><span></span></div>
+    <div class="mobile-overlay" data-nav-close hidden></div>
+    <aside class="site-sidebar" id="site-navigation" aria-label="Documentation navigation">
+      <div class="sidebar-header">
+        <a class="brand" href="index.html" aria-label="ScribeAI documentation home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>ScribeAI</strong><small>Developer docs</small></span>
+        </a>
+        <button type="button" class="icon-button sidebar-close" data-nav-close aria-label="Close navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+      </div>
+      <div class="sidebar-search">
+        <button type="button" class="search-trigger" data-search-open aria-label="Search documentation">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search docs</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+      <div class="sidebar-scroll"><section class="nav-group"><h2>Get oriented</h2><nav aria-label="Get oriented"><a class="nav-link" href="index.html">
+            <span class="nav-link__number">00</span>
+            <span>Overview</span>
+          </a><a class="nav-link" href="getting-started.html">
+            <span class="nav-link__number">01</span>
+            <span>Getting started</span>
+          </a><a class="nav-link" href="architecture.html">
+            <span class="nav-link__number">02</span>
+            <span>Architecture</span>
+          </a><a class="nav-link" href="architecture-review.html">
+            <span class="nav-link__number">03</span>
+            <span>Architecture review</span>
+          </a></nav></section><section class="nav-group"><h2>Build internals</h2><nav aria-label="Build internals"><a class="nav-link" href="desktop-runtime.html">
+            <span class="nav-link__number">04</span>
+            <span>Desktop & Pi</span>
+          </a><a class="nav-link" href="editor-and-suggestions.html">
+            <span class="nav-link__number">05</span>
+            <span>Editor & suggestions</span>
+          </a><a class="nav-link" href="ui-and-accessibility.html">
+            <span class="nav-link__number">06</span>
+            <span>UI & accessibility</span>
+          </a></nav></section><section class="nav-group"><h2>Ship safely</h2><nav aria-label="Ship safely"><a class="nav-link" href="testing-and-quality.html">
+            <span class="nav-link__number">07</span>
+            <span>Testing & quality</span>
+          </a><a class="nav-link is-active" href="compatibility.html" aria-current="page">
+            <span class="nav-link__number">08</span>
+            <span>Compatibility</span>
+          </a><a class="nav-link" href="extension-guide.html">
+            <span class="nav-link__number">09</span>
+            <span>Extension guide</span>
+          </a></nav></section></div>
+      <div class="sidebar-footer">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span><strong>Current snapshot</strong><small>Client-only prototype</small></span>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <button type="button" class="icon-button" data-nav-open aria-controls="site-navigation" aria-expanded="false" aria-label="Open navigation"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+      <a class="mobile-brand" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>ScribeAI docs</strong></a>
+      <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+    </header>
+
+    <div class="search-dialog" data-search-dialog role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
+      <div class="search-backdrop" data-search-close></div>
+      <div class="search-panel">
+        <div class="search-input-wrap">
+          <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg>
+          <label class="sr-only" id="search-title" for="site-search">Search documentation</label>
+          <input id="site-search" type="search" placeholder="Search architecture, previews, testing…" autocomplete="off" data-search-input />
+          <button type="button" class="search-close" data-search-close aria-label="Close search"><kbd>Esc</kbd></button>
+        </div>
+        <div class="search-results" data-search-results>
+          <div class="search-empty"><span class="search-empty__mark">⌕</span><p>Search all documentation guides.</p><small>Try “preview”, “localStorage”, or “reducer”.</small></div>
+        </div>
+      </div>
+    </div>
+
+    <main class="site-main" id="main-content">
+      <div class="desktop-toolbar">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Developer docs</a><span>/</span><span>Ship safely</span></nav>
+        <div class="toolbar-actions">
+          <button type="button" class="toolbar-search" data-search-open><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg><span>Search</span><kbd>⌘ K</kbd></button>
+          <button type="button" class="icon-button" data-theme-toggle aria-label="Switch color theme"><svg class="icon theme-icon theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg><svg class="icon theme-icon theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.8 6.8 0 0 0 21 12.8Z"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="page-shell">
+        <div class="content-column">
+          <header class="page-hero page-hero--blue">
+            <div class="page-hero__meta"><span>Guide 08</span><span>3 min read</span></div>
+            <h1>Durable-format and process compatibility</h1>
+            <p>Version, migrate, reject, preserve, and recover durable formats and packaged process protocols.</p>
+            <div class="page-hero__footer">
+              <span><i class="status-dot" aria-hidden="true"></i> Reflects the current codebase</span>
+              <a href="../compatibility.md">View Markdown <svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg></a>
+            </div>
+            <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+          </header>
+
+          <article class="prose"><p>Scribe versions each durable JSON format independently from SQLite and requires exact compatibility between packaged processes. The executable registry is <code>desktop/compatibility.ts</code>; this document is the release and recovery policy.</p>
+<h2 id="supported-versions">Supported versions<a class="heading-anchor" href="#supported-versions" aria-label="Link to Supported versions">#</a></h2><table>
+<thead>
+<tr>
+<th>Boundary</th>
+<th>Format/protocol name</th>
+<th align="right">Current</th>
+<th align="right">Minimum readable</th>
+<th align="right">Minimum migratable</th>
+<th>Newer-version behaviour</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SQLite</td>
+<td><code>scribe.sqlite</code></td>
+<td align="right">5</td>
+<td align="right">2</td>
+<td align="right">2</td>
+<td>Open only for inspection, reject startup, preserve the file.</td>
+</tr>
+<tr>
+<td>Block document</td>
+<td><code>scribe.blocks</code></td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td>Preserve and quarantine; do not overwrite; document hydration is unavailable.</td>
+</tr>
+<tr>
+<td>Suggestion command result</td>
+<td><code>scribe.suggestion-command-result</code></td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td>Preserve and quarantine; reject the command lookup.</td>
+</tr>
+<tr>
+<td>Suggestion event</td>
+<td><code>scribe.event</code></td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td>Preserve and quarantine; stop projection at that sequence. Later events are not applied.</td>
+</tr>
+<tr>
+<td>Suggestion projection</td>
+<td><code>scribe.suggestion-projection</code></td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td>Preserve and quarantine; suggestion hydration is unavailable.</td>
+</tr>
+<tr>
+<td>Pi loop entry</td>
+<td><code>scribe.pi.loop-state</code></td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td>Preserve the Pi session and disable autonomous resume.</td>
+</tr>
+<tr>
+<td>Storage process</td>
+<td><code>scribe.storage</code></td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td>Reject readiness before any request.</td>
+</tr>
+<tr>
+<td>Agent process</td>
+<td><code>scribe.agent</code></td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td>Reject readiness before any request.</td>
+</tr>
+</tbody></table>
+<p>Version 0 means the legacy unwrapped JSON shipped before explicit envelopes. Successful reads validate and upgrade it once. Current writes use named envelopes; document blocks specifically use <code>{ format, version, blocks }</code>, while projections, events, and command results use named payload fields. Transforms are pure, sequential, and must provide every contiguous version edge.</p>
+<h2 id="preservation-and-quarantine">Preservation and quarantine<a class="heading-anchor" href="#preservation-and-quarantine" aria-label="Link to Preservation and quarantine">#</a></h2><p>The <code>durable_json_quarantine</code> table records the original JSON text, format name, record identity, detected version, stable error code, and timestamp. A unique format/identity pair prevents duplicate records. Active reads never cast quarantined content into runtime state. Normal logs and errors identify the feature and record but do not include its content.</p>
+<p>The Markdown <code>draft.md</code> mirror remains recovery material when block JSON cannot be read. An unsupported format error tells the caller which feature is unavailable, identifies the database quarantine location, and requires a newer application. Unknown Pi entries not owned by Scribe are left entirely to Pi and are not modified.</p>
+<h2 id="process-readiness">Process readiness<a class="heading-anchor" href="#process-readiness" aria-label="Link to Process readiness">#</a></h2><p>Every utility-process ready message contains the protocol name, exact version, build identifier, and complete supported operation set. Main compares all four values with its own registry. A version, build, protocol-name, or operation-set mismatch fails readiness with <code>PROTOCOL_VERSION_MISMATCH</code>; a structurally invalid ready message fails with <code>MALFORMED_READY_HANDSHAKE</code>. No RPC request is sent before this check succeeds, and arbitrary cross-version feature negotiation is not attempted.</p>
+<h2 id="release-checklist">Release checklist<a class="heading-anchor" href="#release-checklist" aria-label="Link to Release checklist">#</a></h2><p>Before every release:</p>
+<ol>
+<li>Review the SQLite schema, event payloads, BlockNote serialization, suggestion projection and command result, Pi Scribe entries, and both operation registries.</li>
+<li>If a durable shape changed, increment only that format version, add a pure contiguous migration, retain all old fixture files unchanged, and add a new current fixture.</li>
+<li>If an operation registry or wire contract changed, increment the protocol version and update the build identifier. Storage and agent operation sets must match their ready handshakes.</li>
+<li>Test oldest, every intermediate, current, future, invalid, failed-transform, and idempotent legacy-upgrade cases. Verify future/invalid source text remains preserved exactly once.</li>
+<li>Test a future event followed by a known event and confirm projection stops at the gap until snapshot recovery.</li>
+<li>For a database migration, add the next contiguous <code>user_version</code> edge, a historical schema fixture, preservation tests, and backup/failure tests.</li>
+<li>Run <code>npm test</code>, <code>npm run lint</code>, <code>npm run build</code>, and <code>npm run docs:build</code>.</li>
+</ol>
+<p>Do not regenerate a historical fixture with a current serializer. Fixtures under <code>desktop/fixtures/compatibility/</code> are immutable after release.</p>
+<h2 id="backup-and-rollback">Backup and rollback<a class="heading-anchor" href="#backup-and-rollback" aria-label="Link to Backup and rollback">#</a></h2><p>Downgrade writes are unsupported. To return to an older application after migration:</p>
+<ol>
+<li>Close Scribe completely.</li>
+<li>Preserve the newer <code>scribe.sqlite3</code> and its WAL/SHM files as a recovery copy.</li>
+<li>Locate the pre-migration <code>.bak</code> beside the database and copy it into place as <code>scribe.sqlite3</code>.</li>
+<li>Run the application release whose schema version matches that backup.</li>
+</ol>
+<p>Never point an older application at the migrated database. Never automate rollback by deleting or rewriting the newer database.</p>
+</article>
+          <nav class="page-pagination" aria-label="Documentation pages">
+    <a class="page-pagination__link page-pagination__link--previous" href="testing-and-quality.html"><span>Previous</span><strong>← Testing & quality</strong></a>
+    <a class="page-pagination__link page-pagination__link--next" href="extension-guide.html"><span>Next</span><strong>Extension guide →</strong></a>
+  </nav>
+          <footer class="content-footer"><p>ScribeAI developer documentation</p><p>Generated from <a href="../compatibility.md">compatibility.md</a>.</p></footer>
+        </div>
+
+        <aside class="page-toc" aria-label="On this page">
+          <div class="page-toc__inner">
+            <h2>On this page</h2>
+            <nav><a class="toc-link toc-link--2" href="#supported-versions">Supported versions</a><a class="toc-link toc-link--2" href="#preservation-and-quarantine">Preservation and quarantine</a><a class="toc-link toc-link--2" href="#process-readiness">Process readiness</a><a class="toc-link toc-link--2" href="#release-checklist">Release checklist</a><a class="toc-link toc-link--2" href="#backup-and-rollback">Backup and rollback</a></nav>
+            <a class="toc-source" href="../compatibility.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <noscript><div class="noscript">JavaScript is only used for search, navigation controls, and theme switching. All documentation content remains available.</div></noscript>
+  </body>
+</html>

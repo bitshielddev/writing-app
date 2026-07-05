@@ -17,6 +17,8 @@ import {
 
 import {
   createScribeExtension,
+  encodeScribeLoopEntry,
+  restoreScribeLoopEntry,
   SCRIBE_LOOP_ENTRY,
   SCRIBE_REVISION_EVENT,
   SCRIBE_TOOL_NAMES,
@@ -63,6 +65,31 @@ describe("Pi project session", () => {
       customType: SCRIBE_LOOP_ENTRY,
       data: { yieldedRevision: 9, status: "waiting" },
     });
+  });
+
+  it("versions Scribe entries, reads legacy entries, and disables newer resume", () => {
+    const current = encodeScribeLoopEntry(new ScribeLoopState({
+      yieldedRevision: 9,
+      status: "waiting",
+    }));
+    expect(current).toMatchObject({ type: SCRIBE_LOOP_ENTRY, version: 1 });
+    expect(restoreScribeLoopEntry(current).state?.snapshot()).toMatchObject({
+      yieldedRevision: 9,
+      status: "stopped",
+    });
+    expect(restoreScribeLoopEntry({
+      latestRevision: 8,
+      latestDocumentRevision: 8,
+      yieldedRevision: 8,
+      cycleCount: 0,
+      status: "waiting",
+    })
+      .state?.snapshot()).toMatchObject({ yieldedRevision: 8 });
+    expect(restoreScribeLoopEntry({
+      type: SCRIBE_LOOP_ENTRY,
+      version: 99,
+      payload: { yieldedRevision: 10, status: "waiting" },
+    })).toEqual({ unsupportedVersion: 99 });
   });
 
   it("activates only four read tools plus Scribe tools", async () => {

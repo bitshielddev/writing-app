@@ -82,7 +82,7 @@ describe("storage database and repositories", () => {
     db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
       .run("not-json", "default-document");
     expect(() => documents.get("default-document"))
-      .toThrow("Invalid persisted document blocks JSON");
+      .toThrow("Invalid persisted scribe.blocks JSON");
     db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
       .run("[]", "default-document");
 
@@ -96,7 +96,92 @@ describe("storage database and repositories", () => {
       VALUES (?, ?, ?, ?, ?, ?)`)
       .run("invalid-event", "document:default-document", 1,
         JSON.stringify({ type: "unknown" }), 1, 1);
-    expect(() => outbox.pending()).toThrow("Invalid data at persisted.outbox-event");
+    expect(outbox.pending()).toEqual([]);
+    expect(db.prepare(`SELECT format_name, record_identity, error_code
+      FROM durable_json_quarantine WHERE record_identity = ?`).get("invalid-event"))
+      .toEqual({
+        format_name: "scribe.event",
+        record_identity: "invalid-event",
+        error_code: "DURABLE_JSON_INVALID",
+      });
+  });
+
+  it("upgrades legacy envelopes once after validation and keeps the upgrade idempotent", async () => {
+    const instance = await service();
+    const db = instance.database.db;
+    const documents = new DocumentRepository(db);
+    const suggestions = new SuggestionRepository(db);
+    const legacyBlocks = JSON.stringify([{ type: "paragraph", content: "legacy" }]);
+    const legacyState = JSON.stringify({
+      entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1,
+    });
+    db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
+      .run(legacyBlocks, "default-document");
+    db.prepare("UPDATE suggestion_state SET state_json = ? WHERE project_id = ?")
+      .run(legacyState, "default-project");
+
+    expect(documents.get("default-document").blocks).toHaveLength(1);
+    expect(suggestions.get("default-project").state.entries).toEqual([]);
+    const upgradedBlocks = (db.prepare("SELECT blocks_json FROM documents WHERE id = ?")
+      .get("default-document") as { blocks_json: string }).blocks_json;
+    const upgradedState = (db.prepare("SELECT state_json FROM suggestion_state WHERE project_id = ?")
+      .get("default-project") as { state_json: string }).state_json;
+    expect(JSON.parse(upgradedBlocks)).toMatchObject({ format: "scribe.blocks", version: 1 });
+    expect(JSON.parse(upgradedState)).toMatchObject({
+      format: "scribe.suggestion-projection", version: 1,
+    });
+
+    documents.get("default-document");
+    suggestions.get("default-project");
+    expect((db.prepare("SELECT blocks_json FROM documents WHERE id = ?")
+      .get("default-document") as { blocks_json: string }).blocks_json).toBe(upgradedBlocks);
+    expect((db.prepare("SELECT state_json FROM suggestion_state WHERE project_id = ?")
+      .get("default-project") as { state_json: string }).state_json).toBe(upgradedState);
+  });
+
+  it("preserves future blocks and quarantines them exactly once", async () => {
+    const instance = await service();
+    const db = instance.database.db;
+    const documents = new DocumentRepository(db);
+    const source = JSON.stringify({
+      format: "scribe.blocks", version: 99,
+      blocks: [{ type: "paragraph", content: "future" }],
+    });
+    db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
+      .run(source, "default-document");
+
+    expect(() => documents.get("default-document")).toThrow("requires a newer ScribeAI release");
+    expect(() => documents.get("default-document")).toThrow();
+    expect((db.prepare("SELECT blocks_json FROM documents WHERE id = ?")
+      .get("default-document") as { blocks_json: string }).blocks_json).toBe(source);
+    expect(db.prepare(`SELECT source_text, count(*) AS count FROM durable_json_quarantine
+      WHERE format_name = ? AND record_identity = ?`).get("scribe.blocks", "default-document"))
+      .toEqual({ source_text: source, count: 1 });
+  });
+
+  it("preserves an unknown event and does not project known history beyond the gap", async () => {
+    const instance = await service();
+    const db = instance.database.db;
+    const outbox = new OutboxRepository(db);
+    const future = JSON.stringify({ format: "scribe.event", version: 99, event: { opaque: true } });
+    db.prepare(`INSERT INTO event_outbox
+      (event_id, stream_id, sequence, event_json, occurred_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)`).run(
+      "future-event", "document:default-document", 1, future, 1, 1,
+    );
+    outbox.enqueue({
+      type: "suggestion.event",
+      event: { type: "suggestion.state.changed", suggestionId: "later", commandType: "dismiss" },
+      suggestionRevision: 1,
+      state: { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 },
+    });
+
+    expect(outbox.pending()).toEqual([]);
+    expect(outbox.replay("document:default-document", 0).events).toEqual([]);
+    expect((db.prepare(`SELECT count(*) AS count FROM durable_json_quarantine
+      WHERE record_identity = ?`).get("future-event") as { count: number }).count).toBe(1);
+    expect((db.prepare("SELECT event_json FROM event_outbox WHERE event_id = ?")
+      .get("future-event") as { event_json: string }).event_json).toBe(future);
   });
 });
 

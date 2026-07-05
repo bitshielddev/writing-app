@@ -3,11 +3,22 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ChildRpc, ChildStartupError, type UtilityProcessAdapter } from "./child-rpc";
 import {
+  AGENT_PROTOCOL_NAME,
   AgentChildMessageSchema,
   AgentOperations,
+  BUILD_IDENTIFIER,
   PROTOCOL_VERSION,
   type AgentChildMessage,
 } from "../src/shared/contracts";
+
+const ready = (overrides: Record<string, unknown> = {}) => ({
+  kind: "ready",
+  protocolName: AGENT_PROTOCOL_NAME,
+  protocolVersion: PROTOCOL_VERSION,
+  buildIdentifier: BUILD_IDENTIFIER,
+  operations: Object.keys(AgentOperations),
+  ...overrides,
+});
 
 class FakeUtilityProcess extends EventEmitter {
   readonly posted: unknown[] = [];
@@ -37,8 +48,8 @@ function createRpc(onMessage = vi.fn()) {
 describe("ChildRpc", () => {
   it("becomes ready once and correlates out-of-order successful results", async () => {
     const { child, rpc } = createRpc();
-    child.emit("message", { kind: "ready", protocolVersion: PROTOCOL_VERSION });
-    child.emit("message", { kind: "ready", protocolVersion: PROTOCOL_VERSION });
+    child.emit("message", ready());
+    child.emit("message", ready());
     await rpc.ready;
 
     const first = rpc.call("agent.start", { projectRevision: 1, documentRevision: 1 });
@@ -67,7 +78,7 @@ describe("ChildRpc", () => {
 
   it("rejects only the correlated remote error and ignores unknown responses", async () => {
     const { child, rpc, onMessage } = createRpc();
-    child.emit("message", { kind: "ready", protocolVersion: 1 });
+    child.emit("message", ready());
     const failed = rpc.call("agent.start", { projectRevision: 1, documentRevision: 1 });
     const successful = rpc.call("agent.stop");
     await Promise.resolve();
@@ -119,13 +130,13 @@ describe("ChildRpc", () => {
       kind: "startup.error",
       error: { code: "DATABASE_CORRUPT", message: "invalid", databasePath: 5 },
     });
-    child.emit("message", { kind: "ready", protocolVersion: 1 });
+    child.emit("message", ready());
     return expect(rpc.ready).resolves.toBeUndefined();
   });
 
   it("rejects all pending work after exit and cleanup is idempotent", async () => {
     const { child, rpc } = createRpc();
-    child.emit("message", { kind: "ready", protocolVersion: 1 });
+    child.emit("message", ready());
     await rpc.ready;
     const first = rpc.call("agent.stop");
     const second = rpc.call("agent.stop");
@@ -142,5 +153,27 @@ describe("ChildRpc", () => {
       rpc.dispose();
       rpc.kill();
     }).not.toThrow();
+  });
+
+  it.each([
+    ["version", { protocolVersion: 2 }],
+    ["build", { buildIdentifier: "different-build" }],
+    ["operation set", { operations: ["agent.stop"] }],
+  ])("rejects a %s mismatch before sending requests", async (_label, mismatch) => {
+    const { child, rpc } = createRpc();
+    child.emit("message", ready(mismatch));
+    await expect(rpc.ready).rejects.toEqual(expect.objectContaining({
+      code: "PROTOCOL_VERSION_MISMATCH",
+    }));
+    await expect(rpc.call("agent.stop")).rejects.toThrow();
+    expect(child.posted).toEqual([]);
+  });
+
+  it("rejects a malformed ready handshake", async () => {
+    const { child, rpc } = createRpc();
+    child.emit("message", { kind: "ready", protocolVersion: 1 });
+    await expect(rpc.ready).rejects.toEqual(expect.objectContaining({
+      code: "MALFORMED_READY_HANDSHAKE",
+    }));
   });
 });

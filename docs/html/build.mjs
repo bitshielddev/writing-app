@@ -97,12 +97,23 @@ const pages = [
     accent: "green",
   },
   {
+    source: "compatibility.md",
+    output: "compatibility.html",
+    title: "Durable-format and process compatibility",
+    shortTitle: "Compatibility",
+    category: "Ship safely",
+    number: "08",
+    description:
+      "Version, migrate, reject, preserve, and recover durable formats and packaged process protocols.",
+    accent: "blue",
+  },
+  {
     source: "extension-guide.md",
     output: "extension-guide.html",
     title: "Extension guide",
     shortTitle: "Extension guide",
     category: "Ship safely",
-    number: "08",
+    number: "09",
     description:
       "Use the existing seams to add a real agent, persistence, suggestion kinds, editor blocks, and application actions.",
     accent: "violet",

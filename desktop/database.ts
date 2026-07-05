@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const DATABASE_VERSION = 4;
+export const DATABASE_VERSION = 5;
 export const MINIMUM_SUPPORTED_DATABASE_VERSION = 2;
 
 export const CURRENT_SCHEMA_SQL = `
@@ -83,6 +83,17 @@ export const CURRENT_SCHEMA_SQL = `
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (consumer_id, stream_id)
   ) STRICT;
+
+  CREATE TABLE durable_json_quarantine (
+    id INTEGER PRIMARY KEY,
+    format_name TEXT NOT NULL,
+    record_identity TEXT NOT NULL,
+    source_text TEXT NOT NULL,
+    detected_version INTEGER,
+    error_code TEXT NOT NULL,
+    quarantined_at INTEGER NOT NULL,
+    UNIQUE (format_name, record_identity)
+  ) STRICT;
 `;
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
@@ -130,6 +141,23 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
       acknowledged_sequence INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL,
       PRIMARY KEY (consumer_id, stream_id)
+    ) STRICT`);
+  },
+}, {
+  fromVersion: 4,
+  toVersion: 5,
+  name: "durable-json-quarantine",
+  requiresBackup: true,
+  up(db) {
+    db.exec(`CREATE TABLE durable_json_quarantine (
+      id INTEGER PRIMARY KEY,
+      format_name TEXT NOT NULL,
+      record_identity TEXT NOT NULL,
+      source_text TEXT NOT NULL,
+      detected_version INTEGER,
+      error_code TEXT NOT NULL,
+      quarantined_at INTEGER NOT NULL,
+      UNIQUE (format_name, record_identity)
     ) STRICT`);
   },
 }];

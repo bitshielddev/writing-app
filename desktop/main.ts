@@ -38,6 +38,8 @@ import {
   PROTOCOL_VERSION,
   StorageChildMessageSchema,
   StorageOperations,
+  AGENT_PROTOCOL_NAME,
+  STORAGE_PROTOCOL_NAME,
   type AgentChildMessage,
   type OperationArgs,
   type OperationName,
@@ -84,6 +86,7 @@ function spawnChild<Registry extends OperationRegistry, Message extends StorageC
     registry,
     messageSchema,
     boundary,
+    boundary === "storage-process" ? STORAGE_PROTOCOL_NAME : AGENT_PROTOCOL_NAME,
   );
 }
 

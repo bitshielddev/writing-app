@@ -1,7 +1,12 @@
 import { DatabaseStartupError } from "./database.js";
 import { createStorageTransport } from "./storage-transport.js";
 import { createStorageService } from "./storage/service.js";
-import { PROTOCOL_VERSION } from "../src/shared/contracts.js";
+import {
+  BUILD_IDENTIFIER,
+  PROTOCOL_VERSION,
+  STORAGE_PROTOCOL_NAME,
+  STORAGE_RPC_METHODS,
+} from "../src/shared/contracts.js";
 
 export async function startStorageProcess(
   databasePath: string | undefined,
@@ -55,7 +60,13 @@ export async function startStorageProcess(
     void receive(data);
   });
   process.once("exit", () => service.close());
-  process.parentPort?.postMessage({ kind: "ready", protocolVersion: PROTOCOL_VERSION });
+  process.parentPort?.postMessage({
+    kind: "ready",
+    protocolName: STORAGE_PROTOCOL_NAME,
+    protocolVersion: PROTOCOL_VERSION,
+    buildIdentifier: BUILD_IDENTIFIER,
+    operations: STORAGE_RPC_METHODS,
+  });
   await service.dispatchPendingEvents();
   return service;
 }
