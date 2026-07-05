@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Workspace controller split into service hooks</title>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --paper: #fffdf8;
+      --ink: #1f2933;
+      --muted: #667085;
+      --line: #ded8cc;
+      --accent: #315f72;
+      --accent-2: #8a5a2b;
+      --soft: #edf4f6;
+      --warn: #fff3d8;
+      --code-bg: #17212b;
+      --code-ink: #e6edf3;
+      --code-muted: #9fb0c0;
+      --good: #e9f5e9;
+      --bad: #f8e8e5;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(49, 95, 114, 0.12), transparent 34rem),
+        linear-gradient(180deg, #fbfaf7 0%, var(--bg) 100%);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); }
+
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 42px 22px 64px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 28px;
+      align-items: start;
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      font-size: clamp(2.1rem, 5vw, 4.3rem);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+      margin: 0 0 18px;
+      max-width: 860px;
+    }
+
+    .lede {
+      max-width: 760px;
+      font-size: 1.12rem;
+      color: #344054;
+      margin: 0;
+    }
+
+    .card, .panel, .question {
+      background: rgba(255, 253, 248, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: 0 18px 48px rgba(36, 45, 52, 0.07);
+    }
+
+    .card { padding: 18px; }
+
+    .facts {
+      position: sticky;
+      top: 18px;
+      display: grid;
+      gap: 10px;
+      font-size: 0.92rem;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #fffaf0;
+      color: #3f4a54;
+      font-size: 0.82rem;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .section {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 28px;
+      align-items: start;
+    }
+
+    .rail {
+      color: var(--muted);
+      font-size: 0.92rem;
+      padding-top: 8px;
+    }
+
+    .rail strong {
+      display: block;
+      color: var(--ink);
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+
+    .panel { padding: 24px; }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: clamp(1.45rem, 3vw, 2.15rem);
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+    }
+
+    h3 {
+      margin: 24px 0 8px;
+      font-size: 1.08rem;
+      letter-spacing: -0.01em;
+    }
+
+    p { margin: 0 0 14px; }
+
+    ul { margin-top: 8px; padding-left: 1.25rem; }
+    li { margin: 6px 0; }
+
+    .map {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .map-row {
+      display: grid;
+      grid-template-columns: 185px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .map .node {
+      border: 1px solid #cbd8dc;
+      background: var(--soft);
+      border-radius: 16px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+      color: #183844;
+    }
+
+    .map .desc {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: #fffaf0;
+      color: #3f4a54;
+    }
+
+    .callout {
+      margin: 18px 0;
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+
+    .callout.warn {
+      border-left-color: #b7791f;
+      background: var(--warn);
+    }
+
+    .callout.test {
+      border-left-color: #3d7b48;
+      background: var(--good);
+    }
+
+    .compare {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      font-size: 0.94rem;
+    }
+
+    .compare th, .compare td {
+      text-align: left;
+      vertical-align: top;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .compare th {
+      background: #efe9dd;
+      color: #344054;
+      font-weight: 700;
+    }
+
+    .compare tr:last-child td { border-bottom: 0; }
+
+    figure { margin: 18px 0; }
+
+    figcaption {
+      color: var(--muted);
+      font-size: 0.86rem;
+      margin: 7px 2px 0;
+    }
+
+    pre {
+      margin: 0;
+      overflow: auto;
+      border-radius: 18px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      padding: 16px;
+      border: 1px solid #0e1720;
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    p code, li code, td code {
+      background: #eee6d8;
+      color: #253440;
+      padding: 0.12rem 0.32rem;
+      border-radius: 6px;
+    }
+
+    .hl { color: #ffd166; }
+    .muted-code { color: var(--code-muted); }
+
+    .mini-flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: #fffaf0;
+    }
+
+    .step .num {
+      width: 28px;
+      height: 28px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      font-size: 0.78rem;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .step p { margin: 0; font-size: 0.92rem; }
+
+    .quiz {
+      display: grid;
+      gap: 14px;
+    }
+
+    .question { padding: 18px; }
+
+    .question p { margin-bottom: 8px; }
+
+    details {
+      border-top: 1px solid var(--line);
+      margin-top: 10px;
+      padding-top: 10px;
+    }
+
+    summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 880px) {
+      .hero, .section { grid-template-columns: 1fr; }
+      .facts { position: static; }
+      .mini-flow { grid-template-columns: 1fr; }
+      .map-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <h1>Workspace controller split into service hooks</h1>
+        <p class="lede">
+          This staged change takes the large <code>useWorkspaceController</code> hook and moves most of its side effects into smaller hooks for hydration, document autosave, source import, agent control, and suggestion preview. The main controller now mostly wires those hooks together and keeps the suggestion inbox boundary intact.
+        </p>
+        <div class="meta-row">
+          <span class="chip">10 staged files</span>
+          <span class="chip">841 insertions, 275 deletions</span>
+          <span class="chip">4 focused test files passed</span>
+          <span class="chip">review shape: system map plus path tour</span>
+        </div>
+      </div>
+      <aside class="card facts" aria-label="Review facts">
+        <div><strong>Report focus</strong><br />Renderer workspace side effects</div>
+        <div><strong>Primary file</strong><br /><code>src/workspace/useWorkspaceController.ts</code></div>
+        <div><strong>New hooks</strong><br />hydration, autosave, source, agent, preview</div>
+        <div><strong>Verification run</strong><br /><code>npm test -- --run ...workspace...</code></div>
+      </aside>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>The change in one pass</strong>Read the diff as a separation of responsibilities, with a few behaviour additions around status, cleanup, and guarding duplicate operations.</aside>
+      <article class="panel">
+        <h2>The controller is now a coordinator</h2>
+        <p>
+          Before this change, <code>useWorkspaceController</code> owned hydration, document persistence, source list reconciliation, agent runtime state, activity upserts, preview insertion, and the desktop subscription in one hook. The current version keeps the public workspace handlers but delegates the stateful parts.
+        </p>
+
+        <div class="map" role="list" aria-label="Workspace service map">
+          <div class="map-row" role="listitem">
+            <div class="node">useWorkspaceHydration</div>
+            <div class="desc">Loads the desktop snapshot, installs document blocks, reports <code>loading</code>, <code>ready</code>, or <code>failed</code>, and marks hydration complete after a frame.</div>
+          </div>
+          <div class="map-row" role="listitem">
+            <div class="node">useDocumentAutosave</div>
+            <div class="desc">Debounces editor changes, filters preview blocks out of saved content, serializes saves, tracks revision, exposes save status, and flushes on unmount.</div>
+          </div>
+          <div class="map-row" role="listitem">
+            <div class="node">useSourceController</div>
+            <div class="desc">Initializes and reconciles imported sources, with pending and error state for import attempts.</div>
+          </div>
+          <div class="map-row" role="listitem">
+            <div class="node">useAgentController</div>
+            <div class="desc">Owns runtime, activity history, start/stop commands, duplicate command suppression, and activity history capping.</div>
+          </div>
+          <div class="map-row" role="listitem">
+            <div class="node">usePreviewController</div>
+            <div class="desc">Tracks the active editor block for previews, listens for preview resolutions, inserts preview blocks, and removes active preview content on teardown.</div>
+          </div>
+        </div>
+
+        <figure>
+          <pre><code>const hydration = useWorkspaceHydration({ desktop, editor, initialize: initializeSnapshot });
+const document = useDocumentAutosave(desktop, editor, hydration.phase === "ready");
+const source = useSourceController(desktop);
+const agent = useAgentController(desktop);
+const preview = usePreviewController({
+  editor,
+  activePreviewId: inbox.activePreviewId,
+  previewStarted: inbox.previewStarted,
+  previewResolved: inbox.previewResolved,
+});</code></pre>
+          <figcaption>From <code>useWorkspaceController.ts</code>: the top-level hook now composes service hooks instead of owning their internal state directly.</figcaption>
+        </figure>
+
+        <table class="compare">
+          <thead>
+            <tr><th>Area</th><th>Old controller-owned behaviour</th><th>New ownership</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Hydration</td>
+              <td>Local refs tracked hydration progress and document readiness.</td>
+              <td><code>useWorkspaceHydration</code> exposes <code>phase</code> and <code>error</code>.</td>
+            </tr>
+            <tr>
+              <td>Autosave</td>
+              <td>Local timer and queue saved after hydration.</td>
+              <td><code>useDocumentAutosave</code> keeps timer, queue, revision, status, error, and flush.</td>
+            </tr>
+            <tr>
+              <td>Agent</td>
+              <td>Local runtime, activity, pending command, and error.</td>
+              <td><code>useAgentController</code> owns those states and caps activity at 500.</td>
+            </tr>
+            <tr>
+              <td>Preview</td>
+              <td>Local last active block plus preview insertion.</td>
+              <td><code>usePreviewController</code> owns selection tracking, resolution subscription, insertion, and unmount cleanup.</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>Mount path</strong>The important path starts with the desktop snapshot. Autosave is intentionally blocked until that path reaches <code>ready</code>.</aside>
+      <article class="panel">
+        <h2>Follow the first render: snapshot fan-out, then ready</h2>
+        <p>
+          Hydration still replaces the editor document from the desktop snapshot when blocks are present. The new part is that the hook also exposes a phase and catches both hydrate failures and initialization failures. The controller passes a stable <code>initializeSnapshot</code> callback into hydration, then fills a ref with the actual fan-out initializer after all child hooks are created.
+        </p>
+
+        <div class="mini-flow" aria-label="Hydration flow">
+          <div class="step"><span class="num">1</span><p><code>desktop.hydrate()</code> resolves with a <code>WorkspaceSnapshot</code>.</p></div>
+          <div class="step"><span class="num">2</span><p>Hydration replaces editor blocks if the snapshot has document blocks.</p></div>
+          <div class="step"><span class="num">3</span><p>The controller initializer seeds document, source, agent, suggestions, inbox, and preview state.</p></div>
+          <div class="step"><span class="num">4</span><p>After <code>requestAnimationFrame</code>, phase becomes <code>ready</code> and autosave can run.</p></div>
+        </div>
+
+        <figure>
+          <pre><code>void desktop.hydrate().then(
+  (snapshot) =&gt; {
+    if (cancelled) return;
+    try {
+      if (snapshot.document.blocks.length) {
+        editor.replaceBlocks(
+          editor.document,
+          snapshot.document.blocks as WritingPartialBlock[],
+        );
+      }
+      <span class="hl">initialize(snapshot);</span>
+      frame = window.requestAnimationFrame(() =&gt; {
+        if (cancelled) return;
+        <span class="hl">setPhase("ready");</span>
+        markPerformance(PERFORMANCE_MARKS.hydrationComplete);
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The workspace could not be loaded");
+      setPhase("failed");
+    }
+  },
+  (cause: unknown) =&gt; {
+    if (cancelled) return;
+    console.error("Workspace hydration failed", cause);
+    setError(cause instanceof Error ? cause.message : "The workspace could not be loaded");
+    setPhase("failed");
+  },
+);</code></pre>
+          <figcaption>From <code>useWorkspaceHydration.ts</code>. The phase is the new explicit gate for document writes.</figcaption>
+        </figure>
+
+        <figure>
+          <pre><code>useEffect(() =&gt; {
+  initializeRef.current = (snapshot) =&gt; {
+    initializeDocument(snapshot.document);
+    initializeSources(snapshot.sources);
+    initializeAgent(snapshot.agent, snapshot.activity);
+    seedSuggestionState(snapshot.suggestions);
+    hydrateInbox(snapshot.suggestions);
+    initializePreview();
+  };
+}, [hydrateInbox, initializeAgent, initializeDocument, initializePreview,
+    initializeSources, seedSuggestionState]);</code></pre>
+          <figcaption>From <code>useWorkspaceController.ts</code>. The snapshot is fanned out to each narrower owner.</figcaption>
+        </figure>
+
+        <div class="callout warn">
+          <p><strong>Invariant to keep:</strong> hydration must complete before autosave is allowed to persist editor contents. That is now represented by <code>hydration.phase === "ready"</code>, passed into <code>useDocumentAutosave</code>. A future edit that bypasses this gate could save the initial placeholder document over hydrated content.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>Autosave path</strong>This is the most behaviour-heavy extraction. It adds status reporting and a public flush while preserving delayed, serialized document saves.</aside>
+      <article class="panel">
+        <h2>The document save contract is more explicit</h2>
+        <p>
+          The old autosave logic lived inside the controller. The new hook names the contract: no save before readiness and initialization, debounce editor changes for 650 ms, remove <code>suggestionPreview</code> blocks from persisted content, serialize saves through a promise queue, and advance the expected revision from save results or desktop events.
+        </p>
+
+        <figure>
+          <pre><code>const enqueueSave = useCallback(() =&gt; {
+  <span class="hl">if (!readyRef.current || !initializedRef.current) return;</span>
+
+  let blocks: WritingEditor["document"];
+  let markdown: string;
+  try {
+    blocks = editor.document.filter(
+      (block) =&gt; block.type !== "suggestionPreview",
+    );
+    markdown = editor.blocksToMarkdownLossy(blocks);
+  } catch (cause) {
+    if (mountedRef.current) {
+      setStatus("failed");
+      setError(message(cause));
+    }
+    return;
+  }
+
+  queueRef.current = queueRef.current
+    .catch(() =&gt; undefined)
+    .then(async () =&gt; {
+      if (mountedRef.current) {
+        setStatus("saving");
+        setError(undefined);
+      }
+      const document = await desktop.saveDocument({
+        documentId: documentIdRef.current,
+        blocks,
+        markdown,
+        expectedRevision: revisionRef.current,
+      });
+      revisionRef.current = document.revision;
+      if (mountedRef.current) setStatus("idle");
+    })
+    .catch((cause: unknown) =&gt; {
+      if (mountedRef.current) {
+        setStatus("failed");
+        setError(message(cause));
+      }
+      console.error("Document save failed", cause);
+    });
+}, [desktop, editor]);</code></pre>
+          <figcaption>From <code>useDocumentAutosave.ts</code>. The highlighted readiness check is the guard that replaced controller-local hydration refs.</figcaption>
+        </figure>
+
+        <p>
+          Two small details matter for later maintenance:
+        </p>
+        <ul>
+          <li><code>.catch(() =&gt; undefined)</code> before the next queued save means a previous rejection does not permanently poison the save queue.</li>
+          <li><code>onDesktopEvent</code> uses <code>Math.max(revisionRef.current, event.document.revision)</code>, so an older <code>document.saved</code> event will not move the expected revision backwards.</li>
+        </ul>
+
+        <figure>
+          <pre><code>const flush = useCallback(() =&gt; {
+  if (timerRef.current) {
+    clearTimeout(timerRef.current);
+    timerRef.current = undefined;
+  }
+  enqueueSave();
+}, [enqueueSave]);
+
+useEffect(() =&gt; {
+  mountedRef.current = true;
+  return () =&gt; {
+    <span class="hl">flushRef.current();</span>
+    mountedRef.current = false;
+  };
+}, []);</code></pre>
+          <figcaption>Flush is now returned from the controller as <code>flushDocument</code>, and the hook also invokes it during teardown.</figcaption>
+        </figure>
+
+        <div class="callout test">
+          <p><strong>Tests pinning this down:</strong> <code>useDocumentAutosave.test.ts</code> checks debouncing at 650 ms, preview block exclusion, serialized saves with the next revision, suppression before <code>ready</code>, conflict error exposure, and unmount flush.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>Desktop events</strong>The subscription remains shared, but events are distributed to service hooks before suggestion events are emitted to the feed.</aside>
+      <article class="panel">
+        <h2>One subscription, narrower handlers</h2>
+        <p>
+          The controller still owns the single <code>desktop.subscribe</code> call. Instead of a large switch, it fans each event into document, source, and agent handlers, then handles suggestion feed events locally. This keeps the desktop boundary in one place while letting each hook decide which event types it cares about.
+        </p>
+
+        <figure>
+          <pre><code>useEffect(
+  () =&gt;
+    desktop.subscribe((event) =&gt; {
+      onDocumentEvent(event);
+      onSourceEvent(event);
+      onAgentEvent(event);
+      if (event.type === "suggestion.event") {
+        suggestionFeed.emit(event.event);
+      }
+    }),
+  [desktop, onAgentEvent, onDocumentEvent, onSourceEvent, suggestionFeed],
+);</code></pre>
+          <figcaption>From <code>useWorkspaceController.ts</code>. The existing return value from <code>desktop.subscribe</code> is still the cleanup function for the effect.</figcaption>
+        </figure>
+
+        <p>
+          The new controller test adds a direct listener count check on remount. That is not testing business behaviour; it is guarding against leaked desktop subscriptions as dependencies or child hook callbacks change.
+        </p>
+
+        <figure>
+          <pre><code>expect(harness.listenerCount()).toBe(1);
+first.unmount();
+expect(harness.listenerCount()).toBe(0);
+
+const second = renderHook(() =&gt;
+  useWorkspaceController(harness.bridge, harness.editor),
+);
+expect(harness.listenerCount()).toBe(1);
+second.unmount();
+expect(harness.listenerCount()).toBe(0);</code></pre>
+          <figcaption>From <code>useWorkspaceController.test.ts</code>. This matters because the refactor introduced more callback dependencies around the shared subscription.</figcaption>
+        </figure>
+      </article>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>Agent, source, preview</strong>These extractions are smaller, but each carries a behaviour detail that can surprise a maintainer.</aside>
+      <article class="panel">
+        <h2>Three smaller controllers, three guardrails</h2>
+
+        <h3>Agent commands are now single-flight</h3>
+        <p>
+          <code>useAgentController</code> adds <code>pendingRef</code>. If a start or stop request is already in progress, a second request returns early. The old controller set a pending value but did not have this explicit duplicate guard.
+        </p>
+        <figure>
+          <pre><code>const control = useCallback(
+  async (command: "start" | "stop") =&gt; {
+    <span class="hl">if (pendingRef.current) return;</span>
+    pendingRef.current = true;
+    setPending(command);
+    setError(undefined);
+    try {
+      const next = await (command === "start"
+        ? desktop.startAgent()
+        : desktop.stopAgent());
+      if (mountedRef.current) setRuntime(next);
+    } catch (cause) {
+      if (mountedRef.current) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : command === "start"
+              ? "The agent could not be started"
+              : "The agent could not be stopped",
+        );
+      }
+      console.error(`Agent ${command} failed`, cause);
+    } finally {
+      pendingRef.current = false;
+      if (mountedRef.current) setPending(undefined);
+    }
+  },
+  [desktop],
+);</code></pre>
+          <figcaption>From <code>useAgentController.ts</code>. Activity upsert and the 500 item cap moved here as well.</figcaption>
+        </figure>
+
+        <h3>Source imports now expose pending and error state</h3>
+        <p>
+          <code>useSourceController</code> keeps the identity-based reconciliation from the old controller. It also reports pending and error state and suppresses overlapping imports.
+        </p>
+        <figure>
+          <pre><code>function reconcile(sources: SourceSnapshot[], source: SourceSnapshot) {
+  return [source, ...sources.filter((candidate) =&gt; candidate.id !== source.id)];
+}
+
+const importSource = useCallback(async () =&gt; {
+  if (pendingRef.current) return;
+  pendingRef.current = true;
+  setPending(true);
+  setError(undefined);
+  try {
+    const source = await desktop.importSource();
+    if (source &amp;&amp; mountedRef.current) {
+      setSources((current) =&gt; reconcile(current, source));
+    }
+  } catch (cause) {
+    if (mountedRef.current) {
+      setError(cause instanceof Error ? cause.message : "The source could not be imported");
+    }
+  } finally {
+    pendingRef.current = false;
+    if (mountedRef.current) setPending(false);
+  }
+}, [desktop]);</code></pre>
+          <figcaption>From <code>useSourceController.ts</code>. The public controller now returns <code>sourceImportPending</code> and <code>sourceImportError</code>, although the current <code>App.tsx</code> destructuring does not consume them yet.</figcaption>
+        </figure>
+
+        <h3>Preview cleanup is now owned by the preview hook</h3>
+        <p>
+          Preview insertion is mostly the same as before: do nothing if a preview is already active or the item does not support preview, ignore existing preview blocks when choosing the reference block, insert a <code>suggestionPreview</code> after the last active accepted block, then move the cursor there. The new teardown removes active preview blocks on unmount.
+        </p>
+        <figure>
+          <pre><code>useEffect(
+  () =&gt; () =&gt; {
+    const id = activePreviewRef.current;
+    if (!id) return;
+    const blocks = editor.document.filter(
+      (block) =&gt;
+        block.type === "suggestionPreview" &amp;&amp;
+        block.props.suggestionId === id,
+    );
+    if (blocks.length) editor.removeBlocks(blocks.map((block) =&gt; block.id));
+  },
+  [editor],
+);</code></pre>
+          <figcaption>From <code>usePreviewController.ts</code>. The test rerenders with <code>activePreviewId</code> before unmounting, so the ref contains the active suggestion id.</figcaption>
+        </figure>
+      </article>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>Public boundary</strong>The controller still gives <code>App.tsx</code> the same core handlers, plus some statuses that are available for future UI.</aside>
+      <article class="panel">
+        <h2>The return value grew, but callers are not forced to use it</h2>
+        <p>
+          <code>useWorkspaceController</code> still returns <code>inbox</code>, sources, runtime, activity, suggestion navigation, and workspace handlers. New returned fields expose internal state that previously was not visible: <code>workspacePhase</code>, <code>hydrationError</code>, <code>documentSaveStatus</code>, <code>documentSaveError</code>, <code>sourceImportPending</code>, <code>sourceImportError</code>, and <code>flushDocument</code>.
+        </p>
+
+        <figure>
+          <pre><code>return {
+  inbox,
+  <span class="hl">workspacePhase: hydration.phase,</span>
+  <span class="hl">hydrationError: hydration.error,</span>
+  <span class="hl">documentSaveStatus: document.status,</span>
+  <span class="hl">documentSaveError: document.error,</span>
+  sources: source.sources,
+  <span class="hl">sourceImportPending: source.pending,</span>
+  <span class="hl">sourceImportError: source.error,</span>
+  runtime: agent.runtime,
+  activity: agent.activity,
+  agentControlPending: agent.pending,
+  agentError: agent.error ?? agent.runtime.error,
+  suggestionPersistenceStatus: suggestionPersistence.status,
+  suggestionPersistenceError: suggestionPersistence.failureMessage,
+  retrySuggestionSave: suggestionPersistence.retry,
+  partnerView,
+  setPartnerView,
+  suggestionNavigator,
+  handleEditorChange: document.handleChange,
+  <span class="hl">flushDocument: document.flush,</span>
+  handleEditorSelectionChange: preview.handleSelectionChange,
+  handleUploadSource: source.importSource,
+  handleStartAgent: agent.start,
+  handleStopAgent: agent.stop,
+  handlePreview: preview.preview,
+};</code></pre>
+          <figcaption>From <code>useWorkspaceController.ts</code>. Existing UI code in <code>App.tsx</code> still destructures only the old fields, so the new statuses are currently available but not displayed.</figcaption>
+        </figure>
+      </article>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>Why this fits the repository history</strong>The log shows workspace controller behaviour accumulated through several earlier commits.</aside>
+      <article class="panel">
+        <h2>How the history led here</h2>
+        <p>
+          The file history suggests this is a refactor after several feature increments, not a brand-new feature path. <code>aedb3c4 Clean up</code> introduced the large controller and its tests. <code>a3def0f 1 desktop boundary review</code> adjusted how the workspace met the desktop boundary. <code>f2a6258 Suggestion save queue and retry</code> changed persistence behaviour. <code>361bf68 Measure and reduce bundle sizes and start-up time</code> added the hydration performance mark. <code>82ec51a Suggestion schema and capabilities</code> updated suggestion capability checks used by preview and workspace placement.
+        </p>
+        <p>
+          This staged change keeps those paths recognizable but separates them into hooks that can be tested without rendering the entire workspace controller. That intent is inferred from the code structure and the new focused tests, not from a commit message, since this staged change has not been committed yet.
+        </p>
+      </article>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>Risks to carry forward</strong>Most risk here is about preserving sequencing and cleanup across hook boundaries.</aside>
+      <article class="panel">
+        <h2>Maintenance notes for future edits</h2>
+        <ul>
+          <li><strong>Hydration ordering:</strong> <code>useWorkspaceHydration</code> is called before the controller effect that assigns <code>initializeRef.current</code>. With real Promises, hydration completion runs after effects have been registered, which makes this safe. If a future test harness returns a non-compliant thenable that calls synchronously, initialization could be skipped.</li>
+          <li><strong>Autosave readiness:</strong> <code>ready</code> must stay tied to <code>hydration.phase === "ready"</code>. Saving before that phase risks persisting pre-hydration editor state.</li>
+          <li><strong>Preview teardown:</strong> cleanup removes blocks only for the current <code>activePreviewId</code>. That id is kept fresh via a ref. If preview state and editor blocks ever get out of sync, stale preview blocks outside that id would not be removed by this cleanup.</li>
+          <li><strong>UI exposure:</strong> save, hydration, and source import errors are returned from the controller but are not yet shown by the current <code>App.tsx</code> path. That is not a bug in this diff, but it affects how visible failures are to users.</li>
+          <li><strong>Test organization:</strong> source, agent, and preview tests share <code>workspaceServices.test.ts</code>. That keeps the files compact, but future growth may make failures easier to triage if those hooks get separate test files.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="section">
+      <aside class="rail"><strong>Comprehension check</strong>Answers are included so the page stays useful during review or onboarding.</aside>
+      <article class="panel quiz">
+        <h2>Check your mental model</h2>
+
+        <div class="question">
+          <p><strong>1. A user edits the document while workspace hydration is still loading. Which code prevents an autosave?</strong></p>
+          <details><summary>Answer</summary>
+            <p><code>useDocumentAutosave</code> receives <code>ready</code> from <code>hydration.phase === "ready"</code>. Both <code>handleChange</code> and <code>enqueueSave</code> return early when <code>readyRef.current</code> or <code>initializedRef.current</code> is false.</p>
+          </details>
+        </div>
+
+        <div class="question">
+          <p><strong>2. What would likely break if <code>suggestionPreview</code> blocks were not filtered before saving?</strong></p>
+          <details><summary>Answer</summary>
+            <p>Temporary preview content could be persisted as part of the real document. The autosave hook filters <code>editor.document</code> with <code>block.type !== "suggestionPreview"</code> before markdown conversion and <code>desktop.saveDocument</code>.</p>
+          </details>
+        </div>
+
+        <div class="question">
+          <p><strong>3. Why does the agent controller keep both React state <code>pending</code> and a ref <code>pendingRef</code>?</strong></p>
+          <details><summary>Answer</summary>
+            <p><code>pending</code> exposes UI state. <code>pendingRef</code> gives the async command path an immediate single-flight guard, so a second start or stop call can return before React state updates propagate.</p>
+          </details>
+        </div>
+
+        <div class="question">
+          <p><strong>4. If duplicate source rows appear after imports, where would you start debugging?</strong></p>
+          <details><summary>Answer</summary>
+            <p>Start in <code>useSourceController</code>, especially <code>reconcile</code> and event handling for <code>source.imported</code>. The invariant is that a source is placed first and any existing entry with the same <code>id</code> is removed.</p>
+          </details>
+        </div>
+
+        <div class="question">
+          <p><strong>5. Which test best captures the new subscription cleanup concern?</strong></p>
+          <details><summary>Answer</summary>
+            <p>The new <code>useWorkspaceController.test.ts</code> case that mounts, checks listener count is 1, unmounts, checks 0, remounts, and checks cleanup again. It is tied to the shared <code>desktop.subscribe</code> effect in the controller.</p>
+          </details>
+        </div>
+      </article>
+    </section>
+
+    <p class="footer-note">
+      Generated from the staged diff and recent git history. Focused tests run successfully: <code>src/workspace/useWorkspaceController.test.ts</code>, <code>src/workspace/useDocumentAutosave.test.ts</code>, <code>src/workspace/useWorkspaceHydration.test.ts</code>, and <code>src/workspace/workspaceServices.test.ts</code>.
+    </p>
+  </main>
+</body>
+</html>

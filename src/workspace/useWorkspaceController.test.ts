@@ -81,6 +81,7 @@ function createHarness() {
     bridge,
     editor,
     editorState,
+    listenerCount: () => listeners.size,
     emit(event: DesktopEvent) {
       listeners.forEach((listener) => listener(event));
     },
@@ -223,5 +224,22 @@ describe("workspace controller", () => {
       emitPreviewResolution({ suggestionId: "suggestion", outcome: "cancelled" }),
     );
     expect(result.current.inbox.activePreviewId).toBeUndefined();
+  });
+
+  it("cleans up the shared desktop subscription on remount", () => {
+    const harness = createHarness();
+    const first = renderHook(() =>
+      useWorkspaceController(harness.bridge, harness.editor),
+    );
+    expect(harness.listenerCount()).toBe(1);
+    first.unmount();
+    expect(harness.listenerCount()).toBe(0);
+
+    const second = renderHook(() =>
+      useWorkspaceController(harness.bridge, harness.editor),
+    );
+    expect(harness.listenerCount()).toBe(1);
+    second.unmount();
+    expect(harness.listenerCount()).toBe(0);
   });
 });
