@@ -4,7 +4,11 @@ import {
   type SuggestionItem,
   type SuggestionKind,
 } from "../../suggestions/types";
-import { isStructureNodes } from "../../suggestions/validation";
+import {
+  formatSuggestionValidationIssues,
+  isStructureNodes,
+  parseSuggestionItem,
+} from "../../suggestions/validation";
 
 export type MockSuggestionDraft = {
   kind: SuggestionKind;
@@ -56,15 +60,14 @@ export function buildMockSuggestion(
     createdAt: metadata.createdAt,
   };
 
+  let item: unknown;
   if (isTextSuggestionKind(draft.kind)) {
-    return {
+    item = {
       ...common,
       kind: draft.kind,
       insertText: required(draft.insertText, "Insert text"),
     };
-  }
-
-  if (isStructureSuggestionKind(draft.kind)) {
+  } else if (isStructureSuggestionKind(draft.kind)) {
     let nodes: unknown;
     try {
       nodes = JSON.parse(required(draft.nodes, "Nodes JSON"));
@@ -81,16 +84,20 @@ export function buildMockSuggestion(
       );
     }
 
-    return { ...common, kind: draft.kind, nodes };
+    item = { ...common, kind: draft.kind, nodes };
+  } else {
+    item = {
+      ...common,
+      kind: "mindMap",
+      mermaidSource: required(draft.mermaidSource, "Mermaid source"),
+      accessibleDescription: required(
+        draft.accessibleDescription,
+        "Accessible description",
+      ),
+    };
   }
 
-  return {
-    ...common,
-    kind: "mindMap",
-    mermaidSource: required(draft.mermaidSource, "Mermaid source"),
-    accessibleDescription: required(
-      draft.accessibleDescription,
-      "Accessible description",
-    ),
-  };
+  const parsed = parseSuggestionItem(item);
+  if (parsed.success) return parsed.value;
+  throw new Error(formatSuggestionValidationIssues(parsed.issues));
 }

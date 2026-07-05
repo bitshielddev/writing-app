@@ -25,7 +25,10 @@ import {
   type PersistedSuggestionState,
 } from "../src/suggestions/state.js";
 import type { SuggestionEvent, SuggestionItem } from "../src/suggestions/types.js";
-import { isSuggestionItem } from "../src/suggestions/validation.js";
+import {
+  formatSuggestionValidationIssues,
+  parseSuggestionItem,
+} from "../src/suggestions/validation.js";
 import { createStorageTransport } from "./storage-transport.js";
 import { DatabaseStartupError, openApplicationDatabase } from "./database.js";
 
@@ -133,7 +136,33 @@ function getSuggestionState(): PersistedSuggestionState {
   const row = db.prepare(
     "SELECT state_json FROM suggestion_state WHERE project_id = ?",
   ).get(PROJECT_ID) as { state_json: string };
-  return json<PersistedSuggestionState>(row.state_json);
+  const state = json<PersistedSuggestionState>(row.state_json);
+  assertSuggestionProjectionItems(state);
+  return state;
+}
+
+function parsedSuggestion(value: unknown, context: string): SuggestionItem {
+  const parsed = parseSuggestionItem(value);
+  if (parsed.success) return parsed.value;
+  throw new Error(
+    `${context}: ${formatSuggestionValidationIssues(parsed.issues)}`,
+  );
+}
+
+function assertSuggestionProjectionItems(value: unknown): asserts value is PersistedSuggestionState {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid suggestion projection");
+  }
+  const state = value as Partial<PersistedSuggestionState>;
+  const collections = [state.entries, state.pinnedEntries, state.workspacePins];
+  if (collections.some((collection) => !Array.isArray(collection))) {
+    throw new Error("Invalid suggestion projection");
+  }
+  for (const collection of collections as Array<Array<{ item?: unknown }>>) {
+    for (const entry of collection) {
+      parsedSuggestion(entry?.item, "Invalid suggestion projection item");
+    }
+  }
 }
 
 function listSources(): SourceSnapshot[] {
@@ -342,10 +371,8 @@ async function saveDocument(params: unknown): Promise<DocumentSnapshot> {
 }
 
 function saveSuggestionState(params: unknown) {
-  const state = params as PersistedSuggestionState;
-  if (!Array.isArray(state.entries) || !Array.isArray(state.pinnedEntries)) {
-    throw new Error("Invalid suggestion projection");
-  }
+  assertSuggestionProjectionItems(params);
+  const state = params;
   putSuggestionState({
     ...state,
     entries: trimSuggestionEntries(state.entries),
@@ -386,7 +413,7 @@ function assertCurrentRevision(expectedDocumentRevision: number) {
 
 function createSuggestion(params: unknown) {
   const input = params as { item: SuggestionItem; expectedDocumentRevision: number };
-  if (!isSuggestionItem(input.item)) throw new Error("Invalid suggestion");
+  input.item = parsedSuggestion(input.item, "Invalid suggestion");
   assertCurrentRevision(input.expectedDocumentRevision);
   return transaction(() => {
     const state = getSuggestionState();
@@ -402,13 +429,13 @@ function createSuggestion(params: unknown) {
 
 function createDevelopmentSuggestion(params: unknown) {
   const item = (params as { item?: unknown }).item;
-  if (!isSuggestionItem(item)) throw new Error("Invalid development suggestion");
-  return createSuggestion({ item, expectedDocumentRevision: getDocument().revision });
+  const parsed = parsedSuggestion(item, "Invalid development suggestion");
+  return createSuggestion({ item: parsed, expectedDocumentRevision: getDocument().revision });
 }
 
 function updateSuggestion(params: unknown) {
   const input = params as { item: SuggestionItem; expectedDocumentRevision: number };
-  if (!isSuggestionItem(input.item)) throw new Error("Invalid suggestion");
+  input.item = parsedSuggestion(input.item, "Invalid suggestion");
   assertCurrentRevision(input.expectedDocumentRevision);
   return transaction(() => {
     const state = getSuggestionState();

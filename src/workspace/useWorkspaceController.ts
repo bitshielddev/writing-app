@@ -15,7 +15,8 @@ import { useSuggestionPersistence } from "../suggestions/useSuggestionPersistenc
 import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
 import { markPerformance, PERFORMANCE_MARKS } from "../performance/marks";
 import {
-  isTextSuggestion,
+  supportsSuggestionPreview,
+  supportsWorkspacePlacement,
   type SuggestionItem,
 } from "../suggestions/types";
 
@@ -257,7 +258,7 @@ export function useWorkspaceController(
   const previewStarted = inbox.previewStarted;
   const handlePreview = useCallback(
     (item: SuggestionItem) => {
-      if (activePreviewId || !isTextSuggestion(item)) return;
+      if (activePreviewId || !supportsSuggestionPreview(item)) return;
       const acceptedBlocks = editor.document.filter(
         (block) => block.type !== "suggestionPreview",
       );
@@ -296,6 +297,7 @@ export function useWorkspaceController(
   const placeOnWorkspace = inbox.placeOnWorkspace;
   const handlePlaceOnWorkspace = useCallback(
     (item: SuggestionItem) => {
+      if (!supportsWorkspacePlacement(item)) return;
       placeOnWorkspace(item.id, {
         x: 16,
         y: 16,

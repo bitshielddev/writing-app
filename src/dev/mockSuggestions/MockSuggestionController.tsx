@@ -1,6 +1,7 @@
 import { type FormEvent, useRef, useState } from "react";
 
 import {
+  isMindMapSuggestionKind,
   isStructureSuggestionKind,
   isTextSuggestionKind,
   type SuggestionItem,
@@ -203,7 +204,7 @@ export function MockSuggestionController({
             </label>
           ) : null}
 
-          {kind === "mindMap" ? (
+          {isMindMapSuggestionKind(kind) ? (
             <>
               <label className="text-sm font-bold text-[#393844]">
                 Mermaid source

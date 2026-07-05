@@ -11,8 +11,9 @@ import {
 
 import type { InboxEntry } from "../suggestions/inbox";
 import {
-  isTextSuggestion,
   isVisualSuggestion,
+  supportsSuggestionPreview,
+  supportsWorkspacePlacement,
   type SuggestionItem,
 } from "../suggestions/types";
 import { KindBadge, SuggestionVisual } from "./SuggestionPresentation";
@@ -140,7 +141,7 @@ export function SuggestionDockDetail({
               )}
               {pinned ? "Unpin" : "Pin"}
             </button>
-            {pinned ? (
+            {pinned && supportsWorkspacePlacement(item) ? (
               <button
                 type="button"
                 className="hidden min-h-10 items-center gap-2 rounded-md border border-brand-300 bg-white px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45 xl:inline-flex"
@@ -151,7 +152,7 @@ export function SuggestionDockDetail({
                 Place on workspace
               </button>
             ) : null}
-            {isTextSuggestion(item) ? (
+            {supportsSuggestionPreview(item) ? (
               <button
                 type="button"
                 className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow-md shadow-brand-600/15 hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-[#aaa6bd] disabled:shadow-none"

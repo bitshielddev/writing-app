@@ -3,7 +3,10 @@ import { useCallback, useMemo, useState } from "react";
 import type { WritingEditor } from "../editor/schema";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type { SuggestionKeyboardNavigationController } from "../suggestions/keyboardNavigation";
-import { isTextSuggestion, type SuggestionItem } from "../suggestions/types";
+import {
+  supportsSuggestionPreview,
+  type SuggestionItem,
+} from "../suggestions/types";
 import type { WorkspaceLayoutController } from "../workspace/useWorkspaceLayout";
 import {
   executed,
@@ -143,7 +146,7 @@ export function useWorkspaceKeybindings({
       },
       "suggestion.preview": () => {
         if (!targetEntry) return unavailable("No suggestion selected");
-        if (!isTextSuggestion(targetEntry.item)) {
+        if (!supportsSuggestionPreview(targetEntry.item)) {
           return unavailable("This suggestion cannot be previewed in the document");
         }
         if (targetEntry.withdrawn) {

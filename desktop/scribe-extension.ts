@@ -5,13 +5,15 @@ import { Type } from "typebox";
 
 import { ScribeLoopState, type PersistedScribeLoopState } from "./scribe-loop.js";
 import type { AgentActivity } from "../src/shared/desktop.js";
+import type { SuggestionItem } from "../src/suggestions/types.js";
 import {
-  isStructureSuggestionKind,
-  isTextSuggestionKind,
-  SUGGESTION_KINDS,
-  type SuggestionItem,
-  type SuggestionKind,
-} from "../src/suggestions/types.js";
+  SuggestionToolInputSchema,
+  SuggestionToolUpdateInputSchema,
+  formatSuggestionValidationIssues,
+  parseSuggestionItem,
+  type SuggestionToolInput,
+  type SuggestionToolUpdateInput,
+} from "../src/suggestions/schema.js";
 
 export const SCRIBE_LOOP_ENTRY = "scribe.loop-state";
 export const SCRIBE_REVISION_EVENT = "scribe.project-revision";
@@ -37,59 +39,16 @@ export type ScribeExtensionHost = {
   persist(): void;
 };
 
-const suggestionSchema = Type.Object({
-  kind: Type.Union(SUGGESTION_KINDS.map((kind) => Type.Literal(kind))),
-  dedupeKey: Type.String({ minLength: 1, maxLength: 200 }),
-  title: Type.String({ minLength: 1, maxLength: 200 }),
-  summary: Type.String({ minLength: 1, maxLength: 1_000 }),
-  body: Type.String({ minLength: 1, maxLength: 8_000 }),
-  sourceLabels: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 12 }),
-  insertText: Type.Optional(Type.String({ maxLength: 20_000 })),
-  nodes: Type.Optional(Type.Array(Type.Unknown(), { maxItems: 100 })),
-  mermaidSource: Type.Optional(Type.String({ maxLength: 20_000 })),
-  accessibleDescription: Type.Optional(Type.String({ maxLength: 4_000 })),
-});
-
-type SuggestionInput = {
-  kind: SuggestionKind;
-  dedupeKey: string;
-  title: string;
-  summary: string;
-  body: string;
-  sourceLabels: string[];
-  insertText?: string;
-  nodes?: unknown[];
-  mermaidSource?: string;
-  accessibleDescription?: string;
-};
-
-function toSuggestion(input: SuggestionInput, id: string = randomUUID()): SuggestionItem {
-  const base = {
-    id,
-    dedupeKey: input.dedupeKey,
-    title: input.title,
-    summary: input.summary,
-    body: input.body,
-    sourceLabels: input.sourceLabels,
-    createdAt: Date.now(),
-  };
-  if (isTextSuggestionKind(input.kind)) {
-    if (!input.insertText) throw new Error("Text suggestions require insertText");
-    return { ...base, kind: input.kind, insertText: input.insertText };
-  }
-  if (isStructureSuggestionKind(input.kind)) {
-    if (!input.nodes) throw new Error("Structure suggestions require nodes");
-    return { ...base, kind: input.kind, nodes: input.nodes as never[] };
-  }
-  if (!input.mermaidSource || !input.accessibleDescription) {
-    throw new Error("Mind maps require Mermaid source and an accessible description");
-  }
-  return {
-    ...base,
-    kind: "mindMap",
-    mermaidSource: input.mermaidSource,
-    accessibleDescription: input.accessibleDescription,
-  };
+export function toSuggestion(
+  input: SuggestionToolInput | SuggestionToolUpdateInput,
+  id: string = "id" in input ? input.id : randomUUID(),
+  createdAt: number = Date.now(),
+): SuggestionItem {
+  const parsed = parseSuggestionItem({ ...input, id, createdAt });
+  if (parsed.success) return parsed.value;
+  throw new Error(
+    `Invalid suggestion: ${formatSuggestionValidationIssues(parsed.issues)}`,
+  );
 }
 
 function toolResult(value: unknown, isError = false) {
@@ -182,9 +141,9 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
       name: "create_suggestion",
       label: "Create suggestion",
       description: "Publish a proposed draft change without editing draft.md.",
-      parameters: suggestionSchema,
+      parameters: SuggestionToolInputSchema,
       execute: async (_id, params) => {
-        const item = toSuggestion(params as SuggestionInput);
+        const item = toSuggestion(params as SuggestionToolInput);
         return executeSuggestionMutation(
           host,
           "agent.suggestion.create",
@@ -196,9 +155,9 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
       name: "update_suggestion",
       label: "Update suggestion",
       description: "Refine an existing live suggestion without editing draft.md.",
-      parameters: Type.Intersect([suggestionSchema, Type.Object({ id: Type.String() })]),
+      parameters: SuggestionToolUpdateInputSchema,
       execute: async (_id, params) => {
-        const input = params as SuggestionInput & { id: string };
+        const input = params as SuggestionToolUpdateInput;
         return executeSuggestionMutation(host, "agent.suggestion.update", {
           item: toSuggestion(input, input.id),
         });

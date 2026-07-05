@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suggestion schema and capability gates</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #252331;
+      --muted: #686577;
+      --paper: #fbfaf7;
+      --card: #ffffff;
+      --line: #dedbe9;
+      --soft: #f0edf8;
+      --accent: #5b4fb7;
+      --accent-2: #0f766e;
+      --warn: #8a4b12;
+      --warn-bg: #fff7ed;
+      --code: #1f2430;
+      --code-bg: #f6f4fb;
+      --good-bg: #ecfdf5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #f1efff 0, #fbfaf7 34rem);
+      color: var(--ink);
+      line-height: 1.58;
+    }
+    .shell { max-width: 1180px; margin: 0 auto; padding: 32px 24px 56px; }
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 28px;
+      align-items: end;
+      padding: 28px 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { font-size: clamp(2.1rem, 4vw, 4rem); line-height: 1.02; margin: 0 0 18px; letter-spacing: -0.045em; }
+    h2 { font-size: clamp(1.45rem, 2vw, 2rem); line-height: 1.15; margin: 0 0 14px; letter-spacing: -0.02em; }
+    h3 { margin: 0 0 10px; font-size: 1.05rem; }
+    p { margin: 0 0 14px; }
+    a { color: var(--accent); }
+    .dek { max-width: 760px; color: var(--muted); font-size: 1.08rem; }
+    .meta {
+      background: rgba(255,255,255,0.72);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      font-size: 0.92rem;
+    }
+    .meta div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid #ebe8f2; padding: 8px 0; }
+    .meta div:last-child { border-bottom: 0; }
+    .meta span:first-child { color: var(--muted); }
+    main { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 30px; margin-top: 28px; }
+    nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      background: rgba(255,255,255,0.75);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      font-size: 0.9rem;
+    }
+    nav a { display: block; text-decoration: none; color: var(--muted); padding: 7px 8px; border-radius: 10px; }
+    nav a:hover { background: var(--soft); color: var(--ink); }
+    .content { min-width: 0; }
+    section { margin-bottom: 34px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 24px;
+      box-shadow: 0 18px 40px rgba(48, 42, 82, 0.06);
+    }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .mini {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      background: #fff;
+    }
+    .mini .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+    .mini p { font-size: 0.94rem; margin-bottom: 0; }
+    .path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      color: #4f46a5;
+      background: #f5f3ff;
+      padding: 2px 6px;
+      border-radius: 7px;
+      white-space: nowrap;
+    }
+    pre {
+      margin: 14px 0 16px;
+      overflow-x: auto;
+      background: var(--code-bg);
+      border: 1px solid #e4dff3;
+      border-radius: 16px;
+      padding: 16px;
+      color: var(--code);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .mark { background: #fff3bf; padding: 0 2px; border-radius: 4px; }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: #f7f5ff;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin: 16px 0;
+    }
+    .warning { border-left-color: var(--warn); background: var(--warn-bg); }
+    .ok { border-left-color: var(--accent-2); background: var(--good-bg); }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 4px; font-size: 0.94rem; }
+    th, td { text-align: left; vertical-align: top; padding: 11px 10px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+    .flow div { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px; font-size: 0.9rem; }
+    .flow b { display: block; margin-bottom: 4px; }
+    .history { border-left: 2px solid var(--line); padding-left: 18px; }
+    .history p { position: relative; margin-bottom: 18px; }
+    .history p:before { content: ""; position: absolute; left: -25px; top: 0.45rem; width: 11px; height: 11px; background: var(--accent); border-radius: 999px; }
+    details {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      padding: 13px 15px;
+      margin: 12px 0;
+    }
+    summary { cursor: pointer; font-weight: 700; }
+    .quiz details { background: #fcfbff; }
+    .small { color: var(--muted); font-size: 0.92rem; }
+    @media (max-width: 900px) {
+      header, main, .two, .grid, .flow { grid-template-columns: 1fr; }
+      nav { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <p class="small">Comprehension review for the current working tree</p>
+        <h1>Suggestions now have one schema, one parser, and capability-based UI gates</h1>
+        <p class="dek">This change moves suggestion shape rules out of scattered hand-written guards and into <span class="path">src/suggestions/schema.ts</span>. The same schema now feeds Pi tool parameters, desktop IPC validation, persisted-state checks, mock suggestion creation, and renderer behavior decisions.</p>
+      </div>
+      <aside class="meta" aria-label="review metadata">
+        <div><span>Changed files</span><strong>13</strong></div>
+        <div><span>New test file</span><strong>schema.test.ts</strong></div>
+        <div><span>Verified</span><strong>26 tests passed</strong></div>
+      </aside>
+    </header>
+
+    <main>
+      <nav aria-label="page navigation">
+        <a href="#shape">Change shape</a>
+        <a href="#schema">The new center</a>
+        <a href="#boundary">Boundary path</a>
+        <a href="#ui">Renderer behavior</a>
+        <a href="#tests">Tests and history</a>
+        <a href="#risks">Risks</a>
+        <a href="#quiz">Comprehension check</a>
+      </nav>
+
+      <div class="content">
+        <section id="shape" class="card">
+          <h2>The mental model to keep</h2>
+          <p>The suggestion domain used to be split across <span class="path">types.ts</span>, <span class="path">validation.ts</span>, and a local TypeBox schema inside <span class="path">desktop/scribe-extension.ts</span>. The new shape is simpler to reason about: each kind has one concrete TypeBox schema, and every runtime parser or type guard derives from that source.</p>
+          <div class="grid" role="list">
+            <div class="mini" role="listitem">
+              <div class="label">Domain source</div>
+              <p><span class="path">schema.ts</span> defines schemas, TypeScript types, parser results, kind helpers, and capabilities.</p>
+            </div>
+            <div class="mini" role="listitem">
+              <div class="label">Compatibility layer</div>
+              <p><span class="path">types.ts</span> and <span class="path">validation.ts</span> now re-export the schema-backed API, so callers keep familiar imports.</p>
+            </div>
+            <div class="mini" role="listitem">
+              <div class="label">Behavior gates</div>
+              <p>Preview, visual rendering, workspace placement, and initial card size now read from <code>SUGGESTION_CAPABILITIES</code>.</p>
+            </div>
+          </div>
+          <div class="callout">
+            <p><strong>Inference from the diff:</strong> the main intent appears to be reducing schema drift between agent tools, desktop storage, mocks, and renderer code. No issue text was present, so that intent is inferred from the consolidation and the new tests around "family drift".</p>
+          </div>
+        </section>
+
+        <section id="schema" class="card">
+          <h2>The new center of gravity: <span class="path">src/suggestions/schema.ts</span></h2>
+          <p>The schema file defines the accepted payload for each suggestion family. Common fields are still shared, but family-specific fields are now expressed as concrete schemas with <code>additionalProperties: false</code>.</p>
+          <pre><code>const strictObject = { additionalProperties: false } as const;
+const nonEmptyString = (maxLength: number) =&gt;
+  Type.String({ minLength: 1, maxLength, pattern: "\\S" });
+
+const commonSuggestionProperties = {
+  id: nonEmptyString(200),
+  dedupeKey: nonEmptyString(200),
+  title: nonEmptyString(200),
+  summary: nonEmptyString(1_000),
+  body: nonEmptyString(8_000),
+  sourceLabels: Type.Array(nonEmptyString(200), { maxItems: 12 }),
+  createdAt: Type.Number(),
+};</code></pre>
+          <p>The old validator checked that common strings were non-empty and that the family-specific field existed. The new schema adds maximum lengths, rejects empty source labels, caps arrays, and rejects extra properties. That is a behavioral change at every boundary that calls <code>parseSuggestionItem</code> or <code>Check</code>.</p>
+
+          <h3>The parser selects a concrete schema when it can</h3>
+          <pre><code>export function parseSuggestionItem(value: unknown): SuggestionParseResult {
+  const kind =
+    typeof value === "object" &amp;&amp; value !== null &amp;&amp; "kind" in value
+      ? value.kind
+      : undefined;
+  const schema =
+    typeof kind === "string" &amp;&amp;
+    Object.prototype.hasOwnProperty.call(SUGGESTION_SCHEMAS_BY_KIND, kind)
+      ? SUGGESTION_SCHEMAS_BY_KIND[kind as SuggestionKind]
+      : SuggestionItemSchema;
+  if (Check(schema, value)) {
+    return { success: true, value: value as SuggestionItem };
+  }
+  const [, errors] = Errors(schema, value);
+  return { success: false, issues: errors.map(safeIssue) };
+}</code></pre>
+          <p>That branch matters for error quality. A known <code>kind</code> is validated against its concrete schema, so a bad outline node can report <code>/nodes/0/children/0/label</code> instead of only saying that a union failed. Unknown kinds still fall back to the full union.</p>
+
+          <h3>Capabilities replace repeated kind tests</h3>
+          <pre><code>export const SUGGESTION_CAPABILITIES = {
+  snippet: { family: "text", supportsPreview: true, supportsVisualRendering: false,
+    supportsWorkspacePlacement: true, initialWorkspaceSize: { width: 320, height: 240 } },
+  outline: { family: "structure", supportsPreview: false, supportsVisualRendering: true,
+    supportsWorkspacePlacement: true, initialWorkspaceSize: { width: 380, height: 300 } },
+  mindMap: { family: "mindMap", supportsPreview: false, supportsVisualRendering: true,
+    supportsWorkspacePlacement: true, initialWorkspaceSize: { width: 460, height: 340 } },
+} as const satisfies Record&lt;SuggestionKind, SuggestionCapabilities&gt;;</code></pre>
+          <p>The values currently preserve existing behavior: text suggestions can preview in the document, visual suggestions render in their own presentation, and every kind can be placed on the workspace. The difference is that future kinds can be added by filling out the capability row instead of updating several unrelated branches.</p>
+        </section>
+
+        <section id="boundary" class="card">
+          <h2>Follow one suggestion through the desktop boundary</h2>
+          <p>The same validation path now appears in three places that accept or reload suggestions.</p>
+          <div class="flow" aria-label="suggestion data flow">
+            <div><b>Pi tool params</b> <span class="path">scribe-extension.ts</span> validates tool input schema, then adds generated fields.</div>
+            <div><b>Development IPC</b> <span class="path">ipc-routing.ts</span> parses before sending to storage.</div>
+            <div><b>Storage mutation</b> <span class="path">storage.ts</span> parses before create/update.</div>
+            <div><b>Hydration</b> persisted entries, pinned entries, and workspace pins are checked before returning state.</div>
+          </div>
+
+          <h3>Agent-created suggestions now round-trip through the application parser</h3>
+          <pre><code>export function toSuggestion(
+  input: SuggestionToolInput | SuggestionToolUpdateInput,
+  id: string = "id" in input ? input.id : randomUUID(),
+  createdAt: number = Date.now(),
+): SuggestionItem {
+  const parsed = parseSuggestionItem({ ...input, id, createdAt });
+  if (parsed.success) return parsed.value;
+  throw new Error(
+    `Invalid suggestion: ${formatSuggestionValidationIssues(parsed.issues)}`,
+  );
+}</code></pre>
+          <p>The create tool schema omits <code>id</code> and <code>createdAt</code>; <code>toSuggestion</code> generates them. The update tool schema includes <code>id</code> and omits <code>createdAt</code>; <code>toSuggestion</code> keeps the supplied id and assigns a fresh timestamp. That timestamp behavior existed in the previous helper as <code>createdAt: Date.now()</code>, so the refactor keeps the observable update timestamp behavior.</p>
+
+          <h3>Storage validates both incoming mutations and persisted projections</h3>
+          <pre><code>function assertSuggestionProjectionItems(value: unknown): asserts value is PersistedSuggestionState {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid suggestion projection");
+  }
+  const state = value as Partial&lt;PersistedSuggestionState&gt;;
+  const collections = [state.entries, state.pinnedEntries, state.workspacePins];
+  if (collections.some((collection) =&gt; !Array.isArray(collection))) {
+    throw new Error("Invalid suggestion projection");
+  }
+  for (const collection of collections as Array&lt;Array&lt;{ item?: unknown }&gt;&gt;) {
+    for (const entry of collection) {
+      parsedSuggestion(entry?.item, "Invalid suggestion projection item");
+    }
+  }
+}</code></pre>
+          <p>This is the broadest behavior change. <code>getSuggestionState()</code> now validates hydrated state, and <code>saveSuggestionState()</code> validates entries, pinned entries, and workspace pins before trimming and writing. Previously, <code>saveSuggestionState()</code> only checked that <code>entries</code> and <code>pinnedEntries</code> were arrays; <code>workspacePins</code> items were not checked there.</p>
+
+          <h3>Development IPC reports schema issues instead of a generic failure</h3>
+          <pre><code>register(DEVELOPMENT_SUGGESTION_CHANNEL, (_event, item) =&gt; {
+  const parsed = parseSuggestionItem(item);
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid development suggestion: ${formatSuggestionValidationIssues(parsed.issues)}`,
+    );
+  }
+  return storage.call("development.suggestion.create", { item: parsed.value });
+});</code></pre>
+          <p>Invalid dev suggestions now include paths and schema keywords in the error. The same formatting is used in storage and the Pi extension.</p>
+        </section>
+
+        <section id="ui" class="card">
+          <h2>Renderer behavior moves from kind names to capabilities</h2>
+          <p>The UI changes are small in the diff, but they change the dependency direction. Components no longer ask "is this a text suggestion?" when the behavior they need is preview support. They ask the capability question directly.</p>
+          <div class="two">
+            <div>
+              <h3>Preview buttons and keyboard action</h3>
+              <pre><code>// SuggestionDockDetail.tsx
+{supportsSuggestionPreview(item) ? (
+  &lt;button ... onClick={() =&gt; onPreview(item)}&gt;
+    Preview in document
+  &lt;/button&gt;
+) : null}
+
+// useWorkspaceKeybindings.ts
+if (!supportsSuggestionPreview(targetEntry.item)) {
+  return unavailable("This suggestion cannot be previewed in the document");
+}</code></pre>
+              <p>This keeps current behavior for <code>snippet</code>, <code>fact</code>, and <code>term</code>, because those capability rows set <code>supportsPreview: true</code>.</p>
+            </div>
+            <div>
+              <h3>Workspace placement and size</h3>
+              <pre><code>// SuggestionDockDetail.tsx
+{pinned &amp;&amp; supportsWorkspacePlacement(item) ? (
+  &lt;button ...&gt;Place on workspace&lt;/button&gt;
+) : null}
+
+// workspacePinLayout.ts
+return SUGGESTION_CAPABILITIES[item.kind].initialWorkspaceSize;</code></pre>
+              <p>All current kinds still support workspace placement, so the visible button behavior should not change today. The guard does make unsupported future kinds a no-op in <code>handlePlaceOnWorkspace</code>.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="tests" class="card">
+          <h2>What the new tests pin down</h2>
+          <p><span class="path">src/suggestions/schema.test.ts</span> covers the behavior that is most likely to drift if another suggestion kind is added or an agent sends malformed data.</p>
+          <table>
+            <thead><tr><th>Area</th><th>Evidence in tests</th><th>Why it matters</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Each kind has a valid payload</td>
+                <td><code>it.each(SUGGESTION_KINDS)("accepts a valid %s suggestion", ...)</code></td>
+                <td>The schema union, type guards, and generated kind list agree.</td>
+              </tr>
+              <tr>
+                <td>Family fields cannot mix</td>
+                <td>Snippet plus <code>nodes</code>, outline plus <code>insertText</code>, unknown kind, and extra property are rejected.</td>
+                <td>This catches the drift the old local schemas could allow if one side changed and another did not.</td>
+              </tr>
+              <tr>
+                <td>Error reports avoid payload echoes</td>
+                <td>A nested invalid node with <code>SENSITIVE NODE CONTENT</code> checks paths while ensuring the secret is absent from serialized issues.</td>
+                <td>Boundary errors can be displayed or logged without including user text from the invalid field.</td>
+              </tr>
+              <tr>
+                <td>Tool schemas match app schemas</td>
+                <td>Generated fields are removed for tool input, then added back before parsing.</td>
+                <td>Pi tool callers and storage now share the same contract after generated fields are supplied.</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="callout ok">
+            <p>Verified locally with <code>npm test -- src/suggestions/schema.test.ts</code>. Vitest reported 1 file passed and 26 tests passed.</p>
+          </div>
+
+          <h3>Where this sits in recent history</h3>
+          <div class="history">
+            <p><code>a3def0f</code> introduced the desktop boundary routing split. This change builds on that by validating suggestions at IPC and storage edges instead of accepting broad casts.</p>
+            <p><code>f2a6258</code> added suggestion save queue and retry behavior. The current change tightens what can be saved or rehydrated through that persistence path.</p>
+            <p><code>575709c</code> focused on preserving database startup and storage behavior. The new hydration validation is related: bad persisted suggestion items can now fail when the projection is loaded.</p>
+          </div>
+        </section>
+
+        <section id="risks" class="card">
+          <h2>Things future maintainers should check before changing this again</h2>
+          <div class="warning callout">
+            <p><strong>Strict schemas can reject old or loose payloads.</strong> The old <code>isSuggestionItem</code> allowed extra properties and had fewer limits. Now extra fields, empty source labels, too many labels, overly long strings, and mixed family fields fail validation.</p>
+          </div>
+          <div class="two">
+            <div class="mini">
+              <div class="label">Persistence risk</div>
+              <p>If existing databases contain suggestion items with fields that the new schema rejects, <code>hydrate()</code> can fail through <code>getSuggestionState()</code>. The diff does not include a migration for older malformed suggestion payloads.</p>
+            </div>
+            <div class="mini">
+              <div class="label">Agent/tool risk</div>
+              <p>Agent tool calls that include generated fields on create, or harmless-looking extra fields, may now be rejected by TypeBox before storage sees them.</p>
+            </div>
+            <div class="mini">
+              <div class="label">Exhaustiveness invariant</div>
+              <p>Adding a new suggestion kind means adding its schema, the <code>SUGGESTION_SCHEMAS_BY_KIND</code> entry, its capability row, and tests. The <code>satisfies Record&lt;SuggestionKind, ...&gt;</code> checks help, but runtime behavior still depends on the capability values.</p>
+            </div>
+            <div class="mini">
+              <div class="label">UI invariant</div>
+              <p>Preview code assumes that <code>supportsSuggestionPreview(item)</code> narrows to a text suggestion with <code>insertText</code>. If a future non-text kind supports preview, the preview insertion path must change first.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="quiz" class="card quiz">
+          <h2>Comprehension check</h2>
+          <p class="small">Use these to confirm the code path is in your head before reviewing or modifying it.</p>
+
+          <details>
+            <summary>1. An agent calls <code>create_suggestion</code> with a valid snippet payload but includes an extra <code>debug</code> property. What happens?</summary>
+            <p>The tool input schema should reject it because schemas are strict with <code>additionalProperties: false</code>. If it reached <code>toSuggestion</code>, <code>parseSuggestionItem</code> would also reject the extra property.</p>
+          </details>
+
+          <details>
+            <summary>2. Why does <code>parseSuggestionItem</code> choose <code>SUGGESTION_SCHEMAS_BY_KIND[kind]</code> before validating?</summary>
+            <p>For known kinds, validating against the concrete schema produces more useful field paths and avoids generic union errors. This is tested by the nested outline-node path check.</p>
+          </details>
+
+          <details>
+            <summary>3. A maintainer wants to add a suggestion kind that can be placed on the workspace but cannot preview in the editor. Which part of the new design should they update?</summary>
+            <p>They need a concrete schema, a mapping entry in <code>SUGGESTION_SCHEMAS_BY_KIND</code>, and a capability row with <code>supportsWorkspacePlacement: true</code> and <code>supportsPreview: false</code>. Tests should add a valid payload for the new kind and capability expectations.</p>
+          </details>
+
+          <details>
+            <summary>4. What changed about persisted suggestion state validation?</summary>
+            <p><code>getSuggestionState()</code> now validates every item in <code>entries</code>, <code>pinnedEntries</code>, and <code>workspacePins</code>. <code>saveSuggestionState()</code> also validates all three collections. Previously, the save path only checked that <code>entries</code> and <code>pinnedEntries</code> were arrays.</p>
+          </details>
+
+          <details>
+            <summary>5. Where would you start debugging if the "Preview in document" button disappeared for snippets?</summary>
+            <p>Start with <code>SUGGESTION_CAPABILITIES.snippet.supportsPreview</code>, then the <code>supportsSuggestionPreview</code> helper. The button, keyboard action, and <code>handlePreview</code> now depend on that capability instead of directly checking <code>isTextSuggestion</code>.</p>
+          </details>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -9,7 +9,10 @@ import type {
   SourceSnapshot,
   WorkspaceSnapshot,
 } from "../src/shared/desktop.js";
-import { isSuggestionItem } from "../src/suggestions/validation.js";
+import {
+  formatSuggestionValidationIssues,
+  parseSuggestionItem,
+} from "../src/suggestions/validation.js";
 
 export type MainInvokeEvent = { sender: { id: number } };
 
@@ -101,10 +104,13 @@ export function registerMainIpc({
 
   if (development) {
     register(DEVELOPMENT_SUGGESTION_CHANNEL, (_event, item) => {
-      if (!isSuggestionItem(item)) {
-        throw new Error("Invalid development suggestion");
+      const parsed = parseSuggestionItem(item);
+      if (!parsed.success) {
+        throw new Error(
+          `Invalid development suggestion: ${formatSuggestionValidationIssues(parsed.issues)}`,
+        );
       }
-      return storage.call("development.suggestion.create", { item });
+      return storage.call("development.suggestion.create", { item: parsed.value });
     });
   }
 }
