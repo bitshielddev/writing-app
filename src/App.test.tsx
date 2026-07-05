@@ -9,6 +9,7 @@ import {
   DesktopBridgeHarness,
 } from "./test/desktopBridgeHarness";
 import type { TextSuggestion } from "./suggestions/types";
+import { createEmptySuggestionState } from "./suggestions/state";
 
 const appHarness = vi.hoisted(() => {
   const state = {
@@ -257,12 +258,15 @@ describe("App desktop boundary", () => {
     fireEvent.click(screen.getByRole("button", { name: "Suggestions" }));
 
     act(() => {
+      const item = { ...suggestion, id: "suggestion-2", dedupeKey: "suggestion-2", title: "New suggestion" };
       desktop.emit({
         type: "suggestion.event",
         event: {
           type: "suggestion.added",
-          item: { ...suggestion, id: "suggestion-2", dedupeKey: "suggestion-2", title: "New suggestion" },
+          item,
         },
+        suggestionRevision: 1,
+        state: { ...createEmptySuggestionState(), entries: [{ item, viewed: false, stale: false, withdrawn: false }], seenKeys: { [item.dedupeKey]: true } },
       });
     });
     expect(screen.getByRole("button", { name: "Open New suggestion" })).toBeTruthy();

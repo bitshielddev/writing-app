@@ -84,6 +84,7 @@ export function createWorkspaceSnapshot(
     document: createDocumentSnapshot(),
     sources: [createSourceSnapshot()],
     suggestions: createEmptySuggestionState(),
+    suggestionRevision: 0,
     agent: { status: "stopped", cycleCount: 2 },
     activity: [],
     ...overrides,
@@ -98,9 +99,9 @@ export class DesktopBridgeHarness {
     [Parameters<DesktopBridge["saveDocument"]>[0]],
     DocumentSnapshot
   >();
-  readonly saveSuggestionState = new ControlledOperation<
-    [Parameters<DesktopBridge["saveSuggestionState"]>[0]],
-    void
+  readonly executeSuggestionCommand = new ControlledOperation<
+    [Parameters<DesktopBridge["executeSuggestionCommand"]>[0]],
+    Awaited<ReturnType<DesktopBridge["executeSuggestionCommand"]>>
   >();
   readonly importSource = new ControlledOperation<[], SourceSnapshot | undefined>();
   private readonly listeners = new Set<(event: DesktopEvent) => void>();
@@ -110,7 +111,7 @@ export class DesktopBridgeHarness {
     startAgent: this.startAgent.invoke,
     stopAgent: this.stopAgent.invoke,
     saveDocument: this.saveDocument.invoke,
-    saveSuggestionState: this.saveSuggestionState.invoke,
+    executeSuggestionCommand: this.executeSuggestionCommand.invoke,
     importSource: this.importSource.invoke,
     subscribe: (listener) => {
       this.listeners.add(listener);

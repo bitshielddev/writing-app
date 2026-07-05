@@ -6,6 +6,9 @@ import {
   DesktopEventSchema,
   DocumentBlocksSchema,
   PersistedSuggestionStateSchema,
+  SuggestionCommandResultSchema,
+  StorageOperations,
+  type OperationResult,
   parseOrContractError,
 } from "../../src/shared/contracts.js";
 
@@ -29,9 +32,13 @@ export interface SourceStore {
 }
 
 export interface SuggestionStore {
-  get(projectId: string): PersistedSuggestionState;
-  put(projectId: string, state: PersistedSuggestionState): void;
+  get(projectId: string): SuggestionProjection;
+  compareAndPut(projectId: string, expectedRevision: number, state: PersistedSuggestionState): SuggestionProjection;
+  findReceipt(commandId: string): SuggestionCommandResult | undefined;
+  recordReceipt(projectId: string, result: SuggestionCommandResult): void;
 }
+export type SuggestionProjection = { state: PersistedSuggestionState; revision: number };
+export type SuggestionCommandResult = OperationResult<typeof StorageOperations, "suggestions.command">;
 
 export interface EventOutbox {
   enqueue(event: DesktopEvent): void;
@@ -167,28 +174,42 @@ export class SourceRepository implements SourceStore {
 export class SuggestionRepository implements SuggestionStore {
   constructor(private readonly db: DatabaseSync) {}
 
-  get(projectId: string): PersistedSuggestionState {
+  get(projectId: string): SuggestionProjection {
     const row = this.db.prepare(
-      "SELECT state_json FROM suggestion_state WHERE project_id = ?",
-    ).get(projectId) as { state_json: string } | undefined;
+      "SELECT state_json, revision FROM suggestion_state WHERE project_id = ?",
+    ).get(projectId) as { state_json: string; revision: number } | undefined;
     if (!row) throw new Error(`Suggestion projection not found: ${projectId}`);
-    return parseOrContractError(
-      PersistedSuggestionStateSchema,
-      parseJson(row.state_json, "suggestion projection"),
-      "persisted.suggestion-projection",
-    );
+    return { state: parseOrContractError(
+        PersistedSuggestionStateSchema,
+        parseJson(row.state_json, "suggestion projection"),
+        "persisted.suggestion-projection",
+      ), revision: row.revision };
   }
 
-  put(projectId: string, state: PersistedSuggestionState) {
+  compareAndPut(projectId: string, expectedRevision: number, state: PersistedSuggestionState) {
     const validated = parseOrContractError(
       PersistedSuggestionStateSchema,
       state,
       "persisted.suggestion-projection.write",
     );
     const result = this.db.prepare(
-      "UPDATE suggestion_state SET state_json = ?, updated_at = ? WHERE project_id = ?",
-    ).run(JSON.stringify(validated), Date.now(), projectId);
-    if (result.changes !== 1) throw new Error(`Suggestion projection not found: ${projectId}`);
+      "UPDATE suggestion_state SET state_json = ?, revision = revision + 1, updated_at = ? WHERE project_id = ? AND revision = ?",
+    ).run(JSON.stringify(validated), Date.now(), projectId, expectedRevision);
+    if (result.changes !== 1) throw new Error("SUGGESTION_REVISION_CONFLICT");
+    return this.get(projectId);
+  }
+
+  findReceipt(commandId: string) {
+    const row = this.db.prepare("SELECT result_json FROM suggestion_command_receipts WHERE command_id = ?")
+      .get(commandId) as { result_json: string } | undefined;
+    if (!row) return undefined;
+    return parseOrContractError(SuggestionCommandResultSchema, parseJson(row.result_json, "suggestion command receipt"), "persisted.suggestion-command-receipt");
+  }
+
+  recordReceipt(projectId: string, result: SuggestionCommandResult) {
+    const validated = parseOrContractError(SuggestionCommandResultSchema, result, "persisted.suggestion-command-receipt.write");
+    this.db.prepare("INSERT INTO suggestion_command_receipts (command_id, project_id, result_json, created_at) VALUES (?, ?, ?, ?)")
+      .run(result.commandId, projectId, JSON.stringify(validated), Date.now());
   }
 }
 

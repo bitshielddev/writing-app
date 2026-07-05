@@ -10,8 +10,8 @@ import {
   StorageOperations as StorageOperationContracts,
   parseOrContractError,
 } from "../../src/shared/contracts.js";
-import { trimSuggestionEntries } from "../../src/suggestions/state.js";
 import type { SuggestionEvent } from "../../src/suggestions/types.js";
+import { applySuggestionAgentEvent, applySuggestionCommand } from "../../src/suggestions/transitions.js";
 import type { TransactionManager } from "./database-lifecycle.js";
 import type { OutboxDispatcher } from "./outbox.js";
 import {
@@ -52,7 +52,8 @@ export class StorageOperations {
       project: this.deps.projects.get(this.deps.projectId),
       document: this.deps.documents.get(this.deps.documentId),
       sources: this.deps.sources.list(this.deps.projectId),
-      suggestions: this.deps.suggestions.get(this.deps.projectId),
+      suggestions: this.deps.suggestions.get(this.deps.projectId).state,
+      suggestionRevision: this.deps.suggestions.get(this.deps.projectId).revision,
       agent: { status: "offline", cycleCount: 0 },
       activity: [],
     };
@@ -176,16 +177,50 @@ export class StorageOperations {
     return source;
   }
 
-  saveSuggestionState(params: unknown) {
-    const state = parseOrContractError(
-      StorageOperationContracts["suggestions.save"].params,
+  async executeSuggestionCommand(params: unknown) {
+    const input = parseOrContractError(
+      StorageOperationContracts["suggestions.command"].params,
       params,
-      "storage.suggestions.save.params",
+      "storage.suggestions.command.params",
     );
-    this.deps.suggestions.put(this.deps.projectId, {
-      ...state,
-      entries: trimSuggestionEntries(state.entries),
+    if (input.documentId !== this.deps.documentId) throw new Error("Invalid document identity");
+    const duplicate = this.deps.suggestions.findReceipt(input.commandId);
+    if (duplicate) return duplicate;
+
+    const result = this.deps.transactions.run(() => {
+      const repeated = this.deps.suggestions.findReceipt(input.commandId);
+      if (repeated) return repeated;
+      const current = this.deps.suggestions.get(this.deps.projectId);
+      if (input.expectedSuggestionRevision !== current.revision) {
+        const conflict = { commandId: input.commandId, status: "conflict" as const,
+          suggestionRevision: current.revision, state: current.state,
+          reason: "Suggestion state changed before the command was applied" };
+        this.deps.suggestions.recordReceipt(this.deps.projectId, conflict);
+        return conflict;
+      }
+      const transition = applySuggestionCommand(current.state, input.command);
+      if (transition.status === "rejected") {
+        const rejected = { commandId: input.commandId, status: "rejected" as const,
+          suggestionRevision: current.revision, state: current.state, reason: transition.reason };
+        this.deps.suggestions.recordReceipt(this.deps.projectId, rejected);
+        return rejected;
+      }
+      const projection = transition.status === "changed"
+        ? this.deps.suggestions.compareAndPut(this.deps.projectId, current.revision, transition.state)
+        : current;
+      const applied = { commandId: input.commandId,
+        status: transition.status === "changed" ? "applied" as const : "unchanged" as const,
+        suggestionRevision: projection.revision, state: projection.state };
+      this.deps.suggestions.recordReceipt(this.deps.projectId, applied);
+      if (transition.status === "changed") this.emitSuggestion(
+        { type: "suggestion.state.changed", suggestionId: input.command.suggestionId, commandType: input.command.type },
+        projection,
+        input.commandId,
+      );
+      return applied;
     });
+    await this.deps.dispatcher.dispatch();
+    return result;
   }
 
   getObservationSeed(): ObservationSeed {
@@ -202,7 +237,7 @@ export class StorageOperations {
   }
 
   listSuggestions() {
-    const state = this.deps.suggestions.get(this.deps.projectId);
+    const state = this.deps.suggestions.get(this.deps.projectId).state;
     return {
       live: state.entries.map((entry) => entry.item),
       pinned: state.pinnedEntries.map((entry) => entry.item),
@@ -219,14 +254,8 @@ export class StorageOperations {
     const item = input.item;
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
-      const state = this.deps.suggestions.get(this.deps.projectId);
-      if (state.seenKeys[item.dedupeKey]) return { accepted: false };
-      state.seenKeys[item.dedupeKey] = true;
-      state.entries.push({ item, viewed: false, stale: false, withdrawn: false });
-      state.entries = trimSuggestionEntries(state.entries);
-      this.deps.suggestions.put(this.deps.projectId, state);
-      this.emitSuggestion({ type: "suggestion.added", item });
-      return { accepted: true };
+      this.assertCurrentRevision(input.expectedDocumentRevision);
+      return this.applyAgentEvent({ type: "suggestion.added", item });
     });
     await this.deps.dispatcher.dispatch();
     return result;
@@ -253,13 +282,8 @@ export class StorageOperations {
     const item = input.item;
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
-      const state = this.deps.suggestions.get(this.deps.projectId);
-      const entry = state.entries.find((candidate) => candidate.item.id === item.id);
-      if (!entry) return { accepted: false };
-      entry.item = item;
-      this.deps.suggestions.put(this.deps.projectId, state);
-      this.emitSuggestion({ type: "suggestion.updated", item });
-      return { accepted: true };
+      this.assertCurrentRevision(input.expectedDocumentRevision);
+      return this.applyAgentEvent({ type: "suggestion.updated", item });
     });
     await this.deps.dispatcher.dispatch();
     return result;
@@ -273,12 +297,8 @@ export class StorageOperations {
     );
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
-      const state = this.deps.suggestions.get(this.deps.projectId);
-      if (!state.entries.some((entry) => entry.item.id === input.id)) return { accepted: false };
-      state.entries = state.entries.filter((entry) => entry.item.id !== input.id);
-      this.deps.suggestions.put(this.deps.projectId, state);
-      this.emitSuggestion({ type: "suggestion.retracted", id: input.id });
-      return { accepted: true };
+      this.assertCurrentRevision(input.expectedDocumentRevision);
+      return this.applyAgentEvent({ type: "suggestion.retracted", id: input.id });
     });
     await this.deps.dispatcher.dispatch();
     return result;
@@ -290,7 +310,21 @@ export class StorageOperations {
     }
   }
 
-  private emitSuggestion(event: SuggestionEvent) {
-    this.deps.outbox.enqueue({ type: "suggestion.event", event });
+  private applyAgentEvent(event: SuggestionEvent) {
+    const current = this.deps.suggestions.get(this.deps.projectId);
+    const transition = applySuggestionAgentEvent(current.state, event);
+    if (transition.status !== "changed") return { accepted: false };
+    const projection = this.deps.suggestions.compareAndPut(this.deps.projectId, current.revision, transition.state);
+    this.emitSuggestion(event, projection);
+    return { accepted: true };
+  }
+
+  private emitSuggestion(
+    event: SuggestionEvent,
+    projection: { state: import("../../src/suggestions/state.js").PersistedSuggestionState; revision: number },
+    commandId?: string,
+  ) {
+    this.deps.outbox.enqueue({ type: "suggestion.event", event, commandId,
+      suggestionRevision: projection.revision, state: projection.state });
   }
 }

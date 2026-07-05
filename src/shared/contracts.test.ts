@@ -35,13 +35,16 @@ const source = createSourceSnapshot();
 const workspace = createWorkspaceSnapshot();
 const state = createEmptySuggestionState();
 const accepted = { accepted: true };
+const command = { commandId: "command", documentId: document.id, expectedSuggestionRevision: 0,
+  command: { type: "dismiss" as const, suggestionId: suggestion.id } };
+const commandResult = { commandId: "command", status: "unchanged" as const, suggestionRevision: 0, state };
 
 const rendererFixtures = {
   hydrate: { params: undefined, result: workspace },
   "agent.start": { params: undefined, result: { status: "working", cycleCount: 1 } },
   "agent.stop": { params: undefined, result: { status: "stopped", cycleCount: 1 } },
   "document.save": { params: { documentId: document.id, blocks: [], markdown: "", expectedRevision: 0 }, result: document },
-  "suggestions.save": { params: state, result: undefined },
+  "suggestions.command": { params: command, result: commandResult },
   "source.import": { params: undefined, result: source },
   "development.suggestion.create": { params: suggestion, result: accepted },
 } as const;
@@ -50,7 +53,7 @@ const storageFixtures = {
   hydrate: { params: undefined, result: workspace },
   "workspace.repair": { params: undefined, result: { workspaceRoot: "/w", draftPath: "/w/draft.md", sourcesDirectory: "/w/sources", piDirectory: "/w/.pi", repaired: false } },
   "document.save": rendererFixtures["document.save"],
-  "suggestions.save": rendererFixtures["suggestions.save"],
+  "suggestions.command": rendererFixtures["suggestions.command"],
   "source.import": { params: { path: "/source.md" }, result: source },
   "agent.seed": { params: undefined, result: { projectId: "project", projectName: "Project", projectRevision: 1, documentId: "document", documentTitle: "Draft", documentRevision: 1 } },
   "agent.suggestions.list": { params: undefined, result: { live: [suggestion], pinned: [], workspace: [] } },
@@ -72,7 +75,7 @@ describe("process contract inventory", () => {
       startAgent: "scribe:agent.start",
       stopAgent: "scribe:agent.stop",
       saveDocument: "scribe:document.save",
-      saveSuggestionState: "scribe:suggestions.save",
+      executeSuggestionCommand: "scribe:suggestions.command",
       importSource: "scribe:source.import",
     });
   });
@@ -82,7 +85,7 @@ describe("process contract inventory", () => {
       "hydrate",
       "workspace.repair",
       "document.save",
-      "suggestions.save",
+      "suggestions.command",
       "source.import",
       "agent.seed",
       "agent.suggestions.list",

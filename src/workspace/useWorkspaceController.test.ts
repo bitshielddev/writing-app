@@ -40,6 +40,7 @@ function snapshot(): WorkspaceSnapshot {
       },
     ],
     suggestions: createEmptySuggestionState(),
+    suggestionRevision: 0,
     agent: { status: "waiting", cycleCount: 2 },
     activity: [],
   };
@@ -70,7 +71,9 @@ function createHarness() {
     startAgent: vi.fn().mockResolvedValue({ status: "working", cycleCount: 0 }),
     stopAgent: vi.fn().mockResolvedValue({ status: "stopped", cycleCount: 0 }),
     saveDocument: vi.fn().mockResolvedValue(documentSnapshot(4, [])),
-    saveSuggestionState: vi.fn().mockResolvedValue(undefined),
+    executeSuggestionCommand: vi.fn(async (input) => ({ commandId: input.commandId,
+      status: "rejected" as const, suggestionRevision: 0,
+      state: createEmptySuggestionState(), reason: "Suggestion not found" })),
     importSource: vi.fn().mockResolvedValue(undefined),
     subscribe: vi.fn((listener) => {
       listeners.add(listener);
@@ -106,7 +109,7 @@ describe("workspace controller", () => {
     expect(harness.editor.replaceBlocks).toHaveBeenCalled();
     expect(result.current.sources.map((source) => source.id)).toEqual(["source-1"]);
     expect(result.current.inbox.entries).toEqual([]);
-    expect(harness.bridge.saveSuggestionState).not.toHaveBeenCalled();
+    expect(harness.bridge.executeSuggestionCommand).not.toHaveBeenCalled();
   });
 
   it("serializes autosaves and advances the expected revision", async () => {

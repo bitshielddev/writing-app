@@ -24,6 +24,10 @@ function ipcHarness() {
     if (channel === DESKTOP_INVOKE_CHANNELS.startAgent) return { status: "working", cycleCount: 1 };
     if (channel === DESKTOP_INVOKE_CHANNELS.stopAgent) return { status: "stopped", cycleCount: 1 };
     if (channel === DESKTOP_INVOKE_CHANNELS.saveDocument) return createDocumentSnapshot();
+    if (channel === DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand) return {
+      commandId: "command", status: "unchanged", suggestionRevision: 0,
+      state: { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 },
+    };
     if (channel === DESKTOP_INVOKE_CHANNELS.importSource) return createSourceSnapshot();
     if (channel === DEVELOPMENT_SUGGESTION_CHANNEL) return { accepted: true };
     return undefined;
@@ -48,19 +52,14 @@ describe("preload bridge contract", () => {
       markdown: "Draft",
       expectedRevision: 2,
     };
-    const suggestionState = {
-      entries: [],
-      pinnedEntries: [],
-      workspacePins: [],
-      seenKeys: {},
-      nextZIndex: 1,
-    };
+    const suggestionCommand = { commandId: "command", documentId: "document",
+      expectedSuggestionRevision: 0, command: { type: "dismiss" as const, suggestionId: "suggestion" } };
 
     await bridge.hydrate();
     await bridge.startAgent();
     await bridge.stopAgent();
     await bridge.saveDocument(saveInput);
-    await bridge.saveSuggestionState(suggestionState);
+    await bridge.executeSuggestionCommand(suggestionCommand);
     await bridge.importSource();
 
     expect(harness.invoke.mock.calls).toEqual([
@@ -68,7 +67,7 @@ describe("preload bridge contract", () => {
       [DESKTOP_INVOKE_CHANNELS.startAgent],
       [DESKTOP_INVOKE_CHANNELS.stopAgent],
       [DESKTOP_INVOKE_CHANNELS.saveDocument, saveInput],
-      [DESKTOP_INVOKE_CHANNELS.saveSuggestionState, suggestionState],
+      [DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, suggestionCommand],
       [DESKTOP_INVOKE_CHANNELS.importSource],
     ]);
   });

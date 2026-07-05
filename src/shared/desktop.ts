@@ -34,7 +34,7 @@ export type DesktopBridge = {
   startAgent(): Promise<OperationResult<typeof RendererOperations, "agent.start">>;
   stopAgent(): Promise<OperationResult<typeof RendererOperations, "agent.stop">>;
   saveDocument(input: OperationParams<typeof RendererOperations, "document.save">): Promise<OperationResult<typeof RendererOperations, "document.save">>;
-  saveSuggestionState(state: OperationParams<typeof RendererOperations, "suggestions.save">): Promise<OperationResult<typeof RendererOperations, "suggestions.save">>;
+  executeSuggestionCommand(input: OperationParams<typeof RendererOperations, "suggestions.command">): Promise<OperationResult<typeof RendererOperations, "suggestions.command">>;
   importSource(): Promise<OperationResult<typeof RendererOperations, "source.import">>;
   subscribe(listener: (event: DesktopEvent) => void): () => void;
 };

@@ -12,7 +12,7 @@ export function createStorageRequestHandler(operations: StorageOperations) {
     hydrate: () => operations.hydrate(),
     "workspace.repair": () => operations.repairWorkspace(),
     "document.save": (params) => operations.saveDocument(params),
-    "suggestions.save": (params) => operations.saveSuggestionState(params),
+    "suggestions.command": (params) => operations.executeSuggestionCommand(params),
     "source.import": (params) => operations.importSource(params),
     "agent.seed": () => operations.getObservationSeed(),
     "agent.suggestions.list": () => operations.listSuggestions(),

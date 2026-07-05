@@ -35,8 +35,9 @@ export function useWorkspaceController(
   const suggestionFeed = useMemo(() => createSuggestionFeedRelay(), []);
   const suggestionPersistence = useSuggestionPersistence(desktop);
   const inboxOptions = useMemo(
-    () => ({ onStateChange: suggestionPersistence.requestSave }),
-    [suggestionPersistence.requestSave],
+    () => ({ onCommand: suggestionPersistence.dispatchCommand,
+      subscribeToAuthoritativeState: suggestionPersistence.subscribe }),
+    [suggestionPersistence.dispatchCommand, suggestionPersistence.subscribe],
   );
   const inbox = useSuggestionInbox(suggestionFeed.feed, inboxOptions);
   const document = useDocumentAutosave(
@@ -64,7 +65,7 @@ export function useWorkspaceController(
       initializeDocument(snapshot.document);
       initializeSources(snapshot.sources);
       initializeAgent(snapshot.agent, snapshot.activity);
-      seedSuggestionState(snapshot.suggestions);
+      seedSuggestionState(snapshot.suggestions, snapshot.suggestionRevision, snapshot.document.id);
       hydrateInbox(snapshot.suggestions);
       initializePreview();
     };
@@ -80,6 +81,7 @@ export function useWorkspaceController(
   const onDocumentEvent = document.onDesktopEvent;
   const onSourceEvent = source.onDesktopEvent;
   const onAgentEvent = agent.onDesktopEvent;
+  const onSuggestionEvent = suggestionPersistence.onDesktopEvent;
 
   useEffect(
     () =>
@@ -88,7 +90,7 @@ export function useWorkspaceController(
         onSourceEvent(event);
         onAgentEvent(event);
         if (event.type === "suggestion.event") {
-          suggestionFeed.emit(event.event);
+          onSuggestionEvent(event);
         }
       }),
     [
@@ -96,7 +98,7 @@ export function useWorkspaceController(
       onAgentEvent,
       onDocumentEvent,
       onSourceEvent,
-      suggestionFeed,
+      onSuggestionEvent,
     ],
   );
 

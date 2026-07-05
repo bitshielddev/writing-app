@@ -51,7 +51,8 @@ function createHarness(development = true) {
       };
     }
     if (method === "document.save") return createDocumentSnapshot();
-    if (method === "suggestions.save") return undefined;
+    if (method === "suggestions.command") return { commandId: "command", status: "unchanged", suggestionRevision: 0,
+      state: { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 } };
     if (method === "source.import") return createSourceSnapshot();
     if (method === "development.suggestion.create") return { accepted: true };
     return `storage:${method}`;
@@ -116,8 +117,9 @@ describe("main IPC routing", () => {
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.stopAgent);
     const saveInput = { documentId: "document", blocks: [], markdown: "", expectedRevision: 0 };
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.saveDocument, saveInput);
-    const state = { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 };
-    await harness.invoke(DESKTOP_INVOKE_CHANNELS.saveSuggestionState, state);
+    const command = { commandId: "command", documentId: "document", expectedSuggestionRevision: 0,
+      command: { type: "dismiss", suggestionId: "suggestion" } };
+    await harness.invoke(DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, command);
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.importSource);
 
     expect(harness.agent.call.mock.calls).toEqual([
@@ -125,7 +127,7 @@ describe("main IPC routing", () => {
       ["agent.stop"],
     ]);
     expect(harness.storage.call).toHaveBeenCalledWith("document.save", saveInput);
-    expect(harness.storage.call).toHaveBeenCalledWith("suggestions.save", state);
+    expect(harness.storage.call).toHaveBeenCalledWith("suggestions.command", command);
     expect(harness.storage.call).toHaveBeenCalledWith("source.import", {
       path: "/source.md",
     });

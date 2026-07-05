@@ -47,7 +47,12 @@ export const ContractErrorSchema = Type.Object(
 export type ContractError = Static<typeof ContractErrorSchema>;
 
 export const WorkspacePinRectSchema = Type.Object(
-  { x: Type.Number(), y: Type.Number(), width: Type.Number(), height: Type.Number() },
+  {
+    x: Type.Number({ minimum: -1_000_000, maximum: 1_000_000 }),
+    y: Type.Number({ minimum: -1_000_000, maximum: 1_000_000 }),
+    width: Type.Number({ minimum: 1, maximum: 10_000 }),
+    height: Type.Number({ minimum: 1, maximum: 10_000 }),
+  },
   strict,
 );
 
@@ -93,6 +98,30 @@ export const PersistedSuggestionStateSchema = Type.Object(
   },
   strict,
 );
+export const SuggestionCommandSchema = Type.Union([
+  Type.Object({ type: Type.Literal("markViewed"), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("dismiss"), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("pin"), suggestionId: identifier, pinnedAt: timestamp }, strict),
+  Type.Object({ type: Type.Literal("unpin"), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("workspace.place"), suggestionId: identifier, rect: WorkspacePinRectSchema }, strict),
+  Type.Object({ type: Type.Literal("workspace.return"), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("workspace.geometry"), suggestionId: identifier, rect: WorkspacePinRectSchema }, strict),
+  Type.Object({ type: Type.Literal("workspace.raise"), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("preview.resolve"), suggestionId: identifier, outcome: Type.Union([Type.Literal("accepted"), Type.Literal("cancelled")]) }, strict),
+]);
+export const SuggestionCommandRequestSchema = Type.Object({
+  commandId: identifier,
+  documentId: identifier,
+  expectedSuggestionRevision: revision,
+  command: SuggestionCommandSchema,
+}, strict);
+export const SuggestionCommandResultSchema = Type.Object({
+  commandId: identifier,
+  status: Type.Union([Type.Literal("applied"), Type.Literal("unchanged"), Type.Literal("conflict"), Type.Literal("rejected")]),
+  suggestionRevision: revision,
+  state: PersistedSuggestionStateSchema,
+  reason: Type.Optional(text(500)),
+}, strict);
 
 export const AgentStatusSchema = Type.Union([
   Type.Literal("offline"), Type.Literal("stopped"), Type.Literal("working"),
@@ -175,9 +204,12 @@ const SuggestionEventSchema = Type.Union([
   Type.Object({ type: Type.Literal("suggestion.added"), item: SuggestionItemSchema }, strict),
   Type.Object({ type: Type.Literal("suggestion.updated"), item: SuggestionItemSchema }, strict),
   Type.Object({ type: Type.Literal("suggestion.retracted"), id: identifier }, strict),
+  Type.Object({ type: Type.Literal("suggestion.state.changed"), suggestionId: identifier, commandType: text(100) }, strict),
 ]);
 export const DesktopEventSchema = Type.Union([
-  Type.Object({ type: Type.Literal("suggestion.event"), event: SuggestionEventSchema }, strict),
+  Type.Object({ type: Type.Literal("suggestion.event"), event: SuggestionEventSchema,
+    commandId: Type.Optional(identifier), suggestionRevision: revision,
+    state: PersistedSuggestionStateSchema }, strict),
   Type.Object({ type: Type.Literal("agent.runtime"), runtime: AgentRuntimeSchema }, strict),
   Type.Object({ type: Type.Literal("agent.activity"), activity: AgentActivitySchema }, strict),
   Type.Object({ type: Type.Literal("document.saved"), document: DocumentSnapshotSchema, projectRevision: revision }, strict),
@@ -189,6 +221,7 @@ export const WorkspaceSnapshotSchema = Type.Object(
     document: DocumentSnapshotSchema,
     sources: Type.Array(SourceSnapshotSchema),
     suggestions: PersistedSuggestionStateSchema,
+    suggestionRevision: revision,
     agent: AgentRuntimeSchema,
     activity: Type.Array(AgentActivitySchema, { maxItems: 500 }),
   },
@@ -196,7 +229,6 @@ export const WorkspaceSnapshotSchema = Type.Object(
 );
 
 const noParams = Type.Undefined();
-const noResult = Type.Void();
 const accepted = Type.Object({ accepted: Type.Boolean() }, strict);
 const saveDocumentParams = Type.Object(
   {
@@ -229,7 +261,7 @@ export const RendererOperations = {
   "agent.start": operation(noParams, AgentRuntimeSchema),
   "agent.stop": operation(noParams, AgentRuntimeSchema),
   "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
-  "suggestions.save": operation(PersistedSuggestionStateSchema, noResult),
+  "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
   "source.import": operation(noParams, Type.Union([SourceSnapshotSchema, Type.Undefined()])),
   "development.suggestion.create": operation(SuggestionItemSchema, accepted),
 } as const;
@@ -238,7 +270,7 @@ export const StorageOperations = {
   hydrate: operation(noParams, WorkspaceSnapshotSchema),
   "workspace.repair": operation(noParams, repairResult),
   "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
-  "suggestions.save": operation(PersistedSuggestionStateSchema, noResult),
+  "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
   "source.import": operation(Type.Object({ path: text(10_000) }, strict), SourceSnapshotSchema),
   "agent.seed": operation(noParams, ObservationSeedSchema),
   "agent.suggestions.list": operation(noParams, Type.Object({
@@ -280,7 +312,7 @@ export const DESKTOP_INVOKE_CHANNELS = {
   startAgent: "scribe:agent.start",
   stopAgent: "scribe:agent.stop",
   saveDocument: "scribe:document.save",
-  saveSuggestionState: "scribe:suggestions.save",
+  executeSuggestionCommand: "scribe:suggestions.command",
   importSource: "scribe:source.import",
 } as const;
 export const DESKTOP_EVENT_CHANNEL = "scribe:event" as const;
@@ -290,7 +322,7 @@ export const RENDERER_OPERATION_CHANNELS = {
   "agent.start": DESKTOP_INVOKE_CHANNELS.startAgent,
   "agent.stop": DESKTOP_INVOKE_CHANNELS.stopAgent,
   "document.save": DESKTOP_INVOKE_CHANNELS.saveDocument,
-  "suggestions.save": DESKTOP_INVOKE_CHANNELS.saveSuggestionState,
+  "suggestions.command": DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand,
   "source.import": DESKTOP_INVOKE_CHANNELS.importSource,
   "development.suggestion.create": DEVELOPMENT_SUGGESTION_CHANNEL,
 } as const satisfies Record<OperationName<typeof RendererOperations>, string>;

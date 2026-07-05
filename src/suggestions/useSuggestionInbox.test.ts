@@ -35,39 +35,33 @@ const item: TextSuggestion = {
 };
 
 describe("useSuggestionInbox", () => {
-  it("subscribes once, cleans up, and waits for hydration before persisting", () => {
+  it("subscribes once, cleans up, and emits durable commands", () => {
     const feed = new FeedHarness();
-    const onStateChange = vi.fn();
+    const onCommand = vi.fn();
     const { result, unmount } = renderHook(() =>
-      useSuggestionInbox(feed, { onStateChange }),
+      useSuggestionInbox(feed, { onCommand }),
     );
 
     expect(feed.listenerCount).toBe(1);
-    expect(onStateChange).not.toHaveBeenCalled();
-
     act(() => result.current.hydrate(createEmptySuggestionState()));
-    expect(onStateChange).toHaveBeenCalledTimes(1);
-
     act(() => feed.emit({ type: "suggestion.added", item }));
-    expect(onStateChange).toHaveBeenCalledTimes(2);
-    expect(onStateChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ entries: [expect.objectContaining({ item })] }),
-    );
+    act(() => result.current.pin(item.id));
+    expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ type: "pin", suggestionId: item.id }));
 
     unmount();
     expect(feed.listenerCount).toBe(0);
   });
 
-  it("does not persist transitions that only change ephemeral selection state", () => {
+  it("persists viewed state but not back navigation", () => {
     const feed = new FeedHarness();
-    const onStateChange = vi.fn();
-    const { result } = renderHook(() => useSuggestionInbox(feed, { onStateChange }));
+    const onCommand = vi.fn();
+    const { result } = renderHook(() => useSuggestionInbox(feed, { onCommand }));
     act(() => result.current.hydrate(createEmptySuggestionState()));
     act(() => feed.emit({ type: "suggestion.added", item }));
     act(() => result.current.select(item.id));
-    expect(onStateChange).toHaveBeenCalledTimes(3);
+    expect(onCommand).toHaveBeenCalledWith({ type: "markViewed", suggestionId: item.id });
 
     act(() => result.current.back());
-    expect(onStateChange).toHaveBeenCalledTimes(3);
+    expect(onCommand).toHaveBeenCalledTimes(1);
   });
 });

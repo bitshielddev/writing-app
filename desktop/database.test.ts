@@ -70,11 +70,11 @@ describe("database lifecycle", () => {
   it("creates the complete current schema only for an empty version-0 database", async () => {
     const path = await temporaryPath();
     const db = openApplicationDatabase(path);
-    expect(version(db)).toBe(2);
-    expect(inspectDatabase(db)).toEqual({ kind: "supported", version: 2 });
+    expect(version(db)).toBe(3);
+    expect(inspectDatabase(db)).toEqual({ kind: "supported", version: 3 });
     expect((db.prepare(
       "SELECT count(*) AS count FROM sqlite_schema WHERE type = 'table' AND sql LIKE '%STRICT%'",
-    ).get() as { count: number }).count).toBe(5);
+    ).get() as { count: number }).count).toBe(6);
     db.close();
   });
 
@@ -87,6 +87,9 @@ describe("database lifecycle", () => {
       .get("fixture-document")).toEqual({ markdown: "Keep me\n" });
     expect(db.prepare("SELECT bytes FROM sources WHERE id = ?")
       .get("fixture-source")).toEqual({ bytes: 12 });
+    expect(version(db)).toBe(3);
+    expect(db.prepare("SELECT revision FROM suggestion_state WHERE project_id = ?")
+      .get("fixture-project")).toEqual({ revision: 0 });
     db.close();
   });
 
@@ -176,7 +179,9 @@ describe("database lifecycle", () => {
     expect(backups).toHaveLength(1);
     expect(backups[0]).toMatch(/\.failed\.bak$/);
     const backup = new DatabaseSync(join(dirname(path), backups[0]!), { readOnly: true });
-    expect(inspectDatabase(backup)).toEqual({ kind: "supported", version: 2 });
+    expect(version(backup)).toBe(2);
+    expect(backup.prepare("SELECT name FROM projects WHERE id = ?").get("fixture-project"))
+      .toEqual({ name: "Fixture project" });
     backup.close();
     db.close();
   });

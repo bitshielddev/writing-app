@@ -104,6 +104,8 @@ function reduceFeedEvent(state: InboxState, event: SuggestionEvent): InboxState 
           : state.entries.filter((entry) => entry.item.id !== event.id),
       };
     }
+    case "suggestion.state.changed":
+      return state;
     default:
       return assertNever(event);
   }
@@ -311,7 +313,8 @@ function reducePreviewAction(
 export function inboxReducer(state: InboxState, action: InboxAction): InboxState {
   switch (action.type) {
     case "hydrate":
-      return { ...createEmptySuggestionState(), ...action.state };
+      return { ...createEmptySuggestionState(), ...action.state,
+        selectedId: state.selectedId, activePreviewId: state.activePreviewId };
     case "event":
       return reduceFeedEvent(state, action.event);
     case "select":

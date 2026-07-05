@@ -48,7 +48,7 @@ export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBri
     startAgent: () => invoke(ipcRenderer, "agent.start", DESKTOP_INVOKE_CHANNELS.startAgent),
     stopAgent: () => invoke(ipcRenderer, "agent.stop", DESKTOP_INVOKE_CHANNELS.stopAgent),
     saveDocument: (input) => invoke(ipcRenderer, "document.save", DESKTOP_INVOKE_CHANNELS.saveDocument, input),
-    saveSuggestionState: (state) => invoke(ipcRenderer, "suggestions.save", DESKTOP_INVOKE_CHANNELS.saveSuggestionState, state),
+    executeSuggestionCommand: (input) => invoke(ipcRenderer, "suggestions.command", DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, input),
     importSource: () => invoke(ipcRenderer, "source.import", DESKTOP_INVOKE_CHANNELS.importSource),
     subscribe(listener) {
       const handler = (_event: unknown, payload: unknown) => {

@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import { openApplicationDatabase } from "../database.js";
+import { DATABASE_MIGRATIONS, openApplicationDatabase } from "../database.js";
 
 export interface TransactionManager {
   run<T>(work: () => T): T;
@@ -11,7 +11,7 @@ export class SqliteDatabaseLifecycle implements TransactionManager {
   private closed = false;
 
   constructor(databasePath: string) {
-    this.db = openApplicationDatabase(databasePath);
+    this.db = openApplicationDatabase(databasePath, DATABASE_MIGRATIONS);
   }
 
   run<T>(work: () => T): T {

@@ -78,6 +78,31 @@ describe("desktop storage service", () => {
     expect(hydrated.suggestions.entries[0]?.item).toEqual(item);
   });
 
+  it("deduplicates commands and returns authoritative state on revision conflicts", async () => {
+    const snapshot = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
+    const item: TextSuggestion = { id: "command-item", dedupeKey: "command-item", kind: "snippet",
+      title: "Command item", summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1 };
+    await handleStorageRequest("agent.suggestion.create", { item, expectedDocumentRevision: snapshot.document.revision });
+    const current = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
+    const request = { commandId: "pin-once", documentId: current.document.id,
+      expectedSuggestionRevision: current.suggestionRevision,
+      command: { type: "pin", suggestionId: item.id, pinnedAt: 10 } };
+    const first = await handleStorageRequest("suggestions.command", request);
+    const duplicate = await handleStorageRequest("suggestions.command", request);
+    expect(duplicate).toEqual(first);
+    const after = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
+    expect(after.suggestions.pinnedEntries).toHaveLength(1);
+    expect(after.suggestionRevision).toBe(current.suggestionRevision + 1);
+
+    const conflict = await handleStorageRequest("suggestions.command", {
+      commandId: "stale-dismiss", documentId: current.document.id,
+      expectedSuggestionRevision: current.suggestionRevision,
+      command: { type: "dismiss", suggestionId: item.id },
+    }) as { status: string; suggestionRevision: number; state: typeof after.suggestions };
+    expect(conflict).toMatchObject({ status: "conflict", suggestionRevision: after.suggestionRevision });
+    expect(conflict.state.pinnedEntries).toHaveLength(1);
+  });
+
   it("handles every suggestion, seed, and projection RPC method", async () => {
     const snapshot = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
     const seed = await handleStorageRequest("agent.seed") as {
@@ -130,15 +155,12 @@ describe("desktop storage service", () => {
         item: developmentItem,
       }),
     ).resolves.toEqual({ accepted: true });
-    await expect(
-      handleStorageRequest("suggestions.save", {
-        entries: [],
-        pinnedEntries: [],
-        workspacePins: [],
-        seenKeys: {},
-        nextZIndex: 1,
-      }),
-    ).resolves.toBeUndefined();
+    const hydrated = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
+    await expect(handleStorageRequest("suggestions.command", {
+      commandId: "dismiss-development", documentId: hydrated.document.id,
+      expectedSuggestionRevision: hydrated.suggestionRevision,
+      command: { type: "dismiss", suggestionId: developmentItem.id },
+    })).resolves.toMatchObject({ status: "applied", suggestionRevision: hydrated.suggestionRevision + 1 });
     await expect(handleStorageRequest("unknown.method")).rejects.toThrow(
       "Unknown storage operation",
     );

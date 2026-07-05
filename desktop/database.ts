@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 3;
 export const MINIMUM_SUPPORTED_DATABASE_VERSION = 2;
 
 export const CURRENT_SCHEMA_SQL = `
@@ -50,7 +50,15 @@ export const CURRENT_SCHEMA_SQL = `
   CREATE TABLE suggestion_state (
     project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
     state_json TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
     updated_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE TABLE suggestion_command_receipts (
+    command_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    result_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL
   ) STRICT;
 
   CREATE TABLE event_outbox (
@@ -60,6 +68,22 @@ export const CURRENT_SCHEMA_SQL = `
     dispatched_at INTEGER
   ) STRICT;
 `;
+
+export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
+  fromVersion: 2,
+  toVersion: 3,
+  name: "authoritative-suggestion-writer",
+  requiresBackup: true,
+  up(db) {
+    db.exec("ALTER TABLE suggestion_state ADD COLUMN revision INTEGER NOT NULL DEFAULT 0");
+    db.exec(`CREATE TABLE suggestion_command_receipts (
+      command_id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      result_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    ) STRICT`);
+  },
+}];
 
 export type DatabaseMigration = {
   fromVersion: number;
@@ -378,7 +402,7 @@ function openReadOnly(databasePath: string) {
 
 export function openApplicationDatabase(
   databasePath: string,
-  migrations: readonly DatabaseMigration[] = [],
+  migrations: readonly DatabaseMigration[] = DATABASE_MIGRATIONS,
 ) {
   validateMigrationRegistry(migrations);
   let initialInspection: DatabaseInspection = { kind: "empty", version: 0 };

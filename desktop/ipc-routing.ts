@@ -111,8 +111,8 @@ export function registerMainIpc({
     agent.call("agent.stop"));
   register("document.save", DESKTOP_INVOKE_CHANNELS.saveDocument, (_event, input) =>
     storage.call("document.save", input));
-  register("suggestions.save", DESKTOP_INVOKE_CHANNELS.saveSuggestionState, (_event, state) =>
-    storage.call("suggestions.save", state));
+  register("suggestions.command", DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, (_event, input) =>
+    storage.call("suggestions.command", input));
   register("source.import", DESKTOP_INVOKE_CHANNELS.importSource, async (event) => {
     const selection = await dialog.show(ownerForSender(event.sender), {
       properties: ["openFile"],
