@@ -10,7 +10,6 @@ import {
   ModelRegistry,
   SessionManager,
   SettingsManager,
-  type AgentSession,
 } from "@earendil-works/pi-coding-agent";
 
 import {
@@ -20,8 +19,10 @@ import {
   type ScribeExtensionHost,
   type ScribeRevision,
 } from "./scribe-extension.js";
-import { ScribeLoopState } from "./scribe-loop.js";
-import { activitiesFromSessionEvent } from "./agent-events.js";
+import { ScribeLoopState } from "./domain/agent-loop.js";
+import { classifyEventSequence } from "./domain/event-sequence.js";
+import type { AgentSessionPort } from "./application/agent-session-port.js";
+import { PiAgentSessionAdapter } from "./infrastructure/agent/pi-agent-session.js";
 import { safeActivityPayload } from "./activity.js";
 import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
 import {
@@ -52,7 +53,7 @@ if (!workspaceRoot || !agentDir || !sessionDirectory) {
 }
 
 const eventBus = createEventBus();
-let session: AgentSession | undefined;
+let session: AgentSessionPort | undefined;
 let configured = false;
 let draining = false;
 
@@ -100,30 +101,26 @@ const host: ScribeExtensionHost = {
   persist() {},
 };
 
-function observeSessionEvent(
-  event: Parameters<typeof activitiesFromSessionEvent>[0],
-) {
-  activitiesFromSessionEvent(event).forEach(postActivity);
-}
-
 function runtime() {
   const state = host.loop.snapshot();
   return {
     status: state.status,
-    sessionId: session?.sessionId,
+    sessionId: session?.id,
     activeRevision: state.activeRevision,
     cycleCount: state.cycleCount,
     error: state.error,
   } satisfies AgentRuntime;
 }
 
-function canDrain(activeSession: AgentSession | undefined): activeSession is AgentSession {
+function canDrain(
+  activeSession: AgentSessionPort | undefined,
+): activeSession is AgentSessionPort {
   return Boolean(
     configured &&
       activeSession &&
       host.loop.isEnabled() &&
       !draining &&
-      !activeSession.isStreaming,
+      !activeSession.isBusy,
   );
 }
 
@@ -236,7 +233,7 @@ async function stopAgent() {
       title: "Agent stopped by writer",
       status: "stopped",
     });
-    if (session.isStreaming) await session.abort();
+    if (session.isBusy) await session.abort();
   }
   return runtime();
 }
@@ -302,8 +299,8 @@ async function initialize() {
     tools: ["read", "grep", "find", "ls", ...SCRIBE_TOOL_NAMES],
     excludeTools: ["bash", "write", "edit"],
   });
-  session = created.session;
-  session.subscribe(observeSessionEvent);
+  session = new PiAgentSessionAdapter(created.session);
+  session.subscribeActivity(postActivity);
 
   const diagnostics = [
     ...settingsManager.drainErrors().map((item) => item.error.message),
@@ -311,21 +308,21 @@ async function initialize() {
     modelRegistry.getError(),
     ...created.extensionsResult.errors.map((item) => item.error),
   ].filter((item): item is string => Boolean(item));
-  const activeTools = session.getActiveToolNames().sort();
+  const activeTools = created.session.getActiveToolNames().sort();
   const expectedTools = ["find", "grep", "ls", "read", ...SCRIBE_TOOL_NAMES].sort();
   if (JSON.stringify(activeTools) !== JSON.stringify(expectedTools)) {
     diagnostics.push(`Unsafe or incomplete Pi tool set: ${activeTools.join(", ")}`);
   }
-  if (!session.model) diagnostics.push("No Pi model is configured in settings.json or models.json");
-  else if (!modelRegistry.hasConfiguredAuth(session.model)) {
-    diagnostics.push(`No credentials are configured for ${session.model.provider}`);
+  if (!created.session.model) diagnostics.push("No Pi model is configured in settings.json or models.json");
+  else if (!modelRegistry.hasConfiguredAuth(created.session.model)) {
+    diagnostics.push(`No credentials are configured for ${created.session.model.provider}`);
   }
 
   if (diagnostics.length) {
     configured = false;
     postRuntime({
       status: "offline",
-      sessionId: session.sessionId,
+      sessionId: session.id,
       cycleCount: host.loop.snapshot().cycleCount,
       error: diagnostics.join("; "),
     });
@@ -360,8 +357,11 @@ const handleParentMessage = createAgentParentTransport({
     const nextSequence = data.sequence;
     const nextStreamId = data.streamId;
     if (nextStreamId && nextSequence !== undefined) {
-      if (observedStreamId === nextStreamId && nextSequence <= observedSequence) return;
-      const gap = observedStreamId === nextStreamId && nextSequence > observedSequence + 1;
+      const sequenceDecision = observedStreamId === nextStreamId
+        ? classifyEventSequence(observedSequence, nextSequence)
+        : "next";
+      if (sequenceDecision === "duplicate") return;
+      const gap = sequenceDecision === "gap";
       if (gap) {
         const seed = await storageClient.call("agent.seed");
         observedStreamId = seed.streamId;

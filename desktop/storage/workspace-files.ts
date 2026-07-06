@@ -4,16 +4,7 @@ import { basename, extname, join, parse } from "node:path";
 import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 
 import type { StoragePaths } from "./config.js";
-
-export type CopiedSource = { filename: string; destination: string; bytes: number };
-
-export interface WorkspaceFiles {
-  ensureDirectories(): Promise<void>;
-  writeDraft(markdown: string): Promise<void>;
-  repairDraft(markdown: string): Promise<{ repaired: boolean }>;
-  copySource(sourcePath: string): Promise<CopiedSource>;
-  removeSource(path: string): Promise<void>;
-}
+import type { CopiedSource, WorkspaceFiles } from "../application/storage-ports.js";
 
 export class NodeWorkspaceFiles implements WorkspaceFiles {
   constructor(readonly paths: StoragePaths) {}

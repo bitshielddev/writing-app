@@ -2,7 +2,12 @@ import type { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import type { Static, TSchema } from "typebox";
 
-import type { DurableEventEnvelope, DurableEventPayload, DocumentSnapshot, SourceSnapshot } from "../../src/shared/desktop.js";
+import type {
+  DurableEventEnvelope,
+  DurableEventPayload,
+  DocumentSnapshot,
+  SourceSnapshot,
+} from "../../src/shared/desktop.js";
 import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
 import {
   COMPATIBILITY_REGISTRY,
@@ -18,50 +23,24 @@ import {
   DocumentBlocksSchema,
   PersistedSuggestionStateSchema,
   SuggestionCommandResultSchema,
-  StorageOperations,
-  type OperationResult,
   parseOrContractError,
 } from "../../src/shared/contracts.js";
+import type {
+  DocumentStore,
+  EventOutbox,
+  ProjectSnapshot,
+  ProjectStore,
+  SourceStore,
+  SuggestionCommandResult,
+  SuggestionProjection,
+  SuggestionStore,
+} from "../application/storage-ports.js";
+import {
+  clampReplayLimit,
+  nextAcknowledgedSequence,
+} from "../domain/event-sequence.js";
 
-export type ProjectSnapshot = { id: string; name: string; revision: number };
 export type PendingEvent = DurableEventEnvelope;
-
-export interface ProjectStore {
-  get(id: string): ProjectSnapshot;
-  incrementRevision(id: string, updatedAt: number): void;
-}
-
-export interface DocumentStore {
-  get(id: string): DocumentSnapshot;
-  save(id: string, blocks: unknown[], markdown: string, updatedAt: number): DocumentSnapshot;
-}
-
-export interface SourceStore {
-  list(projectId: string): SourceSnapshot[];
-  insert(source: SourceSnapshot, createdAt: number): void;
-  get(id: string): SourceSnapshot;
-}
-
-export interface SuggestionStore {
-  get(projectId: string): SuggestionProjection;
-  compareAndPut(projectId: string, expectedRevision: number, state: PersistedSuggestionState): SuggestionProjection;
-  findReceipt(commandId: string): SuggestionCommandResult | undefined;
-  recordReceipt(projectId: string, result: SuggestionCommandResult): void;
-}
-export type SuggestionProjection = { state: PersistedSuggestionState; revision: number };
-export type SuggestionCommandResult = OperationResult<typeof StorageOperations, "suggestions.command">;
-
-export interface EventOutbox {
-  enqueue(event: DurableEventPayload, causationId?: string): DurableEventEnvelope;
-  pending(): PendingEvent[];
-  markDispatched(eventId: string): void;
-  replay(streamId: string, afterSequence: number, limit?: number): {
-    streamId: string; events: DurableEventEnvelope[]; headSequence: number;
-    hasMore: boolean; historyAvailable: boolean;
-  };
-  head(streamId: string): number;
-  acknowledge(consumerId: string, streamId: string, sequence: number): number;
-}
 
 const LEGACY_TO_CURRENT: readonly JsonMigration[] = [{
   fromVersion: 0,
@@ -384,7 +363,7 @@ export class OutboxRepository implements EventOutbox {
   }
 
   replay(streamId: string, afterSequence: number, requestedLimit = 100) {
-    const limit = Math.max(1, Math.min(100, requestedLimit));
+    const limit = clampReplayLimit(requestedLimit);
     const headSequence = this.head(streamId);
     if (streamId !== DEFAULT_EVENT_STREAM_ID) {
       return { streamId, events: [], headSequence, hasMore: false, historyAvailable: false };
@@ -412,14 +391,21 @@ export class OutboxRepository implements EventOutbox {
   acknowledge(consumerId: string, streamId: string, sequence: number) {
     if (streamId !== DEFAULT_EVENT_STREAM_ID) throw new Error("UNKNOWN_EVENT_STREAM");
     const head = this.head(streamId);
-    if (sequence > head) throw new Error("ACKNOWLEDGEMENT_PAST_STREAM_HEAD");
+    const existing = this.db.prepare(`SELECT acknowledged_sequence FROM event_consumer_cursor
+      WHERE consumer_id = ? AND stream_id = ?`).get(consumerId, streamId) as
+      { acknowledged_sequence: number } | undefined;
+    const acknowledgedSequence = nextAcknowledgedSequence(
+      existing?.acknowledged_sequence ?? 0,
+      sequence,
+      head,
+    );
     this.db.prepare(`INSERT INTO event_consumer_cursor
       (consumer_id, stream_id, acknowledged_sequence, updated_at) VALUES (?, ?, ?, ?)
       ON CONFLICT (consumer_id, stream_id) DO UPDATE SET
         acknowledged_sequence = MAX(acknowledged_sequence, excluded.acknowledged_sequence),
         updated_at = CASE WHEN excluded.acknowledged_sequence > acknowledged_sequence
           THEN excluded.updated_at ELSE updated_at END`
-    ).run(consumerId, streamId, sequence, Date.now());
+    ).run(consumerId, streamId, acknowledgedSequence, Date.now());
     const row = this.db.prepare(`SELECT acknowledged_sequence FROM event_consumer_cursor
       WHERE consumer_id = ? AND stream_id = ?`).get(consumerId, streamId) as { acknowledged_sequence: number };
     return row.acknowledged_sequence;

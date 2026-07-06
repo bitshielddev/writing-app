@@ -24,7 +24,7 @@ import {
   SCRIBE_TOOL_NAMES,
   type ScribeExtensionHost,
 } from "./scribe-extension";
-import { ScribeLoopState } from "./scribe-loop";
+import { ScribeLoopState } from "./domain/agent-loop";
 
 const directories: string[] = [];
 

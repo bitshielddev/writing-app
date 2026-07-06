@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension Review: Desktop inward dependencies</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f5f0;
+      --panel: #fffdf8;
+      --ink: #1f2933;
+      --muted: #64748b;
+      --line: #ded8cb;
+      --accent: #315f72;
+      --accent-soft: #e3eef1;
+      --warn: #7a4b00;
+      --warn-bg: #fff6dd;
+      --code-bg: #18212b;
+      --code-ink: #eef6ff;
+      --green-bg: #e8f3ea;
+      --green: #24613b;
+      --shadow: 0 18px 48px rgba(31, 41, 51, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #e8eef2 0, transparent 28rem), var(--bg);
+      color: var(--ink);
+      font: 16px/1.58 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 56px 24px 26px;
+    }
+    .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .78rem; }
+    h1 { margin: 12px 0 12px; font-size: clamp(2rem, 5vw, 4.2rem); line-height: 1.02; letter-spacing: -0.05em; }
+    .subtitle { max-width: 760px; color: #475569; font-size: 1.12rem; }
+    main { max-width: 1120px; margin: 0 auto 72px; padding: 0 24px; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }
+    nav {
+      position: sticky;
+      top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(255,253,248,.88);
+      box-shadow: var(--shadow);
+    }
+    nav a { display: block; color: var(--accent); text-decoration: none; padding: 7px 0; font-size: .94rem; }
+    section, .card {
+      background: rgba(255,253,248,.92);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 26px;
+      margin-bottom: 22px;
+    }
+    h2 { margin: 0 0 14px; font-size: 1.55rem; line-height: 1.2; letter-spacing: -0.02em; }
+    h3 { margin: 24px 0 10px; font-size: 1.08rem; }
+    p { margin: 0 0 14px; }
+    ul { margin-top: 8px; padding-left: 22px; }
+    li + li { margin-top: 8px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+    pre {
+      margin: 14px 0 10px;
+      padding: 16px;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.08);
+      font-size: .86rem;
+      line-height: 1.5;
+    }
+    pre mark {
+      background: rgba(255, 216, 118, .22);
+      color: inherit;
+      border-radius: 4px;
+      padding: 0 2px;
+    }
+    .map {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0 8px;
+    }
+    .node {
+      padding: 16px;
+      border-radius: 18px;
+      background: #f5f0e7;
+      border: 1px solid var(--line);
+      min-height: 146px;
+    }
+    .node b { display: block; color: var(--accent); margin-bottom: 6px; }
+    .node small { color: var(--muted); display: block; margin-top: 8px; }
+    .callout {
+      margin: 18px 0;
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid #cadce2;
+      background: var(--accent-soft);
+    }
+    .warning { background: var(--warn-bg); border-color: #f0d58c; color: var(--warn); }
+    .ok { background: var(--green-bg); border-color: #b8d8bf; color: var(--green); }
+    .file-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .file {
+      padding: 13px 14px;
+      background: #f8f5ee;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .file span { display: block; color: var(--muted); font-size: .9rem; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { color: var(--accent); font-size: .86rem; text-transform: uppercase; letter-spacing: .04em; }
+    .timeline { border-left: 3px solid #cbdce2; padding-left: 18px; }
+    .timeline p { margin-bottom: 12px; }
+    .quiz details {
+      background: #f8f5ee;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin: 12px 0;
+    }
+    .quiz summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+    footer { color: var(--muted); font-size: .92rem; margin-top: 20px; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      nav { position: static; order: -1; }
+      .map, .file-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Comprehension review</div>
+    <h1>Desktop code now has enforceable inward dependency seams.</h1>
+    <p class="subtitle">This staged change is mainly an architectural extraction: storage use cases move into application code, small policy functions move into domain code, Pi SDK details move behind an adapter, and a boundary test checks that the direction stays intact.</p>
+  </header>
+
+  <main class="grid">
+    <div>
+      <section id="reading-map">
+        <h2>The path through this diff</h2>
+        <p>The product behavior is meant to stay mostly the same. The important shift is where behavior lives and which modules are allowed to know about runtime details such as SQLite, Node files, Electron, and the Pi SDK.</p>
+        <div class="map" aria-label="Layer map">
+          <div class="node">
+            <b>domain</b>
+            Pure policies: event cursor classification, replay limits, revision checks, and the existing agent loop state machine.
+            <small>New or moved files: <code>desktop/domain/event-sequence.ts</code>, <code>revisions.ts</code>, <code>agent-loop.ts</code></small>
+          </div>
+          <div class="node">
+            <b>application</b>
+            Use cases and ports. Storage operations coordinate stores, transactions, files, clock, identity, outbox, and dispatch without importing storage adapters.
+            <small>New files: <code>storage-operations.ts</code>, <code>storage-ports.ts</code>, <code>agent-session-port.ts</code></small>
+          </div>
+          <div class="node">
+            <b>infrastructure</b>
+            Runtime adapters. SQLite repositories, file IO, event dispatch, and Pi session conversion implement application-facing ports.
+            <small>Moved or updated files under <code>desktop/storage</code> and <code>desktop/infrastructure/agent</code></small>
+          </div>
+        </div>
+        <div class="callout ok">
+          The diff also adds <code>scripts/desktop-boundaries.test.mjs</code>. That makes the layer rule executable instead of relying only on documentation.
+        </div>
+      </section>
+
+      <section id="files-that-matter">
+        <h2>The files worth reading first</h2>
+        <div class="file-list">
+          <div class="file"><code>desktop/application/storage-operations.ts</code><span>Renamed from storage, now expressed through ports and domain policies.</span></div>
+          <div class="file"><code>desktop/application/storage-ports.ts</code><span>The application contract that SQLite/files/outbox implementations must satisfy.</span></div>
+          <div class="file"><code>desktop/domain/event-sequence.ts</code><span>Extracts replay/ack/cursor rules used by both agent and repository code.</span></div>
+          <div class="file"><code>desktop/domain/revisions.ts</code><span>Centralizes revision conflict checks and error names.</span></div>
+          <div class="file"><code>desktop/infrastructure/agent/pi-agent-session.ts</code><span>Maps the Pi SDK session to the new <code>AgentSessionPort</code>.</span></div>
+          <div class="file"><code>scripts/desktop-boundaries.test.mjs</code><span>Fails if domain/application code imports runtime infrastructure.</span></div>
+        </div>
+      </section>
+
+      <section id="storage-walkthrough">
+        <h2>Follow one save through the new storage boundary</h2>
+        <p>Before this change, <code>StorageOperations</code> lived in <code>desktop/storage</code> and directly used runtime choices such as <code>Date.now()</code>, <code>randomUUID()</code>, storage-local types, and contract parsing. Now the operation class is application code. It receives dependencies through ports and calls domain helpers for policy decisions.</p>
+
+        <pre><code>export type StorageOperationDependencies = {
+  projectId: string;
+  documentId: string;
+  workspace: WorkspaceDescriptor;
+  transactions: TransactionManager;
+  projects: ProjectStore;
+  documents: DocumentStore;
+  sources: SourceStore;
+  suggestions: SuggestionStore;
+  outbox: EventOutbox;
+  dispatcher: EventDispatcher;
+  files: WorkspaceFiles;
+  <mark>clock: Clock;</mark>
+  <mark>identities: IdentityGenerator;</mark>
+  logger?: Pick&lt;Console, "error"&gt;;
+};</code></pre>
+        <p>The production composition root supplies those runtime dependencies in <code>desktop/storage/service.ts</code>:</p>
+        <pre><code>const operations = new StorageOperations({
+  projectId,
+  documentId,
+  workspace: paths,
+  transactions: database,
+  projects,
+  documents,
+  sources,
+  suggestions,
+  outbox,
+  dispatcher,
+  files,
+  <mark>clock: { now: () =&gt; Date.now() },</mark>
+  <mark>identities: { next: () =&gt; randomUUID() },</mark>
+  logger: options.logger,
+});</code></pre>
+
+        <h3>What actually happens during <code>document.save</code></h3>
+        <p>The save path still preserves the important behavior from the old implementation: reject stale revisions before writing the draft file, serialize concurrent saves, write the draft mirror, update SQLite inside a transaction, enqueue a durable event, and dispatch the outbox after the transaction succeeds.</p>
+        <pre><code>private async performDocumentSave(input: Params&lt;"document.save"&gt;): Promise&lt;DocumentSnapshot&gt; {
+  if (input.documentId !== this.deps.documentId) throw new Error("Invalid document identity");
+
+  const current = this.deps.documents.get(this.deps.documentId);
+  <mark>assertDocumentRevision(input.expectedRevision, current.revision);</mark>
+  if (
+    JSON.stringify(input.blocks) === JSON.stringify(current.blocks) &amp;&amp;
+    input.markdown === current.markdown
+  ) return current;
+
+  await this.deps.files.writeDraft(input.markdown);
+  let saved: DocumentSnapshot;
+  try {
+    saved = this.deps.transactions.run(() =&gt; {
+      <mark>assertDocumentRevision(
+        input.expectedRevision,
+        this.deps.documents.get(this.deps.documentId).revision,
+      );</mark>
+      const now = this.deps.clock.now();
+      const document = this.deps.documents.save(
+        this.deps.documentId,
+        input.blocks,
+        input.markdown,
+        now,
+      );
+      this.deps.projects.incrementRevision(this.deps.projectId, now);
+      this.deps.outbox.enqueue({
+        type: "document.saved",
+        document,
+        projectRevision: this.deps.projects.get(this.deps.projectId).revision,
+      });
+      return document;
+    });
+  } catch (error) {
+    try {
+      await this.deps.files.repairDraft(
+        this.deps.documents.get(this.deps.documentId).markdown,
+      );
+    } catch (repairError) {
+      throw new AggregateError(
+        [error, repairError],
+        "Document save failed and draft repair failed",
+        { cause: repairError },
+      );
+    }
+    throw error;
+  }
+  await this.deps.dispatcher.dispatch();
+  return saved;
+}</code></pre>
+        <div class="callout">
+          The double revision check is intentional in the changed code: the first check protects the draft mirror from a stale write, and the second check protects the database transaction from a race after the file write starts.
+        </div>
+      </section>
+
+      <section id="boundary-shift">
+        <h2>Validation moved to the RPC edge</h2>
+        <p><code>StorageOperations</code> now accepts typed operation parameters. Runtime validation still exists, but it is concentrated in <code>createStorageRequestHandler</code>. The handler parses the incoming params before it calls the operation and parses the result before returning it.</p>
+        <pre><code>return async (method: string, params?: unknown) =&gt; {
+  if (!Object.prototype.hasOwnProperty.call(operationMap, method)) {
+    throw new Error("Unknown storage operation");
+  }
+  const name = method as StorageRpcMethod;
+  <mark>const input = parseOrContractError(
+    StorageOperationContracts[name].params,
+    params,
+    `storage.${name}.params`,
+  );</mark>
+  const result = await (operationMap[name] as Operation)(input);
+  <mark>return parseOrContractError(
+    StorageOperationContracts[name].result,
+    result,
+    `storage.${name}.result`,
+  );</mark>
+};</code></pre>
+        <div class="callout warning">
+          Maintenance risk: if future code calls <code>StorageOperations</code> directly outside tests or a typed application layer, it will bypass runtime schema validation. That is not a new product feature, but it is an interface change caused by moving validation to the RPC edge.
+        </div>
+      </section>
+
+      <section id="small-policies">
+        <h2>Small policies now have names</h2>
+        <p>The domain layer gets small functions that were previously embedded inside infrastructure or process code. That makes them easier to test and gives future code a shared vocabulary for the same rules.</p>
+        <table>
+          <thead><tr><th>Policy</th><th>Current caller</th><th>Behavior grounded in code</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>classifyEventSequence</code></td>
+              <td><code>desktop/agent.ts</code></td>
+              <td>Incoming sequence <= observed is a duplicate; exactly observed + 1 is next; anything larger is a gap.</td>
+            </tr>
+            <tr>
+              <td><code>clampReplayLimit</code></td>
+              <td><code>OutboxRepository.replay</code></td>
+              <td>Replay limits are clamped between 1 and 100.</td>
+            </tr>
+            <tr>
+              <td><code>nextAcknowledgedSequence</code></td>
+              <td><code>OutboxRepository.acknowledge</code></td>
+              <td>Ack past stream head throws; otherwise acknowledgements are monotonic.</td>
+            </tr>
+            <tr>
+              <td><code>assertDocumentRevision</code> and <code>assertSuggestionDocumentRevision</code></td>
+              <td><code>StorageOperations</code></td>
+              <td>Expected revisions must be integers and equal the current revision, with different error strings for document save and suggestion mutation paths.</td>
+            </tr>
+          </tbody>
+        </table>
+        <pre><code>export function classifyEventSequence(
+  observedSequence: number,
+  incomingSequence: number,
+): EventCursorDecision {
+  if (incomingSequence &lt;= observedSequence) return "duplicate";
+  if (incomingSequence === observedSequence + 1) return "next";
+  return "gap";
+}
+
+export function nextAcknowledgedSequence(current: number, requested: number, head: number) {
+  if (requested &gt; head) throw new Error("ACKNOWLEDGEMENT_PAST_STREAM_HEAD");
+  return Math.max(current, requested);
+}</code></pre>
+      </section>
+
+      <section id="agent-port">
+        <h2>The Pi session is no longer the application interface</h2>
+        <p><code>desktop/agent.ts</code> previously held a Pi <code>AgentSession</code> directly. It now depends on <code>AgentSessionPort</code>, while <code>PiAgentSessionAdapter</code> owns the Pi-specific mapping.</p>
+        <pre><code>export interface AgentSessionPort {
+  readonly id: string;
+  readonly isBusy: boolean;
+  prompt(instruction: string): Promise&lt;void&gt;;
+  abort(): Promise&lt;void&gt;;
+  dispose(): void;
+  subscribeActivity(listener: (activity: AgentActivityInput) =&gt; void): void;
+}</code></pre>
+        <pre><code>export class PiAgentSessionAdapter implements AgentSessionPort {
+  constructor(private readonly session: AgentSession) {}
+
+  get id() {
+    return this.session.sessionId;
+  }
+
+  get isBusy() {
+    return this.session.isStreaming;
+  }
+
+  subscribeActivity(listener: (activity: AgentActivityInput) =&gt; void) {
+    this.session.subscribe((event) =&gt; {
+      activitiesFromSessionEvent(event).forEach(listener);
+    });
+  }
+}</code></pre>
+        <p>In <code>desktop/agent.ts</code>, that changes reads from <code>session.sessionId</code> to <code>session.id</code> and <code>session.isStreaming</code> to <code>session.isBusy</code>. The production behavior is preserved by the adapter mapping.</p>
+      </section>
+
+      <section id="guardrail">
+        <h2>The guardrail that keeps this refactor from drifting</h2>
+        <p>The new boundary test scans non-test TypeScript files under <code>desktop/domain</code> and <code>desktop/application</code>. It rejects direct imports of Electron, Node built-ins, Pi, storage adapters, and infrastructure adapters according to the layer being checked.</p>
+        <pre><code>const forbiddenRuntimeImports = /^(electron|node:|@earendil-works\/pi-coding-agent)/;
+
+export function prohibitedImports(layer, source) {
+  return importSpecifiers(source).filter((specifier) =&gt; {
+    if (forbiddenRuntimeImports.test(specifier)) return true;
+    if (layer === "domain") {
+      return specifier.includes("/application/") ||
+        specifier.includes("/infrastructure/") ||
+        specifier.includes("/storage/");
+    }
+    return specifier.includes("/infrastructure/") || specifier.includes("/storage/");
+  });
+}</code></pre>
+        <p>The test does not parse TypeScript ASTs; it uses a regex over import statements. That is enough for the imports shown in the codebase, but dynamic imports or unusual formatting could escape it. The evidence for this limitation is the regex implementation itself.</p>
+      </section>
+
+      <section id="history">
+        <h2>Why this change fits the recent history</h2>
+        <div class="timeline">
+          <p><code>29b9eef</code> and <code>5372f2f</code> started splitting oversized modules and layering storage.</p>
+          <p><code>2a290da</code> introduced contract-validated process boundaries, which explains why the current diff keeps parsing at the RPC edge.</p>
+          <p><code>2f264db</code>, <code>cbcb746</code>, and <code>b3763b9</code> made storage, durable events, replay, acknowledgement, and compatibility more central. The current refactor pulls the policy pieces of those areas inward so they are not owned by SQLite or process modules.</p>
+          <p><code>0f6bef4</code> tightened acknowledgement/subscription behavior. The new cursor classifier in <code>desktop/domain/event-sequence.ts</code> follows that same line of work by naming duplicate, next, and gap decisions.</p>
+        </div>
+        <p>That history supports the interpretation that this is an architecture hardening change rather than a new user-visible feature. The commit messages alone do not prove product intent, so this review treats that as an inference from the log plus the current diff.</p>
+      </section>
+
+      <section id="tests">
+        <h2>What the tests now protect</h2>
+        <ul>
+          <li><code>desktop/application/storage-operations.test.ts</code> tests storage use cases through fake ports: saving emits a durable event, stale revision rejection happens before file write, and failed persistence repairs the draft mirror.</li>
+          <li><code>desktop/domain/policies.test.ts</code> tests event cursor, replay limit, acknowledgement, and revision policies without SQLite, files, Electron, or Pi.</li>
+          <li><code>desktop/infrastructure/agent/pi-agent-session.test.ts</code> verifies that the adapter satisfies <code>AgentSessionPort</code> and forwards prompt/abort/dispose/subscribe to the Pi session.</li>
+          <li><code>scripts/desktop-boundaries.test.mjs</code> checks dependency direction for domain and application modules.</li>
+        </ul>
+        <div class="callout ok">
+          Verification run for this review: <code>npm test -- --run desktop/application/storage-operations.test.ts desktop/domain/policies.test.ts desktop/infrastructure/agent/pi-agent-session.test.ts scripts/desktop-boundaries.test.mjs</code>. Result: 4 files passed, 9 tests passed.
+        </div>
+      </section>
+
+      <section id="risks">
+        <h2>Things future maintainers should keep in mind</h2>
+        <ul>
+          <li>Keep runtime validation at the RPC edge if application operations continue to accept typed params. Moving direct calls into production code should come with either typed construction or explicit validation.</li>
+          <li>When adding a new storage operation, update both the shared contract and the RPC map. The map now casts validated params into operation-specific types, so a missing entry is the place a new method would fail.</li>
+          <li>If a domain helper starts needing <code>Date.now()</code>, UUIDs, SQLite, file IO, or Pi types, that behavior probably belongs in an application port or infrastructure adapter instead.</li>
+          <li>The import boundary test is a guardrail, not a full architecture checker. It catches normal static imports; it does not understand every TypeScript syntax shape.</li>
+        </ul>
+      </section>
+
+      <section id="quiz" class="quiz">
+        <h2>Pause and check your mental model</h2>
+        <details>
+          <summary>1. A stale <code>document.save</code> request arrives. Which changed code path prevents the draft mirror from being overwritten?</summary>
+          <p><code>performDocumentSave</code> calls <code>assertDocumentRevision(input.expectedRevision, current.revision)</code> before <code>files.writeDraft(input.markdown)</code>. That first check is the pre-file-write guard.</p>
+        </details>
+        <details>
+          <summary>2. Why can <code>StorageOperations</code> now be tested without SQLite or Node file IO?</summary>
+          <p>It depends on interfaces from <code>storage-ports.ts</code>, such as <code>DocumentStore</code>, <code>WorkspaceFiles</code>, <code>TransactionManager</code>, <code>Clock</code>, and <code>IdentityGenerator</code>. Tests can provide fake implementations of those ports.</p>
+        </details>
+        <details>
+          <summary>3. If an agent process sees sequence 6 after observing sequence 3 on the same stream, what happens?</summary>
+          <p><code>classifyEventSequence(3, 6)</code> returns <code>"gap"</code>. In <code>desktop/agent.ts</code>, that causes the agent to call <code>agent.seed</code>, reset its observed stream cursor from the seed, and emit the seeded revision.</p>
+        </details>
+        <details>
+          <summary>4. What would break architecturally if <code>desktop/application/storage-operations.ts</code> imported <code>node:crypto</code> again?</summary>
+          <p>The boundary test would report a prohibited runtime import for an application module. More importantly, the application use case would again own a runtime decision that is now supplied by the composition root through <code>IdentityGenerator</code>.</p>
+        </details>
+        <details>
+          <summary>5. Where would you start if Pi activity stopped appearing in the runtime panel after this refactor?</summary>
+          <p>Start at <code>PiAgentSessionAdapter.subscribeActivity</code>. It subscribes to the Pi session, converts each session event through <code>activitiesFromSessionEvent</code>, and forwards each activity to the listener passed by <code>desktop/agent.ts</code>.</p>
+        </details>
+      </section>
+
+      <footer>
+        Generated from the staged diff and recent git history. Claims about behavior are based on changed files and the tests run above.
+      </footer>
+    </div>
+
+    <nav aria-label="Review navigation">
+      <a href="#reading-map">Layer map</a>
+      <a href="#files-that-matter">Files to read</a>
+      <a href="#storage-walkthrough">Storage save path</a>
+      <a href="#boundary-shift">RPC validation</a>
+      <a href="#small-policies">Domain policies</a>
+      <a href="#agent-port">Pi session port</a>
+      <a href="#guardrail">Boundary test</a>
+      <a href="#history">History context</a>
+      <a href="#tests">Test impact</a>
+      <a href="#risks">Risks</a>
+      <a href="#quiz">Questions</a>
+    </nav>
+  </main>
+</body>
+</html>

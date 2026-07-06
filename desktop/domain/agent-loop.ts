@@ -1,6 +1,6 @@
-import type { AgentStatus } from "../src/shared/desktop.js";
+import type { AgentStatus } from "../../src/shared/desktop.js";
 import { Type, type Static } from "typebox";
-import { AgentStatusSchema } from "../src/shared/contracts.js";
+import { AgentStatusSchema } from "../../src/shared/contracts.js";
 
 export type ScribeLoopSnapshot = {
   latestRevision: number;

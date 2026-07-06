@@ -116,7 +116,7 @@ Observed strengths are:
 
 - **Process isolation.** Storage and agent work do not execute in the renderer, and secure window preferences limit renderer privileges ([`desktop/main.ts`](../desktop/main.ts)).
 - **Explicit bridge contracts.** Renderer capabilities are named and limited, and subscriptions can be removed ([`desktop/preload.ts`](../desktop/preload.ts), [`src/shared/desktop.ts`](../src/shared/desktop.ts)).
-- **Pure state-machine tests.** Suggestion and autonomous-loop transitions are directly testable without a desktop runtime ([`src/suggestions/inbox.test.ts`](../src/suggestions/inbox.test.ts), [`desktop/scribe-loop.test.ts`](../desktop/scribe-loop.test.ts)).
+- **Pure state-machine tests.** Suggestion and autonomous-loop transitions are directly testable without a desktop runtime ([`src/suggestions/inbox.test.ts`](../src/suggestions/inbox.test.ts), [`desktop/domain/agent-loop.test.ts`](../desktop/domain/agent-loop.test.ts)).
 - **Read-only agent tools.** The model can inspect project files but can change product state only through validated suggestion tools ([`desktop/agent.ts`](../desktop/agent.ts), [`desktop/scribe-extension.ts`](../desktop/scribe-extension.ts)).
 - **Revision checks.** Document autosaves and agent suggestion mutations reject work based on an outdated document revision ([`desktop/storage.ts`](../desktop/storage.ts)).
 - **Atomic Markdown writes.** Temporary-file replacement avoids exposing a partly written draft, and startup can repair the mirror ([`desktop/storage.ts`](../desktop/storage.ts)).

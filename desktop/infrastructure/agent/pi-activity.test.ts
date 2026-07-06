@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
-import { activitiesFromSessionEvent } from "./agent-events";
+import { activitiesFromSessionEvent } from "./pi-activity";
 
 describe("agent session activity conversion", () => {
   it("converts lifecycle events", () => {

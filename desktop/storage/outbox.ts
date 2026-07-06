@@ -1,11 +1,11 @@
 import type { DurableEventEnvelope } from "../../src/shared/desktop.js";
-import type { EventOutbox } from "./repositories.js";
+import type { EventDispatcher, EventOutbox } from "../application/storage-ports.js";
 
 export interface EventPublisher {
   publish(event: DurableEventEnvelope): void | Promise<void>;
 }
 
-export class OutboxDispatcher {
+export class OutboxDispatcher implements EventDispatcher {
   private activeDispatch: Promise<void> = Promise.resolve();
 
   constructor(

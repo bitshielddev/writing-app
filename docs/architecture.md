@@ -159,6 +159,26 @@ sequenceDiagram
 
 ## Data direction and dependency rules
 
+Desktop code follows the same inward dependency rule across its three runtimes:
+
+```mermaid
+flowchart TD
+    I["Infrastructure: Electron, SQLite, files, Pi, RPC"] --> A["Application operations and ports"]
+    A --> D["Pure domain policies"]
+    A --> C["Shared process contracts and value types"]
+    D --> C
+```
+
+The boundaries are concrete rather than mirrored framework folders:
+
+- Put a new revision, cursor, or agent-loop rule in `desktop/domain` and test it without Electron, SQLite, files, or Pi.
+- Put a use case and the minimal ports it consumes in `desktop/application`. Document saves and suggestion persistence are coordinated by `storage-operations.ts`; repository, transaction, file, event, clock, and identity ports live beside it.
+- Put a repository query or durable-format mapping in `desktop/storage`, which implements the application ports with SQLite.
+- Put window, dialog, IPC, preload, and utility-process code in the desktop runtime entry points and routing modules.
+- Put Pi SDK conversion and session implementations in `desktop/infrastructure/agent`; application-facing lifecycle code consumes `AgentSessionPort`.
+
+`scripts/desktop-boundaries.test.mjs` enforces that domain and application modules cannot import Electron, Node infrastructure, Pi, storage adapters, or infrastructure adapters. Runtime entry points are composition roots: they construct each required adapter and contain no product policy.
+
 The intended dependency direction is:
 
 ```text

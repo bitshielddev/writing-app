@@ -13,7 +13,8 @@ import {
   ProjectRepository,
   SuggestionRepository,
 } from "./repositories";
-import { NodeWorkspaceFiles, type WorkspaceFiles } from "./workspace-files";
+import type { WorkspaceFiles } from "../application/storage-ports";
+import { NodeWorkspaceFiles } from "./workspace-files";
 
 const workspaces: string[] = [];
 const services: StorageService[] = [];
@@ -302,7 +303,6 @@ describe("storage operation consistency", () => {
       createWorkspaceFiles(paths) {
         const real = new NodeWorkspaceFiles(paths);
         const files: WorkspaceFiles = {
-          ensureDirectories: () => real.ensureDirectories(),
           writeDraft: (markdown) => real.writeDraft(markdown),
           repairDraft: (markdown) => real.repairDraft(markdown),
           async copySource(path) {

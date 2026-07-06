@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ScribeLoopState } from "./scribe-loop";
+import { ScribeLoopState } from "./agent-loop";
 
 describe("Scribe autonomous loop", () => {
   it("starts stopped and coalesces revisions until explicitly started", () => {

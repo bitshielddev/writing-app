@@ -6,7 +6,7 @@ import {
   executeSuggestionMutation,
   type ScribeExtensionHost,
 } from "./scribe-extension";
-import { ScribeLoopState } from "./scribe-loop";
+import { ScribeLoopState } from "./domain/agent-loop";
 
 function host(
   storageCall: ScribeExtensionHost["storageCall"] = async <T>() =>

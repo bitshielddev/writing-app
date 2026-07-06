@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type {
   DocumentSnapshot,
   ObservationSeed,
@@ -9,34 +7,48 @@ import type {
 import {
   DEFAULT_EVENT_STREAM_ID,
   StorageOperations as StorageOperationContracts,
-  parseOrContractError,
+  type OperationParams,
 } from "../../src/shared/contracts.js";
+import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
 import type { SuggestionEvent } from "../../src/suggestions/types.js";
 import { applySuggestionAgentEvent, applySuggestionCommand } from "../../src/suggestions/transitions.js";
-import type { TransactionManager } from "./database-lifecycle.js";
-import type { OutboxDispatcher } from "./outbox.js";
 import {
+  type Clock,
   type DocumentStore,
+  type EventDispatcher,
   type EventOutbox,
+  type IdentityGenerator,
   type ProjectStore,
   type SourceStore,
   type SuggestionStore,
-} from "./repositories.js";
-import type { StoragePaths } from "./config.js";
-import type { WorkspaceFiles } from "./workspace-files.js";
+  type TransactionManager,
+  type WorkspaceDescriptor,
+  type WorkspaceFiles,
+} from "./storage-ports.js";
+import {
+  assertDocumentRevision,
+  assertSuggestionDocumentRevision,
+} from "../domain/revisions.js";
+
+type Params<Name extends keyof typeof StorageOperationContracts> = OperationParams<
+  typeof StorageOperationContracts,
+  Name
+>;
 
 export type StorageOperationDependencies = {
   projectId: string;
   documentId: string;
-  paths: StoragePaths;
+  workspace: WorkspaceDescriptor;
   transactions: TransactionManager;
   projects: ProjectStore;
   documents: DocumentStore;
   sources: SourceStore;
   suggestions: SuggestionStore;
   outbox: EventOutbox;
-  dispatcher: OutboxDispatcher;
+  dispatcher: EventDispatcher;
   files: WorkspaceFiles;
+  clock: Clock;
+  identities: IdentityGenerator;
   logger?: Pick<Console, "error">;
 };
 
@@ -62,21 +74,11 @@ export class StorageOperations {
     };
   }
 
-  replayEvents(params: unknown) {
-    const input = parseOrContractError(
-      StorageOperationContracts["events.replay"].params,
-      params,
-      "storage.events.replay.params",
-    );
+  replayEvents(input: Params<"events.replay">) {
     return this.deps.outbox.replay(input.streamId, input.afterSequence, input.limit);
   }
 
-  acknowledgeEvents(params: unknown) {
-    const input = parseOrContractError(
-      StorageOperationContracts["events.acknowledge"].params,
-      params,
-      "storage.events.acknowledge.params",
-    );
+  acknowledgeEvents(input: Params<"events.acknowledge">) {
     return { streamId: input.streamId, acknowledgedSequence: this.deps.outbox.acknowledge(
       input.consumerId, input.streamId, input.sequence,
     ) };
@@ -86,10 +88,10 @@ export class StorageOperations {
     const result = await this.deps.files.repairDraft(
       this.deps.documents.get(this.deps.documentId).markdown,
     );
-    return { ...this.deps.paths, ...result };
+    return { ...this.deps.workspace, ...result };
   }
 
-  async saveDocument(params: unknown): Promise<DocumentSnapshot> {
+  async saveDocument(input: Params<"document.save">): Promise<DocumentSnapshot> {
     const previous = this.documentOperation;
     let release!: () => void;
     this.documentOperation = new Promise<void>((resolve) => {
@@ -97,22 +99,17 @@ export class StorageOperations {
     });
     await previous;
     try {
-      return await this.performDocumentSave(params);
+      return await this.performDocumentSave(input);
     } finally {
       release();
     }
   }
 
-  private async performDocumentSave(params: unknown): Promise<DocumentSnapshot> {
-    const input = parseOrContractError(
-      StorageOperationContracts["document.save"].params,
-      params,
-      "storage.document.save.params",
-    );
+  private async performDocumentSave(input: Params<"document.save">): Promise<DocumentSnapshot> {
     if (input.documentId !== this.deps.documentId) throw new Error("Invalid document identity");
 
     const current = this.deps.documents.get(this.deps.documentId);
-    if (input.expectedRevision !== current.revision) throw new Error("DOCUMENT_REVISION_CONFLICT");
+    assertDocumentRevision(input.expectedRevision, current.revision);
     if (
       JSON.stringify(input.blocks) === JSON.stringify(current.blocks) &&
       input.markdown === current.markdown
@@ -122,10 +119,11 @@ export class StorageOperations {
     let saved: DocumentSnapshot;
     try {
       saved = this.deps.transactions.run(() => {
-        if (input.expectedRevision !== this.deps.documents.get(this.deps.documentId).revision) {
-          throw new Error("DOCUMENT_REVISION_CONFLICT");
-        }
-        const now = Date.now();
+        assertDocumentRevision(
+          input.expectedRevision,
+          this.deps.documents.get(this.deps.documentId).revision,
+        );
+        const now = this.deps.clock.now();
         const document = this.deps.documents.save(
           this.deps.documentId,
           input.blocks,
@@ -158,18 +156,13 @@ export class StorageOperations {
     return saved;
   }
 
-  async importSource(params: unknown): Promise<SourceSnapshot> {
-    const { path: sourcePath } = parseOrContractError(
-      StorageOperationContracts["source.import"].params,
-      params,
-      "storage.source.import.params",
-    );
+  async importSource({ path: sourcePath }: Params<"source.import">): Promise<SourceSnapshot> {
     const copied = await this.deps.files.copySource(sourcePath);
-    const id = randomUUID();
+    const id = this.deps.identities.next();
     let source: SourceSnapshot;
     try {
       source = this.deps.transactions.run(() => {
-        const now = Date.now();
+        const now = this.deps.clock.now();
         const inserted: SourceSnapshot = {
           id,
           projectId: this.deps.projectId,
@@ -200,12 +193,7 @@ export class StorageOperations {
     return source;
   }
 
-  async executeSuggestionCommand(params: unknown) {
-    const input = parseOrContractError(
-      StorageOperationContracts["suggestions.command"].params,
-      params,
-      "storage.suggestions.command.params",
-    );
+  async executeSuggestionCommand(input: Params<"suggestions.command">) {
     if (input.documentId !== this.deps.documentId) throw new Error("Invalid document identity");
     const duplicate = this.deps.suggestions.findReceipt(input.commandId);
     if (duplicate) return duplicate;
@@ -270,12 +258,7 @@ export class StorageOperations {
     };
   }
 
-  async createSuggestion(params: unknown) {
-    const input = parseOrContractError(
-      StorageOperationContracts["agent.suggestion.create"].params,
-      params,
-      "storage.agent.suggestion.create.params",
-    );
+  async createSuggestion(input: Params<"agent.suggestion.create">) {
     const item = input.item;
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
@@ -286,24 +269,14 @@ export class StorageOperations {
     return result;
   }
 
-  createDevelopmentSuggestion(params: unknown) {
-    const { item } = parseOrContractError(
-      StorageOperationContracts["development.suggestion.create"].params,
-      params,
-      "storage.development.suggestion.create.params",
-    );
+  createDevelopmentSuggestion({ item }: Params<"development.suggestion.create">) {
     return this.createSuggestion({
       item,
       expectedDocumentRevision: this.deps.documents.get(this.deps.documentId).revision,
     });
   }
 
-  async updateSuggestion(params: unknown) {
-    const input = parseOrContractError(
-      StorageOperationContracts["agent.suggestion.update"].params,
-      params,
-      "storage.agent.suggestion.update.params",
-    );
+  async updateSuggestion(input: Params<"agent.suggestion.update">) {
     const item = input.item;
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
@@ -314,12 +287,7 @@ export class StorageOperations {
     return result;
   }
 
-  async retractSuggestion(params: unknown) {
-    const input = parseOrContractError(
-      StorageOperationContracts["agent.suggestion.retract"].params,
-      params,
-      "storage.agent.suggestion.retract.params",
-    );
+  async retractSuggestion(input: Params<"agent.suggestion.retract">) {
     this.assertCurrentRevision(input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
       this.assertCurrentRevision(input.expectedDocumentRevision);
@@ -329,10 +297,11 @@ export class StorageOperations {
     return result;
   }
 
-  private assertCurrentRevision(expected: unknown) {
-    if (!Number.isInteger(expected) || expected !== this.deps.documents.get(this.deps.documentId).revision) {
-      throw new Error("STALE_SUGGESTION_REVISION");
-    }
+  private assertCurrentRevision(expected: number) {
+    assertSuggestionDocumentRevision(
+      expected,
+      this.deps.documents.get(this.deps.documentId).revision,
+    );
   }
 
   private applyAgentEvent(event: SuggestionEvent) {
@@ -346,7 +315,7 @@ export class StorageOperations {
 
   private emitSuggestion(
     event: SuggestionEvent,
-    projection: { state: import("../../src/suggestions/state.js").PersistedSuggestionState; revision: number },
+    projection: { state: PersistedSuggestionState; revision: number },
     commandId?: string,
   ) {
     this.deps.outbox.enqueue({ type: "suggestion.event", event, commandId,

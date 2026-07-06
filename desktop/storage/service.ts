@@ -1,4 +1,7 @@
 import type { DurableEventEnvelope } from "../../src/shared/desktop.js";
+import { randomUUID } from "node:crypto";
+import { StorageOperations } from "../application/storage-operations.js";
+import type { WorkspaceFiles } from "../application/storage-ports.js";
 import { bootstrapWorkspace } from "./bootstrap.js";
 import {
   DEFAULT_DOCUMENT_ID,
@@ -7,7 +10,6 @@ import {
   type StoragePaths,
 } from "./config.js";
 import { SqliteDatabaseLifecycle } from "./database-lifecycle.js";
-import { StorageOperations } from "./operations.js";
 import { OutboxDispatcher, type EventPublisher } from "./outbox.js";
 import {
   DocumentRepository,
@@ -17,7 +19,7 @@ import {
   SuggestionRepository,
 } from "./repositories.js";
 import { createStorageRequestHandler } from "./rpc-operations.js";
-import { NodeWorkspaceFiles, type WorkspaceFiles } from "./workspace-files.js";
+import { NodeWorkspaceFiles } from "./workspace-files.js";
 
 export type CreateStorageServiceOptions = {
   databasePath: string;
@@ -49,7 +51,7 @@ export function createStorageService(options: CreateStorageServiceOptions) {
     const operations = new StorageOperations({
       projectId,
       documentId,
-      paths,
+      workspace: paths,
       transactions: database,
       projects,
       documents,
@@ -58,6 +60,8 @@ export function createStorageService(options: CreateStorageServiceOptions) {
       outbox,
       dispatcher,
       files,
+      clock: { now: () => Date.now() },
+      identities: { next: () => randomUUID() },
       logger: options.logger,
     });
     return {

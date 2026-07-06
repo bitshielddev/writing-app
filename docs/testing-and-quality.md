@@ -39,10 +39,10 @@ The suite currently contains unit and component coverage across renderer, storag
 | [`components/DocumentHeader.test.tsx`](../src/components/DocumentHeader.test.tsx) | Desktop panel semantics, hidden-partner unread count, and independent mobile controls. |
 | [`components/ResponsiveDrawer.test.tsx`](../src/components/ResponsiveDrawer.test.tsx) | Escape/close behavior and focus restoration. |
 | [`desktop/storage.test.ts`](../desktop/storage.test.ts) | Block/Markdown saves, mirror repair, stale suggestion rejection, and Markdown-only source import. |
-| [`desktop/scribe-loop.test.ts`](../desktop/scribe-loop.test.ts) | Coalescing, yields, races, five-cycle cap, error sleep, wake, and restored loop state. |
+| [`desktop/domain/agent-loop.test.ts`](../desktop/domain/agent-loop.test.ts) | Coalescing, yields, races, five-cycle cap, error sleep, wake, and restored loop state. |
 | [`desktop/activity.test.ts`](../desktop/activity.test.ts) | Aggregation, redaction, 50 KB cap, and 500-item eviction. |
 | [`desktop/pi-session.test.ts`](../desktop/pi-session.test.ts) | Project session continuation, extension entries, and the read-only tool contract. |
-| [`desktop/agent-events.test.ts`](../desktop/agent-events.test.ts) | Lifecycle, message/reasoning/error, and tool activity conversion. |
+| [`desktop/infrastructure/agent/pi-activity.test.ts`](../desktop/infrastructure/agent/pi-activity.test.ts) | Lifecycle, message/reasoning/error, and tool activity conversion. |
 | [`desktop/scribe-extension.test.ts`](../desktop/scribe-extension.test.ts) | Active revisions, storage failures, wake behavior, and suggestion mutation results. |
 
 ### Why reducer tests matter most

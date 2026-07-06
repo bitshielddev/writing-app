@@ -1,0 +1,12 @@
+import type { AgentActivity } from "../../src/shared/desktop.js";
+
+export type AgentActivityInput = Omit<AgentActivity, "updatedAt">;
+
+export interface AgentSessionPort {
+  readonly id: string;
+  readonly isBusy: boolean;
+  prompt(instruction: string): Promise<void>;
+  abort(): Promise<void>;
+  dispose(): void;
+  subscribeActivity(listener: (activity: AgentActivityInput) => void): void;
+}

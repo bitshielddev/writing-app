@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
-import { ScribeLoopState, PersistedScribeLoopStateSchema } from "./scribe-loop.js";
+import { ScribeLoopState, PersistedScribeLoopStateSchema } from "./domain/agent-loop.js";
 import { parseOrContractError } from "../src/shared/contracts.js";
 import { COMPATIBILITY_REGISTRY } from "./compatibility.js";
 import {
