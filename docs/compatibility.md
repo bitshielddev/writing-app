@@ -9,7 +9,7 @@ Scribe versions each durable JSON format independently from SQLite and requires 
 | SQLite | `scribe.sqlite` | 5 | 2 | 2 | Open only for inspection, reject startup, preserve the file. |
 | Block document | `scribe.blocks` | 1 | 0 | 0 | Preserve and quarantine; do not overwrite; document hydration is unavailable. |
 | Suggestion command result | `scribe.suggestion-command-result` | 1 | 0 | 0 | Preserve and quarantine; reject the command lookup. |
-| Suggestion event | `scribe.event` | 1 | 0 | 0 | Preserve and quarantine; stop projection at that sequence. Later events are not applied. |
+| Suggestion fact | `suggestion_event_history.event_version` | 1 | — | — | Preserve and quarantine; stop projection at that sequence. Later facts are not applied. |
 | Suggestion projection | `scribe.suggestion-projection` | 1 | 0 | 0 | Preserve and quarantine; suggestion hydration is unavailable. |
 | Pi loop entry | `scribe.pi.loop-state` | 1 | 0 | 0 | Preserve the Pi session and disable autonomous resume. |
 | Storage process | `scribe.storage` | 1 | 1 | 1 | Reject readiness before any request. |
@@ -36,7 +36,7 @@ Before every release:
 3. If an operation registry or wire contract changed, increment the protocol version and update the build identifier. Storage and agent operation sets must match their ready handshakes.
 4. Test oldest, every intermediate, current, future, invalid, failed-transform, and idempotent legacy-upgrade cases. Verify future/invalid source text remains preserved exactly once.
 5. Test a future event followed by a known event and confirm projection stops at the gap until snapshot recovery.
-6. For a database migration, add the next contiguous `user_version` edge, a historical schema fixture, preservation tests, and backup/failure tests.
+6. During alpha, bump the database version and recreate the database. Do not add a migration until a release explicitly commits to database compatibility.
 7. Run `npm test`, `npm run lint`, `npm run build`, and `npm run docs:build`.
 
 Do not regenerate a historical fixture with a current serializer. Fixtures under `desktop/fixtures/compatibility/` are immutable after release.

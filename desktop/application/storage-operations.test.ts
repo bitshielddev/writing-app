@@ -41,7 +41,7 @@ function fixture() {
     },
     documents: {
       get: () => structuredClone(document),
-      save: (_id, blocks, markdown, updatedAt) => {
+      save: (_projectId, _id, blocks, markdown, updatedAt) => {
         document = {
           ...document,
           blocks,
@@ -58,9 +58,12 @@ function fixture() {
       compareAndPut: () => ({ state: createEmptySuggestionState(), revision: 1 }),
       findReceipt: () => undefined,
       recordReceipt: () => undefined,
+      appendFacts: () => ({ projection: { state: createEmptySuggestionState(), revision: 1 }, events: [] }),
+      recordCommandReceipt: () => undefined,
+      createCheckpoint: () => undefined,
     },
     outbox: {
-      enqueue: (payload, causationId) => {
+      enqueue: (_projectId, _documentId, payload, causationId) => {
         const event = {
           eventId: `event-${events.length + 1}`,
           streamId: "document:document",
@@ -72,6 +75,7 @@ function fixture() {
         events.push(event);
         return event;
       },
+      enqueueSuggestionFact: () => { throw new Error("not used"); },
       pending: () => events,
       markDispatched: () => undefined,
       replay: () => ({

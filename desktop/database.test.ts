@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   CURRENT_SCHEMA_SQL,
+  DATABASE_VERSION,
   DatabaseStartupError,
   createCurrentDatabase,
   inspectDatabase,
@@ -70,27 +71,21 @@ describe("database lifecycle", () => {
   it("creates the complete current schema only for an empty version-0 database", async () => {
     const path = await temporaryPath();
     const db = openApplicationDatabase(path);
-    expect(version(db)).toBe(5);
-    expect(inspectDatabase(db)).toEqual({ kind: "supported", version: 5 });
+    expect(version(db)).toBe(DATABASE_VERSION);
+    expect(inspectDatabase(db)).toEqual({ kind: "supported", version: DATABASE_VERSION });
     expect((db.prepare(
       "SELECT count(*) AS count FROM sqlite_schema WHERE type = 'table' AND sql LIKE '%STRICT%'",
-    ).get() as { count: number }).count).toBe(8);
+    ).get() as { count: number }).count).toBe(11);
     db.close();
   });
 
-  it("opens the representative version-2 fixture without recreating tables or losing rows", async () => {
+  it("rejects a pre-alpha schema without modifying it", async () => {
     const path = await createFixture();
-    const db = openApplicationDatabase(path);
-    expect(db.prepare("SELECT name, revision FROM projects WHERE id = ?")
-      .get("fixture-project")).toEqual({ name: "Fixture project", revision: 4 });
-    expect(db.prepare("SELECT markdown FROM documents WHERE id = ?")
-      .get("fixture-document")).toEqual({ markdown: "Keep me\n" });
-    expect(db.prepare("SELECT bytes FROM sources WHERE id = ?")
-      .get("fixture-source")).toEqual({ bytes: 12 });
-    expect(version(db)).toBe(5);
-    expect(db.prepare("SELECT revision FROM suggestion_state WHERE project_id = ?")
-      .get("fixture-project")).toEqual({ revision: 0 });
-    db.close();
+    const before = await readFile(path);
+    expect(() => openApplicationDatabase(path)).toThrowError(
+      expect.objectContaining<Partial<DatabaseStartupError>>({ code: "DATABASE_CORRUPT" }),
+    );
+    expect(await readFile(path)).toEqual(before);
   });
 
   it("rejects a version-0 database containing known tables without changing it", async () => {

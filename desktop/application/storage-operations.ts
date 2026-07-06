@@ -8,15 +8,20 @@ import {
   StorageOperations as StorageOperationContracts,
   type OperationParams,
 } from "../../src/shared/contracts.js";
-import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
-import type { SuggestionEvent } from "../../src/suggestions/types.js";
-import { applySuggestionAgentEvent, applySuggestionCommand } from "../../src/suggestions/transitions.js";
+import type { DurableSuggestionCommand } from "../../src/suggestions/transitions.js";
 import type {
   Clock, DocumentStore, EventDispatcher, EventOutbox, IdentityGenerator,
   ProjectStore, SelectionStore, SourceStore, SuggestionStore, TransactionManager,
   WorkspaceFilesFactory,
 } from "./storage-ports.js";
 import { assertDocumentRevision, assertSuggestionDocumentRevision } from "../domain/revisions.js";
+import {
+  decideSuggestionCommand,
+  SUGGESTION_COMMAND_VERSION,
+  type SuggestionActor,
+  type SuggestionCommandEnvelope,
+  type SuggestionIntent,
+} from "../domain/suggestion-persistence.js";
 
 type Params<Name extends keyof typeof StorageOperationContracts> = OperationParams<typeof StorageOperationContracts, Name>;
 type Scope = { projectId: string; documentId: string };
@@ -246,33 +251,44 @@ export class StorageOperations {
     const result = this.deps.transactions.run(() => {
       const repeated = this.deps.suggestions.findReceipt(input.projectId, input.documentId, input.commandId);
       if (repeated) return repeated;
+      const command: SuggestionCommandEnvelope = {
+        commandId: input.commandId, projectId: input.projectId, documentId: input.documentId,
+        actor: { type: "writer" }, version: SUGGESTION_COMMAND_VERSION,
+        command: input.command as DurableSuggestionCommand,
+        expectedSuggestionRevision: input.expectedSuggestionRevision,
+        requestedAt: this.deps.clock.now(),
+      };
       const current = this.deps.suggestions.get(input.projectId, input.documentId);
       if (input.expectedSuggestionRevision !== current.revision) {
         const conflict = { commandId: input.commandId, status: "conflict" as const,
           suggestionRevision: current.revision, state: current.state,
           reason: "Suggestion state changed before the command was applied" };
-        this.deps.suggestions.recordReceipt(input.projectId, input.documentId, conflict);
+        this.deps.suggestions.recordCommandReceipt(command, conflict, undefined,
+          current.coveredThroughSequence, "SUGGESTION_REVISION_CONFLICT");
         return conflict;
       }
-      const transition = applySuggestionCommand(current.state, input.command);
-      if (transition.status === "rejected") {
+      const decision = decideSuggestionCommand(current.state, command.command);
+      if (decision.status === "rejected") {
         const rejected = { commandId: input.commandId, status: "rejected" as const,
-          suggestionRevision: current.revision, state: current.state, reason: transition.reason };
-        this.deps.suggestions.recordReceipt(input.projectId, input.documentId, rejected);
+          suggestionRevision: current.revision, state: current.state, reason: decision.reason };
+        this.deps.suggestions.recordCommandReceipt(command, rejected, undefined,
+          current.coveredThroughSequence, "SUGGESTION_COMMAND_REJECTED");
         return rejected;
       }
-      const projection = transition.status === "changed"
-        ? this.deps.suggestions.compareAndPut(input.projectId, input.documentId, current.revision, transition.state)
-        : current;
+      const persisted = decision.status === "changed"
+        ? this.deps.suggestions.appendFacts(command, decision.facts,
+          decision.facts.map(() => this.deps.identities.next()))
+        : { projection: current, events: [] };
+      const projection = persisted.projection;
       const applied = { commandId: input.commandId,
-        status: transition.status === "changed" ? "applied" as const : "unchanged" as const,
+        status: decision.status === "changed" ? "applied" as const : "unchanged" as const,
         suggestionRevision: projection.revision, state: projection.state };
-      this.deps.suggestions.recordReceipt(input.projectId, input.documentId, applied);
-      if (transition.status === "changed") this.emitSuggestion(input,
-        { type: "suggestion.state.changed", suggestionId: input.command.suggestionId, commandType: input.command.type },
-        projection, input.commandId);
+      this.deps.suggestions.recordCommandReceipt(command, applied,
+        persisted.events[0]?.sequence, projection.coveredThroughSequence);
+      if (decision.status === "changed") this.publishSuggestionFacts(input, persisted.events);
       return applied;
     });
+    this.deps.suggestions.createCheckpoint(input.projectId, input.documentId);
     await this.deps.dispatcher.dispatch();
     return result;
   }
@@ -294,34 +310,53 @@ export class StorageOperations {
       workspace: state.workspacePins.map((entry) => entry.item) };
   }
 
-  async createSuggestion(input: Params<"agent.suggestion.create">) {
-    return this.mutateSuggestion(input, { type: "suggestion.added", item: input.item });
+  async createSuggestion(input: Params<"agent.suggestion.create">, actor: SuggestionActor = { type: "agent" }) {
+    return this.mutateSuggestion(input, { type: "publish", item: input.item }, actor);
   }
   createDevelopmentSuggestion(input: Params<"development.suggestion.create">) {
     return this.createSuggestion({ ...input,
-      expectedDocumentRevision: this.deps.documents.get(input.projectId, input.documentId).revision });
+      expectedDocumentRevision: this.deps.documents.get(input.projectId, input.documentId).revision },
+    { type: "development" });
   }
   async updateSuggestion(input: Params<"agent.suggestion.update">) {
-    return this.mutateSuggestion(input, { type: "suggestion.updated", item: input.item });
+    return this.mutateSuggestion(input, { type: "update", item: input.item }, { type: "agent" });
   }
   async retractSuggestion(input: Params<"agent.suggestion.retract">) {
-    return this.mutateSuggestion(input, { type: "suggestion.retracted", id: input.id });
+    return this.mutateSuggestion(input, { type: "retract", suggestionId: input.id }, { type: "agent" });
   }
 
-  private async mutateSuggestion(input: Scope & { expectedDocumentRevision: number }, event: SuggestionEvent) {
+  private async mutateSuggestion(input: Scope & { expectedDocumentRevision: number },
+    intent: SuggestionIntent, actor: SuggestionActor) {
     this.assertScope(input);
     this.assertCurrentRevision(input, input.expectedDocumentRevision);
     const result = this.deps.transactions.run(() => {
       this.assertCurrentRevision(input, input.expectedDocumentRevision);
       const current = this.deps.suggestions.get(input.projectId, input.documentId);
-      const transition = applySuggestionAgentEvent(current.state, event);
-      if (transition.status !== "changed") return { accepted: false };
-      const projection = this.deps.suggestions.compareAndPut(
-        input.projectId, input.documentId, current.revision, transition.state,
-      );
-      this.emitSuggestion(input, event, projection);
+      const command: SuggestionCommandEnvelope = {
+        commandId: this.deps.identities.next(), projectId: input.projectId,
+        documentId: input.documentId, actor, version: SUGGESTION_COMMAND_VERSION, command: intent,
+        expectedSuggestionRevision: current.revision,
+        expectedDocumentRevision: input.expectedDocumentRevision, requestedAt: this.deps.clock.now(),
+      };
+      const decision = decideSuggestionCommand(current.state, intent);
+      if (decision.status !== "changed") {
+        const receipt = { commandId: command.commandId, status: "rejected" as const,
+          suggestionRevision: current.revision, state: current.state,
+          reason: decision.status === "rejected" ? decision.reason : "Suggestion state was unchanged" };
+        this.deps.suggestions.recordCommandReceipt(command, receipt, undefined,
+          current.coveredThroughSequence, "SUGGESTION_COMMAND_REJECTED");
+        return { accepted: false };
+      }
+      const persisted = this.deps.suggestions.appendFacts(command, decision.facts,
+        decision.facts.map(() => this.deps.identities.next()));
+      const receipt = { commandId: command.commandId, status: "applied" as const,
+        suggestionRevision: persisted.projection.revision, state: persisted.projection.state };
+      this.deps.suggestions.recordCommandReceipt(command, receipt,
+        persisted.events[0]?.sequence, persisted.projection.coveredThroughSequence);
+      this.publishSuggestionFacts(input, persisted.events);
       return { accepted: true };
     });
+    this.deps.suggestions.createCheckpoint(input.projectId, input.documentId);
     await this.deps.dispatcher.dispatch();
     return result;
   }
@@ -330,10 +365,11 @@ export class StorageOperations {
     assertSuggestionDocumentRevision(expected, this.deps.documents.get(scope.projectId, scope.documentId).revision);
   }
 
-  private emitSuggestion(scope: Scope, event: SuggestionEvent,
-    projection: { state: PersistedSuggestionState; revision: number }, commandId?: string) {
-    this.deps.outbox.enqueue(scope.projectId, scope.documentId, { type: "suggestion.event", event, commandId,
-      suggestionRevision: projection.revision, state: projection.state }, commandId);
+  private publishSuggestionFacts(scope: Scope,
+    events: Array<{ eventId: string }>) {
+    for (const event of events) {
+      this.deps.outbox.enqueueSuggestionFact(scope.projectId, scope.documentId, event.eventId);
+    }
   }
 
   private assertScope(scope: Scope) {

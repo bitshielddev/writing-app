@@ -13,8 +13,10 @@ import { randomUUID } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const DATABASE_VERSION = 6;
-export const MINIMUM_SUPPORTED_DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 7;
+// Alpha databases are disposable. Only the current schema is supported; an
+// older file must be removed and recreated instead of migrated in place.
+export const MINIMUM_SUPPORTED_DATABASE_VERSION = DATABASE_VERSION;
 
 export const CURRENT_SCHEMA_SQL = `
   CREATE TABLE projects (
@@ -50,11 +52,14 @@ export const CURRENT_SCHEMA_SQL = `
     FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
   ) STRICT;
 
-  CREATE TABLE suggestion_state (
+  CREATE TABLE suggestion_projection (
     project_id TEXT NOT NULL,
     document_id TEXT PRIMARY KEY,
     state_json TEXT NOT NULL,
     revision INTEGER NOT NULL DEFAULT 0,
+    covered_through_sequence INTEGER NOT NULL DEFAULT 0,
+    projection_version INTEGER NOT NULL DEFAULT 1,
+    checksum TEXT NOT NULL DEFAULT '',
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
   ) STRICT;
@@ -64,7 +69,47 @@ export const CURRENT_SCHEMA_SQL = `
     project_id TEXT NOT NULL,
     document_id TEXT NOT NULL,
     result_json TEXT NOT NULL,
+    actor_json TEXT NOT NULL,
+    command_type TEXT NOT NULL,
+    command_version INTEGER NOT NULL,
+    payload_json TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    first_sequence INTEGER,
+    resulting_sequence INTEGER NOT NULL,
+    error_code TEXT,
+    requested_at INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
+    FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+  ) STRICT;
+
+  CREATE TABLE suggestion_event_history (
+    event_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
+    command_id TEXT NOT NULL,
+    actor_json TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    event_version INTEGER NOT NULL,
+    payload_json TEXT NOT NULL,
+    occurred_at INTEGER NOT NULL,
+    UNIQUE (document_id, sequence),
+    FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+  ) STRICT;
+  CREATE INDEX suggestion_event_history_document_sequence
+    ON suggestion_event_history (document_id, sequence);
+
+  CREATE TABLE suggestion_projection_checkpoint (
+    checkpoint_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
+    projection_version INTEGER NOT NULL,
+    projection_revision INTEGER NOT NULL,
+    state_json TEXT NOT NULL,
+    checksum TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE (document_id, sequence),
     FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
   ) STRICT;
 
@@ -74,11 +119,13 @@ export const CURRENT_SCHEMA_SQL = `
     document_id TEXT NOT NULL,
     stream_id TEXT NOT NULL,
     sequence INTEGER NOT NULL,
-    event_json TEXT NOT NULL,
+    event_json TEXT,
+    suggestion_event_id TEXT REFERENCES suggestion_event_history(event_id) ON DELETE CASCADE,
     occurred_at INTEGER NOT NULL,
     causation_id TEXT,
     created_at INTEGER NOT NULL,
     dispatched_at INTEGER,
+    CHECK (event_json IS NOT NULL OR suggestion_event_id IS NOT NULL),
     UNIQUE (stream_id, sequence),
     FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
   ) STRICT;
@@ -116,7 +163,7 @@ export const CURRENT_SCHEMA_SQL = `
   ) STRICT;
 `;
 
-export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
+export const LEGACY_DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
   fromVersion: 2,
   toVersion: 3,
   name: "authoritative-suggestion-writer",
@@ -289,6 +336,8 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
     if (violations.length) throw new Error("Document scoping migration created foreign-key violations");
   },
 }];
+
+export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [];
 
 export type DatabaseMigration = {
   fromVersion: number;
@@ -652,9 +701,6 @@ export function openApplicationDatabase(
 }
 
 /**
- * Migration authoring checklist:
- * 1. Bump DATABASE_VERSION exactly once.
- * 2. Add one contiguous DatabaseMigration and old/new schema fixtures.
- * 3. Add preservation, rollback-failure, backup, and reopen tests.
- * 4. Update database compatibility coverage and release documentation.
+ * During alpha, schema changes bump DATABASE_VERSION and require deleting the
+ * local database. The generic migration helpers remain for future releases.
  */

@@ -113,6 +113,42 @@ export const SuggestionCommandSchema = Type.Union([
   Type.Object({ type: Type.Literal("workspace.raise"), suggestionId: identifier }, strict),
   Type.Object({ type: Type.Literal("preview.resolve"), suggestionId: identifier, outcome: Type.Union([Type.Literal("accepted"), Type.Literal("cancelled")]) }, strict),
 ]);
+export const SuggestionActorSchema = Type.Object({
+  type: Type.Union([Type.Literal("writer"), Type.Literal("agent"), Type.Literal("development"), Type.Literal("system")]),
+  id: Type.Optional(identifier),
+}, strict);
+export const SuggestionIntentSchema = Type.Union([
+  SuggestionCommandSchema,
+  Type.Object({ type: Type.Literal("publish"), item: SuggestionItemSchema }, strict),
+  Type.Object({ type: Type.Literal("update"), item: SuggestionItemSchema }, strict),
+  Type.Object({ type: Type.Literal("retract"), suggestionId: identifier }, strict),
+]);
+export const SuggestionCommandEnvelopeSchema = Type.Object({
+  commandId: identifier, projectId: identifier, documentId: identifier,
+  actor: SuggestionActorSchema, version: Type.Literal(1), command: SuggestionIntentSchema,
+  expectedSuggestionRevision: revision, expectedDocumentRevision: Type.Optional(revision),
+  requestedAt: timestamp,
+}, strict);
+export const SuggestionFactSchema = Type.Union([
+  Type.Object({ type: Type.Literal("suggestion.projectionImported"), version: Type.Literal(1), state: PersistedSuggestionStateSchema }, strict),
+  Type.Object({ type: Type.Literal("suggestion.published"), version: Type.Literal(1), item: SuggestionItemSchema }, strict),
+  Type.Object({ type: Type.Literal("suggestion.updated"), version: Type.Literal(1), item: SuggestionItemSchema }, strict),
+  Type.Object({ type: Type.Literal("suggestion.retracted"), version: Type.Literal(1), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("suggestion.viewed"), version: Type.Literal(1), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("suggestion.dismissed"), version: Type.Literal(1), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("suggestion.pinned"), version: Type.Literal(1), suggestionId: identifier, pinnedAt: timestamp }, strict),
+  Type.Object({ type: Type.Literal("suggestion.unpinned"), version: Type.Literal(1), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("suggestion.workspacePlaced"), version: Type.Literal(1), suggestionId: identifier, rect: WorkspacePinRectSchema }, strict),
+  Type.Object({ type: Type.Literal("suggestion.workspaceReturned"), version: Type.Literal(1), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("suggestion.workspaceMoved"), version: Type.Literal(1), suggestionId: identifier, rect: WorkspacePinRectSchema }, strict),
+  Type.Object({ type: Type.Literal("suggestion.workspaceRaised"), version: Type.Literal(1), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("suggestion.previewAccepted"), version: Type.Literal(1), suggestionId: identifier }, strict),
+  Type.Object({ type: Type.Literal("suggestion.previewCancelled"), version: Type.Literal(1), suggestionId: identifier }, strict),
+]);
+export const SequencedSuggestionFactSchema = Type.Object({
+  eventId: identifier, sequence: Type.Integer({ minimum: 1 }), commandId: identifier,
+  actor: SuggestionActorSchema, occurredAt: timestamp, fact: SuggestionFactSchema,
+}, strict);
 export const SuggestionCommandRequestSchema = Type.Object({
   commandId: identifier,
   projectId: identifier,

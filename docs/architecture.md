@@ -4,7 +4,7 @@
 
 Projects and documents use immutable application-generated UUIDs. Mutable names and titles are display labels only. Every persistence and agent operation carries `{ projectId, documentId }`; repositories verify that the document belongs to the project before reading or writing.
 
-Document files live at `projects/<project-id>/documents/<document-id>/`, including `draft.md`, `sources/`, and `.pi/sessions/`. SQLite schema version 6 scopes sources, suggestion projections and receipts, event streams, and consumer cursors to the document. The selected identities are persisted in the singleton workspace settings row and validated on startup.
+Document files live at `projects/<project-id>/documents/<document-id>/`, including `draft.md`, `sources/`, and `.pi/sessions/`. SQLite schema version 7 scopes sources, suggestion projections, command receipts, immutable suggestion history, checkpoints, event streams, and consumer cursors to the document. The selected identities are persisted in the singleton workspace settings row and validated on startup. During alpha, older database versions are intentionally not migrated; delete the local database to recreate the current schema.
 
 The renderer treats a selected document as a keyed session. A switch flushes document and suggestion queues, stops the old agent, removes preview state, selects and hydrates the target, and only then enables the target state. Async controllers compare their captured session identity before applying completions. The main process replaces the document-specific Pi process on selection so its working directory and session history cannot cross document boundaries.
 
@@ -106,6 +106,7 @@ The command strip and shortcut dialog read the same command catalog and default 
 
 - [`types.ts`](../src/suggestions/types.ts) defines suggestion data and the feed interface.
 - [`state.ts`](../src/suggestions/state.ts) defines the persisted projection, empty state, 30-entry limit, and shared eviction policy used by renderer and storage.
+- [`suggestion-persistence.ts`](../desktop/domain/suggestion-persistence.ts) is the pure suggestion aggregate and strict projection reducer. Storage records versioned intent, appends immutable facts, advances the projection, and stores the receipt in one transaction. Rebuild and repair use the same reducer; no application service writes the projection directly.
 - [`validation.ts`](../src/suggestions/validation.ts) validates suggestion payloads at runtime before development IPC reaches storage.
 - [`inbox.ts`](../src/suggestions/inbox.ts) implements all suggestion, pin, preview, and workspace transitions.
 - [`workspacePinLayout.ts`](../src/suggestions/workspacePinLayout.ts) supplies type-specific initial card sizes.

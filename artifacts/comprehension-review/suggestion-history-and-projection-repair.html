@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suggestion history and projection repair</title>
+  <style>
+    :root {
+      --bg: #f7f5f0;
+      --paper: #fffdf8;
+      --ink: #25211b;
+      --muted: #6f675d;
+      --line: #ded7ca;
+      --code-bg: #1f2430;
+      --code-ink: #eef3ff;
+      --accent: #5b6f95;
+      --accent-soft: #e8edf5;
+      --warn: #8a5a19;
+      --warn-bg: #fff2d6;
+      --ok: #27705c;
+      --ok-bg: #e5f3ee;
+      --bad: #7c3030;
+      --bad-bg: #f7e5e3;
+      --shadow: 0 12px 35px rgba(39, 34, 27, 0.09);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #ebe6dc, transparent 34rem), var(--bg);
+      color: var(--ink);
+      font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page { max-width: 1180px; margin: 0 auto; padding: 38px 22px 72px; }
+    header.hero {
+      background: linear-gradient(135deg, rgba(255,253,248,.96), rgba(245,240,231,.92));
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 28px;
+      padding: 34px;
+    }
+    .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: .78rem; }
+    h1 { font-size: clamp(2.15rem, 5vw, 4rem); line-height: 1.04; margin: 8px 0 14px; max-width: 900px; }
+    h2 { font-size: clamp(1.55rem, 3vw, 2.15rem); line-height: 1.16; margin: 0 0 14px; }
+    h3 { margin: 0 0 10px; font-size: 1.1rem; }
+    p { margin: 0 0 1rem; }
+    a { color: var(--accent); }
+    .lead { font-size: 1.15rem; max-width: 850px; color: #3d372f; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    .pill { border: 1px solid var(--line); background: rgba(255,255,255,.55); border-radius: 999px; padding: 7px 12px; color: var(--muted); font-size: .92rem; }
+    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 26px; margin-top: 28px; }
+    nav {
+      position: sticky; top: 18px; align-self: start;
+      border: 1px solid var(--line); border-radius: 20px; background: rgba(255,253,248,.82);
+      backdrop-filter: blur(10px); padding: 16px; box-shadow: 0 8px 26px rgba(39,34,27,.06);
+    }
+    nav a { display: block; color: var(--muted); text-decoration: none; padding: 8px 10px; border-radius: 10px; font-size: .94rem; }
+    nav a:hover { background: var(--accent-soft); color: var(--ink); }
+    main { min-width: 0; }
+    section.card {
+      background: var(--paper); border: 1px solid var(--line); border-radius: 24px;
+      padding: 28px; margin-bottom: 22px; box-shadow: 0 8px 24px rgba(39,34,27,.055);
+    }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .mini-card { border: 1px solid var(--line); border-radius: 18px; padding: 16px; background: #fffaf0; }
+    .mini-card p { margin-bottom: 0; color: var(--muted); }
+    .tag { display: inline-block; font-size: .76rem; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin-bottom: 7px; }
+    .flow { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; margin: 18px 0 8px; }
+    .step { background: var(--accent-soft); border: 1px solid #d4ddea; border-radius: 16px; padding: 13px; min-height: 102px; }
+    .step strong { display: block; margin-bottom: 5px; }
+    .step span { color: var(--muted); font-size: .91rem; }
+    pre { background: var(--code-bg); color: var(--code-ink); border-radius: 17px; padding: 18px; overflow-x: auto; font-size: .88rem; line-height: 1.48; border: 1px solid #111722; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .inline-code { background: #eee7dc; padding: 1px 5px; border-radius: 5px; }
+    .note, .warning, .green {
+      border-radius: 18px; padding: 16px 18px; margin: 16px 0; border: 1px solid;
+    }
+    .note { background: var(--accent-soft); border-color: #d4ddea; }
+    .warning { background: var(--warn-bg); border-color: #e1c27d; color: #523813; }
+    .green { background: var(--ok-bg); border-color: #acd7c9; color: #163f34; }
+    .danger { background: var(--bad-bg); border-color: #e3bbb7; color: #52201f; border-radius: 18px; padding: 16px 18px; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; overflow: hidden; border-radius: 14px; }
+    th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--accent); background: #f1ede4; font-size: .86rem; text-transform: uppercase; letter-spacing: .04em; }
+    tr:last-child td { border-bottom: 0; }
+    .file-list { columns: 2; padding-left: 1.1rem; color: var(--muted); }
+    .file-list code { color: var(--ink); }
+    details { border: 1px solid var(--line); background: #fffaf0; border-radius: 16px; padding: 14px 16px; margin: 12px 0; }
+    summary { cursor: pointer; font-weight: 700; color: #363026; }
+    .answer { margin-top: 12px; color: var(--muted); }
+    .history { display: grid; gap: 10px; }
+    .commit { display: grid; grid-template-columns: 90px 1fr; gap: 12px; border-left: 3px solid var(--accent); padding-left: 12px; }
+    .commit code { color: var(--accent); font-weight: 700; }
+    .tested { display: inline-flex; align-items: center; gap: 8px; background: var(--ok-bg); border: 1px solid #acd7c9; color: var(--ok); padding: 8px 12px; border-radius: 999px; font-weight: 700; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; }
+      .two, .three, .flow { grid-template-columns: 1fr; }
+      .file-list { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="eyebrow">Comprehension review</div>
+      <h1>Suggestion state now has a durable history, not just a current row</h1>
+      <p class="lead">This change moves suggestions toward an event-sourced storage path. Commands are wrapped with actor/version metadata, converted into immutable suggestion facts, applied through a strict reducer, and then delivered through the existing durable event stream as legacy-compatible <code>suggestion.event</code> payloads.</p>
+      <div class="meta">
+        <span class="pill">Working tree: 13 modified files, 4 new files inspected</span>
+        <span class="pill">Schema: SQLite version 7</span>
+        <span class="pill">Review shape: system map with a command-path walkthrough</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav aria-label="Review navigation">
+        <a href="#mental-model">Mental model</a>
+        <a href="#path">The command path</a>
+        <a href="#storage">What storage records</a>
+        <a href="#delivery">Delivery compatibility</a>
+        <a href="#maintenance">Maintenance and recovery</a>
+        <a href="#schema">Schema and alpha policy</a>
+        <a href="#tests">Test signal</a>
+        <a href="#risks">Risks to keep in mind</a>
+        <a href="#questions">Comprehension check</a>
+      </nav>
+
+      <main>
+        <section id="mental-model" class="card">
+          <h2>The shortest useful mental model</h2>
+          <p>Before this change, storage operations mostly transformed the current suggestion projection and wrote the updated projection directly. The new path treats the projection as derived state. The durable source is a command receipt plus a sequence of suggestion facts in <code>suggestion_event_history</code>.</p>
+          <div class="flow" aria-label="Suggestion persistence flow">
+            <div class="step"><strong>Intent</strong><span>Writer, agent, or development code asks for a suggestion change.</span></div>
+            <div class="step"><strong>Envelope</strong><span>Storage adds actor, version, expected revisions, command id, and timestamp.</span></div>
+            <div class="step"><strong>Fact</strong><span>A pure aggregate decides whether the command emits one or more facts.</span></div>
+            <div class="step"><strong>Projection</strong><span>The strict reducer advances state only across contiguous fact sequences.</span></div>
+            <div class="step"><strong>Delivery</strong><span>The outbox references the fact and materializes the older payload shape on read.</span></div>
+          </div>
+          <div class="note">
+            <p><strong>Evidence for intent:</strong> the docs say storage now records versioned intent, appends immutable facts, advances the projection, and stores the receipt in one transaction. The code and tests match that. There is no issue or PR text in the local context, so broader product motivation is inferred from these artifacts.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>The files that changed the contract between layers</h2>
+          <div class="two">
+            <div class="mini-card">
+              <span class="tag">Domain</span>
+              <h3><code>desktop/domain/suggestion-persistence.ts</code></h3>
+              <p>New pure aggregate and projection reducer. It maps commands to facts and maps facts back to projection state.</p>
+            </div>
+            <div class="mini-card">
+              <span class="tag">Application</span>
+              <h3><code>desktop/application/storage-operations.ts</code></h3>
+              <p>Builds command envelopes, records receipts, appends facts, creates checkpoints, and dispatches fact-backed outbox events.</p>
+            </div>
+            <div class="mini-card">
+              <span class="tag">Persistence</span>
+              <h3><code>desktop/storage/repositories.ts</code></h3>
+              <p>Adds history append, rebuild, verify, repair, checkpoints, diagnostics, and fact-backed outbox materialization.</p>
+            </div>
+            <div class="mini-card">
+              <span class="tag">Schema</span>
+              <h3><code>desktop/database.ts</code></h3>
+              <p>Bumps to schema 7 and replaces the old migration path with an alpha-only current-schema policy.</p>
+            </div>
+          </div>
+          <p>The remaining changes support this path: ports expose the new methods, contracts validate command/fact envelopes, bootstrap/document creation initialize checksummed projections, docs explain the runtime policy, and tests cover the domain and storage behavior.</p>
+        </section>
+
+        <section id="path" class="card">
+          <h2>Follow one command through the new path</h2>
+          <p>The writer command path in <code>StorageOperations.commandSuggestion</code> now builds a <code>SuggestionCommandEnvelope</code> before reading/validating the projection. The envelope is persisted with the receipt, so later diagnostics can tell which actor and command version produced the result.</p>
+          <pre><code>const command: SuggestionCommandEnvelope = {
+  commandId: input.commandId, projectId: input.projectId, documentId: input.documentId,
+  actor: { type: "writer" }, version: SUGGESTION_COMMAND_VERSION,
+  command: input.command as DurableSuggestionCommand,
+  expectedSuggestionRevision: input.expectedSuggestionRevision,
+  requestedAt: this.deps.clock.now(),
+};
+const current = this.deps.suggestions.get(input.projectId, input.documentId);
+if (input.expectedSuggestionRevision !== current.revision) {
+  const conflict = { commandId: input.commandId, status: "conflict" as const,
+    suggestionRevision: current.revision, state: current.state,
+    reason: "Suggestion state changed before the command was applied" };
+  this.deps.suggestions.recordCommandReceipt(command, conflict, undefined,
+    current.coveredThroughSequence, "SUGGESTION_REVISION_CONFLICT");
+  return conflict;
+}</code></pre>
+          <p>Two details matter here:</p>
+          <ul>
+            <li>The repeated-command short-circuit still happens first via <code>findReceipt</code>, preserving idempotent command responses.</li>
+            <li>Conflicts and rejections now record richer receipts through <code>recordCommandReceipt</code>, including sequence coverage and an optional error code.</li>
+          </ul>
+
+          <p>When the command is valid, the old direct transition call has been replaced with a domain decision and an append to immutable facts.</p>
+          <pre><code>const decision = decideSuggestionCommand(current.state, command.command);
+if (decision.status === "rejected") {
+  const rejected = { commandId: input.commandId, status: "rejected" as const,
+    suggestionRevision: current.revision, state: current.state, reason: decision.reason };
+  this.deps.suggestions.recordCommandReceipt(command, rejected, undefined,
+    current.coveredThroughSequence, "SUGGESTION_COMMAND_REJECTED");
+  return rejected;
+}
+const persisted = decision.status === "changed"
+  ? this.deps.suggestions.appendFacts(command, decision.facts,
+    decision.facts.map(() => this.deps.identities.next()))
+  : { projection: current, events: [] };
+const projection = persisted.projection;</code></pre>
+          <div class="green">
+            <p>The application layer no longer needs to know how a pin, dismiss, preview resolution, publish, update, or retract mutates the projection. It asks the domain aggregate for facts and asks the repository to persist/apply those facts.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>The aggregate has two jobs: decide, then replay</h2>
+          <p>The new domain module deliberately separates command validation from projection replay. <code>decideSuggestionCommand</code> still uses the existing suggestion transition functions, but its output is facts rather than a new projection.</p>
+          <pre><code>export function decideSuggestionCommand(
+  current: PersistedSuggestionState,
+  command: SuggestionIntent,
+): AggregateDecision {
+  if (command.type === "publish" || command.type === "update" || command.type === "retract") {
+    const event = command.type === "publish"
+      ? { type: "suggestion.added" as const, item: command.item }
+      : command.type === "update"
+        ? { type: "suggestion.updated" as const, item: command.item }
+        : { type: "suggestion.retracted" as const, id: command.suggestionId };
+    const transition = applySuggestionAgentEvent(current, event);
+    if (transition.status !== "changed") return transition.status === "unchanged"
+      ? { status: "unchanged", facts: [] }
+      : { status: "rejected", facts: [], reason: transition.reason };
+    return { status: "changed", facts: [command.type === "publish"
+      ? { type: "suggestion.published", version: 1, item: command.item }
+      : command.type === "update"
+        ? { type: "suggestion.updated", version: 1, item: command.item }
+        : { type: "suggestion.retracted", version: 1, suggestionId: command.suggestionId }] };
+  }
+
+  const transition = applySuggestionCommand(current, command);
+  if (transition.status !== "changed") return transition.status === "unchanged"
+    ? { status: "unchanged", facts: [] }
+    : { status: "rejected", facts: [], reason: transition.reason };
+  return { status: "changed", facts: [factForWriterCommand(command)] };
+}</code></pre>
+          <p>The replay side is stricter than a normal reducer. It ignores already-covered events, rejects gaps, rejects unknown fact versions, and rejects redundant facts. That strictness is what makes verification and repair meaningful.</p>
+          <pre><code>export function applySuggestionFact(
+  projection: SuggestionProjectionView,
+  event: Pick&lt;SequencedSuggestionFact, "sequence" | "fact"&gt;,
+): SuggestionProjectionView {
+  if (event.sequence &lt;= projection.coveredThroughSequence) return projection;
+  if (event.sequence !== projection.coveredThroughSequence + 1) {
+    throw new Error(`SUGGESTION_EVENT_SEQUENCE_GAP:${projection.coveredThroughSequence + 1}:${event.sequence}`);
+  }
+  if (event.fact.version !== SUGGESTION_EVENT_VERSION) throw new Error("UNKNOWN_SUGGESTION_EVENT_VERSION");
+  if (event.fact.type === "suggestion.projectionImported") {
+    if (projection.coveredThroughSequence !== 0) throw new Error("INVALID_PROJECTION_IMPORT_POSITION");
+    return { state: structuredClone(event.fact.state), revision: projection.revision,
+      coveredThroughSequence: event.sequence };
+  }
+  const transition = transitionForFact(projection.state, event.fact);
+  if (transition.status !== "changed") throw new Error(
+    transition.status === "rejected" ? `INVALID_SUGGESTION_EVENT:${transition.reason}` : "REDUNDANT_SUGGESTION_EVENT",
+  );
+  return { state: transition.state, revision: projection.revision + 1,
+    coveredThroughSequence: event.sequence };
+}</code></pre>
+        </section>
+
+        <section id="storage" class="card">
+          <h2>What actually lands in SQLite</h2>
+          <p>The schema split is the center of the change. <code>suggestion_projection</code> keeps the current state for fast hydration, while <code>suggestion_event_history</code> is the append-only sequence that can rebuild that state. Receipts also now store actor, command type/version, payload, outcome, and sequence metadata.</p>
+          <pre><code>CREATE TABLE suggestion_projection (
+  project_id TEXT NOT NULL,
+  document_id TEXT PRIMARY KEY,
+  state_json TEXT NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 0,
+  covered_through_sequence INTEGER NOT NULL DEFAULT 0,
+  projection_version INTEGER NOT NULL DEFAULT 1,
+  checksum TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+) STRICT;
+
+CREATE TABLE suggestion_event_history (
+  event_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  document_id TEXT NOT NULL,
+  sequence INTEGER NOT NULL,
+  command_id TEXT NOT NULL,
+  actor_json TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  event_version INTEGER NOT NULL,
+  payload_json TEXT NOT NULL,
+  occurred_at INTEGER NOT NULL,
+  UNIQUE (document_id, sequence),
+  FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+) STRICT;</code></pre>
+
+          <p>The repository append path applies each new fact to the in-memory projection before it writes the final projection row. The projection update is guarded by both the previous revision and previous coverage.</p>
+          <pre><code>let projection = { ...current, coveredThroughSequence: current.coveredThroughSequence ?? 0 };
+const events: SequencedSuggestionFact[] = [];
+for (const [index, candidate] of facts.entries()) {
+  const fact = parseOrContractError(SuggestionFactSchema, candidate, "persisted.suggestion-event.write");
+  const event = parseOrContractError(SequencedSuggestionFactSchema, {
+    eventId: eventIds[index], sequence: projection.coveredThroughSequence + 1,
+    commandId: command.commandId, actor: validatedCommand.actor,
+    occurredAt: command.requestedAt, fact,
+  }, "persisted.suggestion-event-envelope.write") as SequencedSuggestionFact;
+  projection = applySuggestionFact(projection, event);
+  this.db.prepare(`INSERT INTO suggestion_event_history
+    (event_id, project_id, document_id, sequence, command_id, actor_json, event_type,
+     event_version, payload_json, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(event.eventId, command.projectId, command.documentId, event.sequence, command.commandId,
+      JSON.stringify(event.actor), event.fact.type, event.fact.version, JSON.stringify(event.fact),
+      event.occurredAt);
+  events.push(event);
+}</code></pre>
+          <p>Then the projection row advances to the new revision and sequence coverage:</p>
+          <pre><code>const result = this.db.prepare(`UPDATE suggestion_projection SET state_json = ?, revision = ?,
+  covered_through_sequence = ?, projection_version = ?, checksum = ?, updated_at = ?
+  WHERE project_id = ? AND document_id = ? AND revision = ? AND covered_through_sequence = ?`)
+  .run(/* encoded state */, projection.revision, projection.coveredThroughSequence,
+    SUGGESTION_PROJECTION_VERSION,
+    suggestionProjectionChecksum(validatedState, projection.coveredThroughSequence),
+    command.requestedAt, command.projectId, command.documentId,
+    current.revision, current.coveredThroughSequence ?? 0);
+if (result.changes !== 1) throw new Error("SUGGESTION_REVISION_CONFLICT");</code></pre>
+          <div class="note">
+            <p>Because <code>StorageOperations</code> calls this inside <code>transactions.run</code> alongside receipt recording, a failed write rolls back the history and projection together. The integration test <code>rolls back history and projection together on transaction failure</code> covers that behavior directly for <code>appendFacts</code>.</p>
+          </div>
+        </section>
+
+        <section id="delivery" class="card">
+          <h2>Existing consumers still see <code>suggestion.event</code></h2>
+          <p>The outbox schema now permits either a full <code>event_json</code> payload or a reference to <code>suggestion_event_history</code>. Suggestion facts use the reference path.</p>
+          <pre><code>CREATE TABLE event_outbox (
+  event_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  document_id TEXT NOT NULL,
+  stream_id TEXT NOT NULL,
+  sequence INTEGER NOT NULL,
+  event_json TEXT,
+  suggestion_event_id TEXT REFERENCES suggestion_event_history(event_id) ON DELETE CASCADE,
+  occurred_at INTEGER NOT NULL,
+  causation_id TEXT,
+  created_at INTEGER NOT NULL,
+  dispatched_at INTEGER,
+  CHECK (event_json IS NOT NULL OR suggestion_event_id IS NOT NULL),
+  UNIQUE (stream_id, sequence),
+  FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+) STRICT;</code></pre>
+          <p>On enqueue, the outbox looks up the fact and stores only a reference. On read/replay, it rebuilds the projection up to that fact and returns a legacy-compatible payload.</p>
+          <pre><code>private parseRow(row: PersistedEventRow) {
+  if (!row.suggestion_event_id) {
+    if (row.event_json === null) throw new Error("INVALID_DURABLE_DELIVERY_REFERENCE");
+    return parseEnvelope(this.db, row);
+  }
+  const repository = new SuggestionRepository(this.db);
+  let projection = { state: createEmptySuggestionState(), revision: 0, coveredThroughSequence: 0 };
+  let delivered: SequencedSuggestionFact | undefined;
+  for (const event of repository.history(row.project_id, row.document_id)) {
+    projection = applySuggestionFact(projection, event);
+    if (event.eventId === row.suggestion_event_id) {
+      delivered = event;
+      break;
+    }
+  }
+  if (!delivered) throw new Error("SUGGESTION_DELIVERY_HISTORY_MISSING");
+  const payload = parseOrContractError(DurableEventPayloadSchema, {
+    type: "suggestion.event",
+    event: legacySuggestionEvent(delivered.fact),
+    commandId: delivered.commandId,
+    suggestionRevision: projection.revision,
+    state: projection.state,
+  }, "persisted.suggestion-delivery.payload");
+  return parseOrContractError(DurableEventEnvelopeSchema, {
+    eventId: row.event_id, streamId: row.stream_id, sequence: row.sequence,
+    occurredAt: row.occurred_at, causationId: row.causation_id ?? undefined, payload,
+  }, "persisted.suggestion-delivery");
+}</code></pre>
+          <p>This preserves the renderer-facing contract while changing the durable source behind it. The integration test proves replay sees two suggestion events after an agent-created suggestion and a writer pin command.</p>
+        </section>
+
+        <section id="maintenance" class="card">
+          <h2>Verification, checkpoints, and repair are now part of storage</h2>
+          <p>The new repository can rebuild a projection from the latest checkpoint plus remaining history, compare checksums, create bounded checkpoints, and replace the projection after a backup-confirmed repair.</p>
+          <div class="three">
+            <div class="mini-card"><span class="tag">Verify</span><p>Rebuilds, compares checksum and revision, and quarantines failure metadata on rebuild errors.</p></div>
+            <div class="mini-card"><span class="tag">Checkpoint</span><p>Created when forced, when coverage advances by at least 500 facts, or when replay took more than two seconds. Only ten latest checkpoints per document are retained.</p></div>
+            <div class="mini-card"><span class="tag">Repair</span><p>Requires <code>backupConfirmed</code>. Service-level repair creates a database backup first and rejects <code>:memory:</code>.</p></div>
+          </div>
+          <pre><code>suggestionMaintenance: {
+  verify(projectId: string, documentId: string) {
+    return suggestions.verify(projectId, documentId);
+  },
+  diagnostics(projectId: string, documentId: string) {
+    return suggestions.diagnostics(projectId, documentId);
+  },
+  checkpoint(projectId: string, documentId: string) {
+    return suggestions.createCheckpoint(projectId, documentId, 0, true);
+  },
+  repair(projectId: string, documentId: string) {
+    if (options.databasePath === ":memory:") {
+      throw new Error("SUGGESTION_REPAIR_REQUIRES_PERSISTED_BACKUP");
+    }
+    const backupPath = backupDatabase(database.db, options.databasePath, DATABASE_VERSION);
+    if (!backupPath) throw new Error("SUGGESTION_REPAIR_BACKUP_FAILED");
+    const projection = database.run(() =&gt; suggestions.repair(projectId, documentId, true));
+    return { backupPath, projection };
+  },
+}</code></pre>
+          <p>The checksum includes projection version, coverage, and state:</p>
+          <pre><code>export function suggestionProjectionChecksum(state: PersistedSuggestionState, coverage: number) {
+  return createHash("sha256").update(JSON.stringify({ version: SUGGESTION_PROJECTION_VERSION,
+    coverage, state })).digest("hex");
+}</code></pre>
+        </section>
+
+        <section id="schema" class="card">
+          <h2>The database policy changed with the schema bump</h2>
+          <p><code>desktop/database.ts</code> now sets the minimum supported version equal to the current version. That means a lower non-empty database is treated as unsupported/corrupt rather than migrated.</p>
+          <pre><code>export const DATABASE_VERSION = 7;
+// Alpha databases are disposable. Only the current schema is supported; an
+// older file must be removed and recreated instead of migrated in place.
+export const MINIMUM_SUPPORTED_DATABASE_VERSION = DATABASE_VERSION;
+...
+export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [];</code></pre>
+          <p>The lifecycle test was rewritten accordingly: a representative old fixture is expected to be rejected without file modification.</p>
+          <pre><code>it("rejects a pre-alpha schema without modifying it", async () =&gt; {
+  const path = await createFixture();
+  const before = await readFile(path);
+  expect(() =&gt; openApplicationDatabase(path)).toThrowError(
+    expect.objectContaining&lt;Partial&lt;DatabaseStartupError&gt;&gt;({ code: "DATABASE_CORRUPT" }),
+  );
+  expect(await readFile(path)).toEqual(before);
+});</code></pre>
+          <div class="warning">
+            <p>One documentation detail to verify before landing: <code>docs/compatibility.md</code> still lists the SQLite row as version 5, while <code>desktop/database.ts</code>, <code>docs/architecture.md</code>, and <code>docs/desktop-runtime.md</code> describe version 7/current-schema alpha behavior.</p>
+          </div>
+        </section>
+
+        <section id="tests" class="card">
+          <h2>The tests describe the intended invariants</h2>
+          <table>
+            <thead><tr><th>Test area</th><th>Behavior protected</th></tr></thead>
+            <tbody>
+              <tr><td><code>desktop/domain/suggestion-persistence.test.ts</code></td><td>Facts rebuild the same projection without I/O; already-covered events are idempotent; sequence gaps throw; invalid intent emits no fact.</td></tr>
+              <tr><td><code>desktop/storage/suggestion-persistence.test.ts</code></td><td>Commands, facts, receipts, projection, replay, verify, and diagnostics work together; repeated command returns same receipt; transaction rollback removes history and projection writes; invalid checkpoint does not overwrite current projection.</td></tr>
+              <tr><td><code>desktop/database.test.ts</code></td><td>Fresh database creates the full current schema and old pre-alpha database files are preserved/rejected rather than migrated.</td></tr>
+              <tr><td><code>desktop/storage/layers.test.ts</code></td><td>Repository tests now use scoped project/document identities and the renamed <code>suggestion_projection</code> table.</td></tr>
+            </tbody>
+          </table>
+          <p><span class="tested">Verified locally: 4 test files, 28 tests passed</span></p>
+          <pre><code>npm test -- --run desktop/domain/suggestion-persistence.test.ts \
+  desktop/storage/suggestion-persistence.test.ts desktop/database.test.ts \
+  desktop/storage/layers.test.ts</code></pre>
+        </section>
+
+        <section id="risks" class="card">
+          <h2>Things future maintainers should not gloss over</h2>
+          <div class="danger">
+            <p><strong>Checkpoint creation happens after the command transaction.</strong> In <code>StorageOperations</code>, <code>createCheckpoint</code> is called after <code>transactions.run</code>. That is safe for data derivation because checkpoints can be recreated, but a checkpoint error could still make a command request fail after the mutation has already committed.</p>
+          </div>
+          <div class="warning">
+            <p><strong>Outbox delivery rebuilds from history for each fact-backed event.</strong> <code>OutboxRepository.parseRow</code> creates a new <code>SuggestionRepository</code> and loops through <code>repository.history(...)</code> until the delivered event. It does not use checkpoints in this read path. That is simple and correct, but it is a performance area to watch if suggestion history grows.</p>
+          </div>
+          <div class="note">
+            <p><strong>The projection invariant is now two-dimensional.</strong> A correct projection must have both the expected <code>revision</code> and the expected <code>coveredThroughSequence</code>. The checksum also includes coverage. Repair or import code that updates state without those fields will undermine verification.</p>
+          </div>
+          <div class="note">
+            <p><strong>Legacy adapter paths still exist.</strong> <code>compareAndPut</code> and <code>recordReceipt</code> remain in the port/repository for compatibility with older call shapes. New suggestion mutation paths should prefer <code>appendFacts</code> and <code>recordCommandReceipt</code>.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>How this fits the recent history</h2>
+          <div class="history">
+            <div class="commit"><code>2a290da</code><span>Introduced contracts for process boundaries. This change extends those contracts with suggestion actors, intents, command envelopes, facts, and sequenced facts.</span></div>
+            <div class="commit"><code>2f264db</code><span>Made storage authoritative for suggestion state. The current diff keeps storage authoritative but changes the durable source from direct projection writes to command/fact history.</span></div>
+            <div class="commit"><code>cbcb746</code><span>Added durable event replay and acknowledgement. This diff uses that stream for fact-backed deliveries while keeping renderer-facing payloads compatible.</span></div>
+            <div class="commit"><code>b3763b9</code><span>Implemented durable compatibility policies. The new schemas and repair/verification path build on that compatibility machinery.</span></div>
+            <div class="commit"><code>dc491a6</code><span>Scoped workspaces by project/document. The new history, receipts, checkpoints, outbox rows, and maintenance calls all carry project/document identity.</span></div>
+          </div>
+        </section>
+
+        <section id="questions" class="card">
+          <h2>Comprehension check</h2>
+          <p>Use these to check whether the new data path is loaded in your head before you modify it.</p>
+          <details>
+            <summary>1. A writer pins a suggestion. Which durable rows should exist after the command succeeds?</summary>
+            <div class="answer">A command receipt in <code>suggestion_command_receipts</code>, a fact in <code>suggestion_event_history</code>, an advanced <code>suggestion_projection</code> row, and a fact-backed row in <code>event_outbox</code> with <code>suggestion_event_id</code> set and <code>event_json</code> null. The storage integration test checks this shape after publish plus pin.</div>
+          </details>
+          <details>
+            <summary>2. What prevents replay from skipping sequence 3 and applying sequence 4?</summary>
+            <div class="answer"><code>applySuggestionFact</code> requires <code>event.sequence === coveredThroughSequence + 1</code>. If the next event is not contiguous, it throws <code>SUGGESTION_EVENT_SEQUENCE_GAP</code>. The domain test covers this with a sequence-2 event applied to coverage 0.</div>
+          </details>
+          <details>
+            <summary>3. Why does the outbox have to rebuild projection state when reading a fact-backed suggestion event?</summary>
+            <div class="answer">The durable row stores a reference to a fact, not a full legacy event payload. Existing consumers expect <code>suggestion.event</code> with <code>suggestionRevision</code> and <code>state</code>, so <code>parseRow</code> replays history up to the referenced fact and materializes that payload.</div>
+          </details>
+          <details>
+            <summary>4. What would break if repair updated <code>state_json</code> but left <code>covered_through_sequence</code> unchanged?</summary>
+            <div class="answer">Verification would no longer describe the same projection boundary. The checksum includes coverage, rebuild starts from checkpoints/history coverage, and append uses <code>covered_through_sequence</code> to assign the next fact sequence. A mismatched state/coverage pair can cause checksum mismatch or future sequence conflicts.</div>
+          </details>
+          <details>
+            <summary>5. If an older local database exists, where is the migration path into schema 7?</summary>
+            <div class="answer">There is none in the active registry. <code>MINIMUM_SUPPORTED_DATABASE_VERSION</code> equals <code>DATABASE_VERSION</code> and <code>DATABASE_MIGRATIONS</code> is empty, so older non-empty files are rejected and preserved during alpha.</div>
+          </details>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

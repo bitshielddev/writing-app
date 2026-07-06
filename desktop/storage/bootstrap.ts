@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createEmptySuggestionState } from "../../src/suggestions/state.js";
 import { DOCUMENT_SCHEMA_VERSION } from "./config.js";
 import { COMPATIBILITY_REGISTRY, encodeVersionedJson } from "../compatibility.js";
+import { suggestionProjectionChecksum } from "./projection-checksum.js";
 
 export function bootstrapWorkspace(
   db: DatabaseSync,
@@ -38,14 +39,17 @@ export function bootstrapWorkspace(
     now,
     now,
   );
+  const suggestionState = createEmptySuggestionState();
   db.prepare(
-    "INSERT INTO suggestion_state (project_id, document_id, state_json, updated_at) VALUES (?, ?, ?, ?)",
+    `INSERT INTO suggestion_projection
+      (project_id, document_id, state_json, revision, covered_through_sequence,
+       projection_version, checksum, updated_at) VALUES (?, ?, ?, 0, 0, 1, ?, ?)`,
   ).run(projectId, documentId, encodeVersionedJson(
     COMPATIBILITY_REGISTRY.suggestionProjection.name,
     COMPATIBILITY_REGISTRY.suggestionProjection.currentVersion,
-    createEmptySuggestionState(),
+    suggestionState,
     "state",
-  ), now);
+  ), suggestionProjectionChecksum(suggestionState, 0), now);
   db.prepare(`INSERT INTO workspace_settings
     (id, selected_project_id, selected_document_id, updated_at) VALUES (1, ?, ?, ?)`)
     .run(projectId, documentId, now);

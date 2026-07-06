@@ -17,6 +17,7 @@ import {
 import { createStorageRequestHandler } from "./rpc-operations.js";
 import { NodeWorkspaceFiles } from "./workspace-files.js";
 import { migrateLegacyWorkspaceFiles } from "./workspace-migration.js";
+import { backupDatabase, DATABASE_VERSION } from "../database.js";
 
 export type CreateStorageServiceOptions = {
   databasePath: string;
@@ -75,6 +76,26 @@ export function createStorageService(options: CreateStorageServiceOptions) {
       operations,
       handleRequest: createStorageRequestHandler(operations),
       dispatchPendingEvents: () => dispatcher.dispatch(),
+      suggestionMaintenance: {
+        verify(projectId: string, documentId: string) {
+          return suggestions.verify(projectId, documentId);
+        },
+        diagnostics(projectId: string, documentId: string) {
+          return suggestions.diagnostics(projectId, documentId);
+        },
+        checkpoint(projectId: string, documentId: string) {
+          return suggestions.createCheckpoint(projectId, documentId, 0, true);
+        },
+        repair(projectId: string, documentId: string) {
+          if (options.databasePath === ":memory:") {
+            throw new Error("SUGGESTION_REPAIR_REQUIRES_PERSISTED_BACKUP");
+          }
+          const backupPath = backupDatabase(database.db, options.databasePath, DATABASE_VERSION);
+          if (!backupPath) throw new Error("SUGGESTION_REPAIR_BACKUP_FAILED");
+          const projection = database.run(() => suggestions.repair(projectId, documentId, true));
+          return { backupPath, projection };
+        },
+      },
       close: () => database.close(),
     };
   } catch (error) {

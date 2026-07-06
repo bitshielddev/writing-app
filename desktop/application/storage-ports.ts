@@ -11,7 +11,11 @@ import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
 export type ProjectSnapshot = { id: string; name: string; revision: number };
 export type DocumentSummary = { id: string; projectId: string; title: string; revision: number };
 export type WorkspaceSelection = { projectId: string; documentId: string };
-export type SuggestionProjection = { state: PersistedSuggestionState; revision: number };
+export type SuggestionProjection = {
+  state: PersistedSuggestionState;
+  revision: number;
+  coveredThroughSequence?: number;
+};
 export type SuggestionCommandResult = OperationResult<
   typeof StorageOperations,
   "suggestions.command"
@@ -55,6 +59,18 @@ export interface SuggestionStore {
   ): SuggestionProjection;
   findReceipt(projectIdOrCommandId: string, documentId?: string, commandId?: string): SuggestionCommandResult | undefined;
   recordReceipt(projectId: string, documentIdOrResult: string | SuggestionCommandResult, result?: SuggestionCommandResult): void;
+  appendFacts(command: import("../domain/suggestion-persistence.js").SuggestionCommandEnvelope,
+    facts: import("../domain/suggestion-persistence.js").SuggestionFact[], eventIds: string[]): {
+      projection: SuggestionProjection;
+      events: import("../domain/suggestion-persistence.js").SequencedSuggestionFact[];
+    };
+  recordCommandReceipt(command: import("../domain/suggestion-persistence.js").SuggestionCommandEnvelope,
+    result: SuggestionCommandResult, firstSequence?: number, resultingSequence?: number,
+    errorCode?: string): void;
+  createCheckpoint(projectId: string, documentId: string, replayDurationMs?: number, force?: boolean): unknown;
+  verify?(projectId: string, documentId: string): unknown;
+  repair?(projectId: string, documentId: string, backupConfirmed: boolean): unknown;
+  diagnostics?(projectId: string, documentId: string): unknown;
 }
 
 export interface SelectionStore {
@@ -64,6 +80,7 @@ export interface SelectionStore {
 
 export interface EventOutbox {
   enqueue(projectIdOrEvent: string | DurableEventPayload, documentIdOrCausation?: string, event?: DurableEventPayload, causationId?: string): DurableEventEnvelope;
+  enqueueSuggestionFact(projectId: string, documentId: string, suggestionEventId: string): DurableEventEnvelope;
   pending(): DurableEventEnvelope[];
   markDispatched(eventId: string): void;
   replay(streamId: string, afterSequence: number, limit?: number): {

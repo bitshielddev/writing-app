@@ -41,20 +41,21 @@ describe("storage database and repositories", () => {
     const instance = await service();
     const projects = new ProjectRepository(instance.database.db);
     const documents = new DocumentRepository(instance.database.db);
+    const selected = instance.operations.catalog().selection;
 
-    expect(projects.get("default-project")).toMatchObject({ revision: 0 });
-    expect(documents.get("default-document")).toMatchObject({ markdown: "# New Page\n" });
+    expect(projects.get(selected.projectId)).toMatchObject({ revision: 0 });
+    expect(documents.get(selected.documentId)).toMatchObject({ markdown: "# New Page\n" });
     expect(() => projects.get("missing")).toThrow("Project not found: missing");
     expect(() => documents.get("missing")).toThrow("Document not found: missing");
 
     expect(() => instance.database.run(() => {
-      projects.incrementRevision("default-project", 1);
+      projects.incrementRevision(selected.projectId, 1);
       throw new Error("rollback");
     })).toThrow("rollback");
-    expect(projects.get("default-project").revision).toBe(0);
+    expect(projects.get(selected.projectId).revision).toBe(0);
 
-    instance.database.run(() => projects.incrementRevision("default-project", 2));
-    expect(projects.get("default-project").revision).toBe(1);
+    instance.database.run(() => projects.incrementRevision(selected.projectId, 2));
+    expect(projects.get(selected.projectId).revision).toBe(1);
   });
 
   it("keeps independently created storage instances isolated", async () => {
@@ -79,23 +80,24 @@ describe("storage database and repositories", () => {
     const documents = new DocumentRepository(db);
     const suggestions = new SuggestionRepository(db);
     const outbox = new OutboxRepository(db);
+    const selected = instance.operations.catalog().selection;
 
     db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
-      .run("not-json", "default-document");
-    expect(() => documents.get("default-document"))
+      .run("not-json", selected.documentId);
+    expect(() => documents.get(selected.documentId))
       .toThrow("Invalid persisted scribe.blocks JSON");
     db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
-      .run("[]", "default-document");
+      .run("[]", selected.documentId);
 
-    db.prepare("UPDATE suggestion_state SET state_json = ? WHERE project_id = ?")
-      .run(JSON.stringify({ entries: [] }), "default-project");
-    expect(() => suggestions.get("default-project"))
+    db.prepare("UPDATE suggestion_projection SET state_json = ? WHERE project_id = ?")
+      .run(JSON.stringify({ entries: [] }), selected.projectId);
+    expect(() => suggestions.get(selected.projectId))
       .toThrow("Invalid data at persisted.suggestion-projection");
 
     db.prepare(`INSERT INTO event_outbox
-      (event_id, stream_id, sequence, event_json, occurred_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)`)
-      .run("invalid-event", "document:default-document", 1,
+      (event_id, project_id, document_id, stream_id, sequence, event_json, occurred_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run("invalid-event", selected.projectId, selected.documentId, `document:${selected.documentId}`, 1,
         JSON.stringify({ type: "unknown" }), 1, 1);
     expect(outbox.pending()).toEqual([]);
     expect(db.prepare(`SELECT format_name, record_identity, error_code
@@ -112,51 +114,53 @@ describe("storage database and repositories", () => {
     const db = instance.database.db;
     const documents = new DocumentRepository(db);
     const suggestions = new SuggestionRepository(db);
+    const selected = instance.operations.catalog().selection;
     const legacyBlocks = JSON.stringify([{ type: "paragraph", content: "legacy" }]);
     const legacyState = JSON.stringify({
       entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1,
     });
     db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
-      .run(legacyBlocks, "default-document");
-    db.prepare("UPDATE suggestion_state SET state_json = ? WHERE project_id = ?")
-      .run(legacyState, "default-project");
+      .run(legacyBlocks, selected.documentId);
+    db.prepare("UPDATE suggestion_projection SET state_json = ? WHERE project_id = ?")
+      .run(legacyState, selected.projectId);
 
-    expect(documents.get("default-document").blocks).toHaveLength(1);
-    expect(suggestions.get("default-project").state.entries).toEqual([]);
+    expect(documents.get(selected.documentId).blocks).toHaveLength(1);
+    expect(suggestions.get(selected.projectId).state.entries).toEqual([]);
     const upgradedBlocks = (db.prepare("SELECT blocks_json FROM documents WHERE id = ?")
-      .get("default-document") as { blocks_json: string }).blocks_json;
-    const upgradedState = (db.prepare("SELECT state_json FROM suggestion_state WHERE project_id = ?")
-      .get("default-project") as { state_json: string }).state_json;
+      .get(selected.documentId) as { blocks_json: string }).blocks_json;
+    const upgradedState = (db.prepare("SELECT state_json FROM suggestion_projection WHERE project_id = ?")
+      .get(selected.projectId) as { state_json: string }).state_json;
     expect(JSON.parse(upgradedBlocks)).toMatchObject({ format: "scribe.blocks", version: 1 });
     expect(JSON.parse(upgradedState)).toMatchObject({
       format: "scribe.suggestion-projection", version: 1,
     });
 
-    documents.get("default-document");
-    suggestions.get("default-project");
+    documents.get(selected.documentId);
+    suggestions.get(selected.projectId);
     expect((db.prepare("SELECT blocks_json FROM documents WHERE id = ?")
-      .get("default-document") as { blocks_json: string }).blocks_json).toBe(upgradedBlocks);
-    expect((db.prepare("SELECT state_json FROM suggestion_state WHERE project_id = ?")
-      .get("default-project") as { state_json: string }).state_json).toBe(upgradedState);
+      .get(selected.documentId) as { blocks_json: string }).blocks_json).toBe(upgradedBlocks);
+    expect((db.prepare("SELECT state_json FROM suggestion_projection WHERE project_id = ?")
+      .get(selected.projectId) as { state_json: string }).state_json).toBe(upgradedState);
   });
 
   it("preserves future blocks and quarantines them exactly once", async () => {
     const instance = await service();
     const db = instance.database.db;
     const documents = new DocumentRepository(db);
+    const selected = instance.operations.catalog().selection;
     const source = JSON.stringify({
       format: "scribe.blocks", version: 99,
       blocks: [{ type: "paragraph", content: "future" }],
     });
     db.prepare("UPDATE documents SET blocks_json = ? WHERE id = ?")
-      .run(source, "default-document");
+      .run(source, selected.documentId);
 
-    expect(() => documents.get("default-document")).toThrow("requires a newer ScribeAI release");
-    expect(() => documents.get("default-document")).toThrow();
+    expect(() => documents.get(selected.documentId)).toThrow("requires a newer ScribeAI release");
+    expect(() => documents.get(selected.documentId)).toThrow();
     expect((db.prepare("SELECT blocks_json FROM documents WHERE id = ?")
-      .get("default-document") as { blocks_json: string }).blocks_json).toBe(source);
+      .get(selected.documentId) as { blocks_json: string }).blocks_json).toBe(source);
     expect(db.prepare(`SELECT source_text, count(*) AS count FROM durable_json_quarantine
-      WHERE format_name = ? AND record_identity = ?`).get("scribe.blocks", "default-document"))
+      WHERE format_name = ? AND record_identity = ?`).get("scribe.blocks", selected.documentId))
       .toEqual({ source_text: source, count: 1 });
   });
 
@@ -164,11 +168,12 @@ describe("storage database and repositories", () => {
     const instance = await service();
     const db = instance.database.db;
     const outbox = new OutboxRepository(db);
+    const selected = instance.operations.catalog().selection;
     const future = JSON.stringify({ format: "scribe.event", version: 99, event: { opaque: true } });
     db.prepare(`INSERT INTO event_outbox
-      (event_id, stream_id, sequence, event_json, occurred_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(
-      "future-event", "document:default-document", 1, future, 1, 1,
+      (event_id, project_id, document_id, stream_id, sequence, event_json, occurred_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      "future-event", selected.projectId, selected.documentId, `document:${selected.documentId}`, 1, future, 1, 1,
     );
     outbox.enqueue({
       type: "suggestion.event",
@@ -178,7 +183,7 @@ describe("storage database and repositories", () => {
     });
 
     expect(outbox.pending()).toEqual([]);
-    expect(outbox.replay("document:default-document", 0).events).toEqual([]);
+    expect(outbox.replay(`document:${selected.documentId}`, 0).events).toEqual([]);
     expect((db.prepare(`SELECT count(*) AS count FROM durable_json_quarantine
       WHERE record_identity = ?`).get("future-event") as { count: number }).count).toBe(1);
     expect((db.prepare("SELECT event_json FROM event_outbox WHERE event_id = ?")
