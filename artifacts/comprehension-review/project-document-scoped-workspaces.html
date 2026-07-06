@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project/document scoped workspaces</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #252433;
+      --muted: #676578;
+      --soft: #f6f4fb;
+      --panel: #ffffff;
+      --line: #ddd8ef;
+      --code: #201d2d;
+      --accent: #5c4fb7;
+      --accent-soft: #ece8ff;
+      --warn: #7c4b10;
+      --warn-bg: #fff7e8;
+      --good: #1f6b4f;
+      --good-bg: #edf8f3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #fbfaff 0%, #f4f2fb 42%, #ffffff 100%);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    header {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 56px 24px 24px;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto 64px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 28px;
+      align-items: start;
+    }
+    nav {
+      position: sticky;
+      top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.82);
+      backdrop-filter: blur(12px);
+      padding: 16px;
+      font-size: 14px;
+    }
+    nav a { display: block; color: var(--muted); text-decoration: none; padding: 6px 4px; }
+    nav a:hover { color: var(--accent); }
+    article { min-width: 0; }
+    h1 {
+      font-size: clamp(2rem, 5vw, 4.4rem);
+      line-height: .96;
+      letter-spacing: -.06em;
+      margin: 0 0 18px;
+      max-width: 860px;
+    }
+    h2 { font-size: 1.55rem; line-height: 1.15; margin: 0 0 14px; letter-spacing: -.02em; }
+    h3 { margin: 28px 0 10px; font-size: 1.02rem; }
+    p { margin: 0 0 14px; max-width: 78ch; }
+    .deck { color: var(--muted); font-size: 1.08rem; max-width: 820px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; color: var(--muted); font-size: 13px; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; background: white; }
+    section {
+      background: rgba(255,255,255,.9);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 26px;
+      margin-bottom: 22px;
+      box-shadow: 0 18px 50px rgba(49,40,94,.07);
+    }
+    .map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 18px 0 6px;
+    }
+    .node { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: var(--soft); }
+    .node span { display:block; color: var(--muted); font-size: 12px; margin-top: 5px; }
+    .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 14px 16px; border-radius: 12px; margin: 16px 0; }
+    .risk { border-left-color: #c27a20; background: var(--warn-bg); color: var(--warn); }
+    .ok { border-left-color: var(--good); background: var(--good-bg); color: var(--good); }
+    pre {
+      overflow-x: auto;
+      background: var(--code);
+      color: #f5f2ff;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.48;
+      margin: 14px 0 18px;
+    }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .snippet-title { color: var(--muted); font-size: 13px; margin: 16px 0 -6px; }
+    .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    ul { margin-top: 8px; padding-left: 22px; }
+    li { margin: 6px 0; }
+    details { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 10px 0; background: #fff; }
+    summary { cursor: pointer; font-weight: 650; }
+    .question { margin-top: 14px; }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      nav { position: static; }
+      .map, .grid-two { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Workspaces now have real project and document boundaries</h1>
+    <p class="deck">This change turns the previous single-workspace assumption into an explicit scope: every meaningful storage, renderer, event, and agent path now carries <code>{ projectId, documentId }</code>. The likely intent is inferred from the diff and the new architecture note: prevent files, suggestions, durable events, and Pi sessions from crossing document boundaries once the app supports multiple projects and documents.</p>
+    <div class="meta">
+      <span class="pill">Database schema: v5 -> v6</span>
+      <span class="pill">New renderer catalog operations</span>
+      <span class="pill">Document-specific event streams</span>
+      <span class="pill">Targeted test run: 4 passed</span>
+    </div>
+  </header>
+  <main>
+    <nav aria-label="Review navigation">
+      <a href="#shape">Change shape</a>
+      <a href="#scope">The new scope contract</a>
+      <a href="#storage">Storage and migration</a>
+      <a href="#switching">Renderer switching path</a>
+      <a href="#agent">Agent and event boundaries</a>
+      <a href="#risks">Invariants and risks</a>
+      <a href="#questions">Comprehension check</a>
+    </nav>
+    <article>
+      <section id="shape">
+        <h2>The shape of the change</h2>
+        <p>The old model had a durable default document identity in many places. Some APIs accepted a document id, but storage files, suggestions, event streams, and agent state still mostly behaved as one workspace. The new model makes the selected document a session key.</p>
+        <div class="map" aria-label="Affected layers map">
+          <div class="node">Renderer UI<span>Sidebar catalog, document switching, project/document CRUD</span></div>
+          <div class="node">IPC contracts<span>New operations and scoped params/results</span></div>
+          <div class="node">Storage process<span>Repositories, schema v6, per-document files</span></div>
+          <div class="node">Agent process<span>Restarted for selected document workspace</span></div>
+        </div>
+        <table>
+          <thead><tr><th>Area</th><th>Before</th><th>Now</th></tr></thead>
+          <tbody>
+            <tr><td>Selection</td><td>Implicit default workspace.</td><td><code>workspace_settings</code> stores selected project/document and <code>workspace.catalog</code> exposes it.</td></tr>
+            <tr><td>Files</td><td>Legacy paths under <code>projects/default-project</code> or root-like workspace paths.</td><td>Files live under <code>projects/&lt;project-id&gt;/documents/&lt;document-id&gt;/</code>.</td></tr>
+            <tr><td>Events</td><td>Durable events used the default stream.</td><td>Each document gets <code>document:${documentId}</code>.</td></tr>
+            <tr><td>Suggestions</td><td>Suggestion state was project-scoped.</td><td>Suggestion state and receipts are document-scoped.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="scope">
+        <h2>The boundary changed first in the contracts</h2>
+        <p>The public surface grew catalog and lifecycle operations. The important part is not the number of new methods; it is that operations which mutate or hydrate document state now have a scope in the schema.</p>
+        <p class="snippet-title">src/shared/contracts.ts</p>
+        <pre><code>const documentScope = Type.Object({ projectId: identifier, documentId: identifier }, strict);
+const namedProject = Type.Object({ name: text(1_000) }, strict);
+const namedDocument = Type.Object({ projectId: identifier, title: text(1_000) }, strict);
+
+export const RendererOperations = {
+  "workspace.catalog": operation(noParams, WorkspaceCatalogSchema),
+  "project.create": operation(namedProject, WorkspaceCatalogSchema),
+  "document.create": operation(namedDocument, WorkspaceCatalogSchema),
+  "document.select": operation(documentScope, WorkspaceCatalogSchema),
+  hydrate: operation(documentScope, WorkspaceSnapshotSchema),
+  "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
+  "source.import": operation(documentScope, Type.Union([SourceSnapshotSchema, Type.Undefined()])),
+} as const;</code></pre>
+        <p>The catalog carries enough state for the renderer to render the Sidebar and to know what should be hydrated next.</p>
+        <p class="snippet-title">src/shared/contracts.ts</p>
+        <pre><code>export const WorkspaceCatalogSchema = Type.Object({
+  projects: Type.Array(ProjectSnapshotSchema),
+  documents: Type.Array(DocumentSummarySchema),
+  selection: WorkspaceSelectionSchema,
+}, strict);</code></pre>
+        <div class="callout">A maintainer should read this as the new interface invariant: if an operation can touch document state, it must either receive a document scope or be wrapped by a handler that fills in the current selection.</div>
+      </section>
+
+      <section id="storage">
+        <h2>Storage now has two jobs: enforce ownership and keep old data readable</h2>
+        <p>The schema moves several tables from project/default scope to document scope. Version 6 adds <code>document_id</code> to sources, suggestion projections, suggestion command receipts, event outbox rows, and consumer cursors. It also adds the singleton <code>workspace_settings</code> row.</p>
+        <p class="snippet-title">desktop/database.ts</p>
+        <pre><code>export const DATABASE_VERSION = 6;
+
+CREATE TABLE sources (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  document_id TEXT NOT NULL,
+  ...
+  FOREIGN KEY (project_id, document_id)
+    REFERENCES documents(project_id, id) ON DELETE CASCADE
+) STRICT;
+
+CREATE TABLE workspace_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  selected_project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+  selected_document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+  updated_at INTEGER NOT NULL
+) STRICT;</code></pre>
+        <p>The repositories enforce the same idea at query time. A document lookup is no longer just "find id" in the new path; it is "find id owned by project".</p>
+        <p class="snippet-title">desktop/storage/repositories.ts</p>
+        <pre><code>get(projectId: string, id: string): DocumentSnapshot {
+  const row = this.db.prepare(
+    `SELECT id, project_id, title, blocks_json, markdown, schema_version, revision, updated_at
+     FROM documents WHERE project_id = ? AND id = ?`,
+  ).get(projectId, id);
+  if (!row) throw new Error(`Document not found: ${id}`);
+  ...
+}</code></pre>
+        <p>Hydration is the storage operation where the new data flow is easiest to see: derive the stream id from the document, read document-specific sources and suggestions, and report the stream head for that document.</p>
+        <p class="snippet-title">desktop/application/storage-operations.ts</p>
+        <pre><code>hydrate(input?: Params&lt;"hydrate"&gt;): WorkspaceSnapshot {
+  input ??= this.selection();
+  this.assertScope(input);
+  const streamId = streamFor(input.documentId);
+  const suggestion = this.deps.suggestions.get(input.projectId, input.documentId);
+  return {
+    streamId,
+    coveredThroughSequence: this.deps.outbox.head(streamId),
+    project: this.deps.projects.get(input.projectId),
+    document: this.deps.documents.get(input.projectId, input.documentId),
+    sources: this.deps.sources.list(input.projectId, input.documentId),
+    suggestions: suggestion.state,
+    suggestionRevision: suggestion.revision,
+    agent: { status: "offline", cycleCount: 0 },
+    activity: [],
+  };
+}</code></pre>
+        <h3>The migration has two halves</h3>
+        <p>The database migration maps existing v5 rows onto the first document for each relevant project and verifies row counts afterward. File migration moves the legacy workspace files into the selected document directory through a journal, so a partial move can resume.</p>
+        <p class="snippet-title">desktop/storage/workspace-migration.ts</p>
+        <pre><code>journal = {
+  version: 1,
+  projectId,
+  documentId,
+  pending: [
+    { from: join(legacyRoot, "draft.md"), to: target.draftPath },
+    { from: join(legacyRoot, "sources"), to: target.sourcesDirectory },
+    { from: join(legacyRoot, ".pi"), to: target.piDirectory },
+  ].filter((move) =&gt; existsSync(move.from)),
+};
+
+while (journal.pending.length) {
+  const move = journal.pending[0]!;
+  mkdirSync(dirname(move.to), { recursive: true });
+  if (existsSync(move.from) &amp;&amp; !existsSync(move.to)) renameSync(move.from, move.to);
+  else if (existsSync(move.from) &amp;&amp; existsSync(move.to)) {
+    throw new Error(`Workspace migration destination already exists: ${move.to}`);
+  }
+  journal.pending.shift();
+  writeJournal(journalPath, journal);
+}</code></pre>
+      </section>
+
+      <section id="switching">
+        <h2>The renderer treats document selection as a session switch</h2>
+        <p>The Sidebar now renders projects and documents from the catalog and exposes create, rename, delete, and select actions. The controller does the careful part before selecting a new document: flush local document edits, flush queued suggestion commands, stop an active agent, clear preview state, then ask the desktop bridge to select the document.</p>
+        <p class="snippet-title">src/workspace/useWorkspaceController.ts</p>
+        <pre><code>const selectDocument = useCallback(async (projectId: string, documentId: string) =&gt; {
+  if (!scope || switchPending || (scope.projectId === projectId &amp;&amp; scope.documentId === documentId)) return;
+  setSwitchPending(true);
+  try {
+    await document.flushForSwitch();
+    await suggestionPersistence.flush();
+    if (agent.runtime.status === "working" || agent.runtime.status === "waiting") await agent.stopAndWait();
+    initializePreview();
+    const next = await desktop.selectDocument({ projectId, documentId });
+    setCatalog(next);
+    setScope(next.selection);
+  } catch (cause) {
+    setSwitchError(cause instanceof Error ? cause.message : "The document could not be switched");
+    setFailedSwitch({ projectId, documentId });
+  } finally {
+    setSwitchPending(false);
+  }
+}, [...]);</code></pre>
+        <p>Several async hooks now capture the active scope and a generation counter before starting work. When the promise resolves, they only update state if the user is still on the same document session.</p>
+        <p class="snippet-title">src/workspace/useSourceController.ts</p>
+        <pre><code>function isCurrentScope(mounted, current, operation, generation, currentGeneration) {
+  return mounted &amp;&amp; generation === currentGeneration &amp;&amp;
+    current?.projectId === operation.projectId &amp;&amp;
+    current.documentId === operation.documentId;
+}</code></pre>
+        <div class="callout ok">This is the frontend race invariant: a late source import, agent start/stop response, save completion, or suggestion result must not apply to the wrong document after a switch.</div>
+      </section>
+
+      <section id="agent">
+        <h2>Agent and durable events are tied to the selected document</h2>
+        <p>The main process now spawns the Pi agent with the selected document workspace as its working directory and a document-specific session directory. On document selection, the old agent is stopped and killed, runtime is reset, and a new child process is started for the target scope.</p>
+        <p class="snippet-title">desktop/main.ts</p>
+        <pre><code>const spawnDocumentAgent = (scope: { projectId: string; documentId: string }) =&gt; {
+  const documentWorkspace = join(
+    userDataPath, "projects", scope.projectId, "documents", scope.documentId,
+  );
+  const sessionDirectory = join(documentWorkspace, ".pi", "sessions");
+  agent = spawnChild(
+    join(here, "agent.js"),
+    [documentWorkspace, agentDir, sessionDirectory],
+    AgentOperations,
+    AgentChildMessageSchema,
+    "agent-process",
+    (message) =&gt; {
+      if (generation === agentGeneration) void handleAgentMessage(message);
+    },
+  );
+};</code></pre>
+        <p>Inside the agent process, storage calls are automatically decorated with the active scope after <code>agent.start</code>. This keeps extension tools such as "list suggestions" on the same document without making every tool manually pass ids.</p>
+        <p class="snippet-title">desktop/agent.ts</p>
+        <pre><code>const scoped = activeScope &amp;&amp; (first === undefined || (typeof first === "object" &amp;&amp; first !== null))
+  ? { ...activeScope, ...(first ?? {}) }
+  : first;
+return storageClient.call(operation, ...(scoped === undefined ? [] : [scoped]) as never);</code></pre>
+        <p>The durable event coordinator also learned the scope. It drops events for other streams once a snapshot is installed, and it includes the scope when replaying or acknowledging.</p>
+        <p class="snippet-title">src/desktop/durableEventCoordinator.ts</p>
+        <pre><code>if (this.installed &amp;&amp; event.streamId !== this.streamId) {
+  return;
+}
+
+const result = await this.options.desktop.replayEvents({
+  ...this.requiredScope(),
+  streamId: this.streamId,
+  afterSequence: this.appliedSequence,
+  limit: 100,
+});</code></pre>
+      </section>
+
+      <section id="risks">
+        <h2>What future maintainers need to keep intact</h2>
+        <div class="grid-two">
+          <div>
+            <h3>Required invariants</h3>
+            <ul>
+              <li>Every persisted document mutation must include a project/document scope, or be filled from validated selection in the storage request handler.</li>
+              <li>A document id must be checked against its project before reading or writing document-owned rows.</li>
+              <li>Event stream ids must stay derivable as <code>document:${documentId}</code> everywhere: storage, replay, acknowledgement, and renderer coordination.</li>
+              <li>Switching documents must drain local queues before changing the selected scope.</li>
+              <li>The active project and active document cannot be deleted through the new UI/API path.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Edges to watch</h3>
+            <ul>
+              <li>Several repositories retain compatibility overloads that infer "first document in project" for older callers. That helps existing tests or old call sites, but it is dangerous for new multi-document behavior if used accidentally.</li>
+              <li><code>createStoragePaths</code> still accepts <code>default-project</code> and <code>default-document</code> for migration. The database-generated path uses UUIDs, but path validation depends on callers not treating mutable names as identities.</li>
+              <li>The new UI uses prompt/confirm flows. Behaviour is implemented, but there is not much UX protection around destructive deletes beyond storage safeguards.</li>
+              <li>Test coverage added in this diff focuses on storage identity lifecycle and legacy file migration. The renderer switching path and agent respawn path are changed, but this diff does not add dedicated tests for those races.</li>
+            </ul>
+          </div>
+        </div>
+        <h3>Test evidence in the diff</h3>
+        <p>The new test file checks UUID identities, scoped hydration isolation, deletion safeguards, persisted selection, path traversal rejection, and legacy file movement.</p>
+        <p class="snippet-title">desktop/storage/identity-lifecycle.test.ts</p>
+        <pre><code>await expect(instance.handleRequest("hydrate", {
+  projectId: firstScope.projectId,
+  documentId: secondScope.documentId,
+})).rejects.toThrow("Document not found");
+
+await expect(instance.handleRequest("document.delete", second))
+  .rejects.toThrow("ACTIVE_DOCUMENT_DELETE_FORBIDDEN");
+
+expect(() =&gt; createStoragePaths(root, "../escape", selected.documentId))
+  .toThrow("Invalid project identity");</code></pre>
+        <p>I ran <code>npm test -- desktop/storage/identity-lifecycle.test.ts</code>; Vitest reported 1 test file passed, 4 tests passed.</p>
+      </section>
+
+      <section>
+        <h2>Where this sits in recent history</h2>
+        <p>The recent commits show a sequence that made this change possible: storage was split into application services, process contracts were validated, suggestions became storage-authoritative, durable event replay/acknowledgement was added, then compatibility policies were added for durable JSON. The current working tree builds on that by making the same boundaries document-aware instead of default-document-aware.</p>
+        <table>
+          <thead><tr><th>Commit</th><th>How it relates</th></tr></thead>
+          <tbody>
+            <tr><td><code>5372f2f</code> Storage service layering</td><td>Created the repository/service seams now being expanded to project/document operations.</td></tr>
+            <tr><td><code>2a290da</code> Contracts for process boundaries</td><td>Made renderer, storage, and agent operations schema-validated, so scope can be enforced at IPC/RPC boundaries.</td></tr>
+            <tr><td><code>2f264db</code> Storage-authoritative suggestions</td><td>Made suggestion state a persisted projection; this diff changes that projection from project-scoped to document-scoped.</td></tr>
+            <tr><td><code>cbcb746</code> Durable replay and acknowledgement</td><td>Introduced stream sequencing; this diff changes stream ownership to per-document.</td></tr>
+            <tr><td><code>b3763b9</code> Durable compatibility policies</td><td>Provides the versioned JSON and quarantine machinery used while the v6 schema carries old durable records forward.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="questions">
+        <h2>Check your mental model</h2>
+        <div class="question">
+          <details>
+            <summary>1. A renderer hydrates document B while a durable event for document A arrives. What prevents document A's event from mutating document B?</summary>
+            <p>After snapshot installation, <code>DurableEventCoordinator.receive</code> compares <code>event.streamId</code> with the installed <code>this.streamId</code> and returns early for mismatches. The main process also replaces the document agent using a generation check, which reduces old-process messages.</p>
+          </details>
+          <details>
+            <summary>2. Why does document switching flush both the document autosave queue and suggestion persistence queue before calling <code>selectDocument</code>?</summary>
+            <p>Those queues hold local mutations for the current scope. Switching first could leave a pending save or suggestion command able to complete after the selected scope changed. The controller calls <code>document.flushForSwitch()</code> and <code>suggestionPersistence.flush()</code>, then stops an active agent before selecting the next document.</p>
+          </details>
+          <details>
+            <summary>3. What would break if <code>sources</code> stayed project-scoped while documents became selectable?</summary>
+            <p>Hydrating one document in a project could show or replay sources imported for another document. The new schema adds <code>document_id</code>, and hydration calls <code>sources.list(projectId, documentId)</code>, so the source list follows the selected document.</p>
+          </details>
+          <details>
+            <summary>4. Where would you start debugging if suggestions from one document appeared in another after a switch?</summary>
+            <p>Start at the scope propagation path: <code>useSuggestionPersistence.seedHydratedState</code> stores project/document ids, <code>executeSuggestionCommand</code> sends them, <code>StorageOperations.executeSuggestionCommand</code> calls <code>assertScope</code>, and <code>SuggestionRepository</code> reads/writes by <code>project_id</code> plus <code>document_id</code>. Also check for accidental use of repository compatibility overloads that infer the first document.</p>
+          </details>
+          <details>
+            <summary>5. Which behaviour is directly covered by the new test file, and which changed path still looks under-tested?</summary>
+            <p>Covered: UUID identity creation, scoped hydration rejection, active/last deletion guards, persisted selection, path traversal rejection, and legacy file migration. Less directly covered in this diff: renderer switch race handling, agent respawn per selected document, and Sidebar CRUD interactions.</p>
+          </details>
+        </div>
+      </section>
+    </article>
+  </main>
+</body>
+</html>

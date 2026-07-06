@@ -8,6 +8,7 @@ import type {
 
 type CoordinatorOptions = {
   desktop: DesktopBridge;
+  scope?: { projectId: string; documentId: string };
   installSnapshot(snapshot: WorkspaceSnapshot): void;
   applyEvent(event: DesktopEvent): void | Promise<void>;
   onError?(error: unknown): void;
@@ -25,6 +26,7 @@ export class DurableEventCoordinator {
   private stopped = false;
   private queued = new Map<number, DurableEventEnvelope>();
   private work: Promise<void> = Promise.resolve();
+  private scope: { projectId: string; documentId: string } | undefined;
 
   constructor(private readonly options: CoordinatorOptions) {}
 
@@ -42,7 +44,8 @@ export class DurableEventCoordinator {
       return;
     }
     if (this.installed && event.streamId !== this.streamId) {
-      this.schedule(() => this.installFreshSnapshot());
+      // A completion from a previous document session must never rehydrate or
+      // mutate the current session.
       return;
     }
     if (event.sequence <= this.appliedSequence) {
@@ -65,7 +68,11 @@ export class DurableEventCoordinator {
   }
 
   private async installFreshSnapshot() {
-    const snapshot = await this.options.desktop.hydrate();
+    const scope = this.options.scope ?? (this.options.desktop.getWorkspaceCatalog
+      ? (await this.options.desktop.getWorkspaceCatalog()).selection
+      : { projectId: "default-project", documentId: "default-document" });
+    this.scope = scope;
+    const snapshot = await this.options.desktop.hydrate(scope);
     if (this.stopped) return;
     this.options.installSnapshot(snapshot);
     this.streamId = snapshot.streamId;
@@ -106,6 +113,7 @@ export class DurableEventCoordinator {
     let hasMore = true;
     while (hasMore) {
       const result = await this.options.desktop.replayEvents({
+        ...this.requiredScope(),
         streamId: this.streamId,
         afterSequence: this.appliedSequence,
         limit: 100,
@@ -131,8 +139,14 @@ export class DurableEventCoordinator {
   private async acknowledge() {
     if (!this.options.desktop.acknowledgeEvents || !this.streamId) return;
     await this.options.desktop.acknowledgeEvents({
+      ...this.requiredScope(),
       streamId: this.streamId,
       sequence: this.appliedSequence,
     });
+  }
+
+  private requiredScope() {
+    if (!this.scope) throw new Error("Document session scope is unavailable");
+    return this.scope;
   }
 }

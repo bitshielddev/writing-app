@@ -18,5 +18,6 @@
     "src/suggestions/types.ts",
     "src/suggestions/state.ts",
     "src/suggestions/validation.ts"
-  ]
+  ],
+  "exclude": ["desktop/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
 }

@@ -195,7 +195,7 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
       label: "List suggestions",
       description: "List current live, pinned, and workspace suggestions.",
       parameters: Type.Object({}),
-      execute: async () => toolResult(await host.storageCall("agent.suggestions.list")),
+      execute: async () => toolResult(await host.storageCall("agent.suggestions.list", {} as never)),
     });
     pi.registerTool({
       name: "create_suggestion",

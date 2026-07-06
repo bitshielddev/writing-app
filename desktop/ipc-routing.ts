@@ -44,6 +44,7 @@ export function registerMainIpc({
   setRuntime,
   activitySnapshot,
   eventConsumers,
+  onScopeSelected,
   logger = console,
 }: {
   ipcMain: IpcMainAdapter;
@@ -57,6 +58,7 @@ export function registerMainIpc({
   setRuntime: (runtime: AgentRuntime) => void;
   activitySnapshot: () => AgentActivity[];
   eventConsumers?: RendererEventConsumers;
+  onScopeSelected?: (scope: { projectId: string; documentId: string }) => void | Promise<void>;
   logger?: Pick<Console, "error">;
 }) {
   const register = <Name extends OperationName<typeof RendererOperations>>(
@@ -95,13 +97,39 @@ export function registerMainIpc({
     consumerId: eventConsumers?.subscribe(event.sender) ?? `renderer:${event.sender.id}`,
   }));
 
-  register("hydrate", DESKTOP_INVOKE_CHANNELS.hydrate, async (event) => {
+  register("workspace.catalog", DESKTOP_INVOKE_CHANNELS.workspaceCatalog, () => storage.call("workspace.catalog"));
+  register("project.create", DESKTOP_INVOKE_CHANNELS.createProject, async (_event, input) => {
+    const result = await storage.call("project.create", input);
+    await onScopeSelected?.(result.selection);
+    return result;
+  });
+  register("project.rename", DESKTOP_INVOKE_CHANNELS.renameProject, (_event, input) => storage.call("project.rename", input));
+  register("project.delete", DESKTOP_INVOKE_CHANNELS.deleteProject, (_event, input) => storage.call("project.delete", input));
+  register("project.select", DESKTOP_INVOKE_CHANNELS.selectProject, async (_event, input) => {
+    const result = await storage.call("project.select", input);
+    await onScopeSelected?.(result.selection);
+    return result;
+  });
+  register("document.create", DESKTOP_INVOKE_CHANNELS.createDocument, async (_event, input) => {
+    const result = await storage.call("document.create", input);
+    await onScopeSelected?.(result.selection);
+    return result;
+  });
+  register("document.rename", DESKTOP_INVOKE_CHANNELS.renameDocument, (_event, input) => storage.call("document.rename", input));
+  register("document.delete", DESKTOP_INVOKE_CHANNELS.deleteDocument, (_event, input) => storage.call("document.delete", input));
+  register("document.select", DESKTOP_INVOKE_CHANNELS.selectDocument, async (_event, input) => {
+    const result = await storage.call("document.select", input);
+    await onScopeSelected?.(result.selection);
+    return result;
+  });
+
+  register("hydrate", DESKTOP_INVOKE_CHANNELS.hydrate, async (event, input) => {
     eventConsumers?.beginHydration(event.sender.id);
     let snapshot: OperationResult<typeof StorageOperations, "hydrate"> | undefined;
     while (!snapshot) {
       snapshot = parseOrContractError(
         StorageOperations.hydrate.result,
-        await storage.call("hydrate"),
+        await storage.call("hydrate", input),
         "main.storage.hydrate.result",
       );
       const hydrationComplete = !eventConsumers || eventConsumers.completeHydration(
@@ -127,40 +155,43 @@ export function registerMainIpc({
     return storage.call("events.acknowledge", { consumerId, ...input });
   });
 
-  register("agent.start", DESKTOP_INVOKE_CHANNELS.startAgent, async () => {
+  register("agent.start", DESKTOP_INVOKE_CHANNELS.startAgent, async (_event, input) => {
     const seed = parseOrContractError(
       StorageOperations["agent.seed"].result,
-      await storage.call("agent.seed"),
+      await storage.call("agent.seed", input),
       "main.storage.agent.seed.result",
     );
     return agent.call("agent.start", parseOrContractError(
       AgentOperations["agent.start"].params,
-      { projectRevision: seed.projectRevision, documentRevision: seed.documentRevision },
+      { ...input, projectRevision: seed.projectRevision, documentRevision: seed.documentRevision },
       "main.agent.start.params",
     ));
   });
 
-  register("agent.stop", DESKTOP_INVOKE_CHANNELS.stopAgent, () =>
-    agent.call("agent.stop"));
+  register("agent.stop", DESKTOP_INVOKE_CHANNELS.stopAgent, (_event, input) =>
+    agent.call("agent.stop", input));
   register("document.save", DESKTOP_INVOKE_CHANNELS.saveDocument, (_event, input) =>
     storage.call("document.save", input));
   register("suggestions.command", DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, (_event, input) =>
     storage.call("suggestions.command", input));
-  register("source.import", DESKTOP_INVOKE_CHANNELS.importSource, async (event) => {
+  register("source.import", DESKTOP_INVOKE_CHANNELS.importSource, async (event, input) => {
     const selection = await dialog.show(ownerForSender(event.sender), {
       properties: ["openFile"],
       filters: [{ name: "Writing sources", extensions: ["md", "markdown"] }],
     });
     const path = selection.filePaths[0];
     if (selection.canceled || !path) return undefined;
-    return storage.call("source.import", { path });
+    return storage.call("source.import", { ...input, path });
   });
 
   if (development) {
     register(
       "development.suggestion.create",
       DEVELOPMENT_SUGGESTION_CHANNEL,
-      (_event, item) => storage.call("development.suggestion.create", { item }),
+      async (_event, item) => {
+        const { selection } = await storage.call("workspace.catalog");
+        return storage.call("development.suggestion.create", { ...selection, item });
+      },
     );
   }
 }

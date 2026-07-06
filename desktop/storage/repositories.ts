@@ -17,7 +17,6 @@ import {
   type JsonMigration,
 } from "../compatibility.js";
 import {
-  DEFAULT_EVENT_STREAM_ID,
   DurableEventEnvelopeSchema,
   DurableEventPayloadSchema,
   DocumentBlocksSchema,
@@ -34,7 +33,10 @@ import type {
   SuggestionCommandResult,
   SuggestionProjection,
   SuggestionStore,
+  SelectionStore,
 } from "../application/storage-ports.js";
+import { createEmptySuggestionState } from "../../src/suggestions/state.js";
+import { DOCUMENT_SCHEMA_VERSION } from "./config.js";
 import {
   clampReplayLimit,
   nextAcknowledgedSequence,
@@ -104,12 +106,38 @@ export function assertSuggestionProjection(value: unknown): asserts value is Per
 export class ProjectRepository implements ProjectStore {
   constructor(private readonly db: DatabaseSync) {}
 
+  list() {
+    return this.db.prepare(
+      "SELECT id, name, revision FROM projects ORDER BY created_at, id",
+    ).all() as ProjectSnapshot[];
+  }
+
   get(id: string): ProjectSnapshot {
     const row = this.db.prepare(
       "SELECT id, name, revision FROM projects WHERE id = ?",
     ).get(id) as ProjectSnapshot | undefined;
     if (!row) throw new Error(`Project not found: ${id}`);
     return row;
+  }
+
+  create(id: string, name: string, now: number) {
+    this.db.prepare(`INSERT INTO projects
+      (id, name, revision, created_at, updated_at) VALUES (?, ?, 0, ?, ?)`)
+      .run(id, name, now, now);
+    return this.get(id);
+  }
+
+  rename(id: string, name: string, now: number) {
+    const result = this.db.prepare(
+      "UPDATE projects SET name = ?, updated_at = ? WHERE id = ?",
+    ).run(name, now, id);
+    if (result.changes !== 1) throw new Error(`Project not found: ${id}`);
+    return this.get(id);
+  }
+
+  delete(id: string) {
+    const result = this.db.prepare("DELETE FROM projects WHERE id = ?").run(id);
+    if (result.changes !== 1) throw new Error(`Project not found: ${id}`);
   }
 
   incrementRevision(id: string, updatedAt: number) {
@@ -123,11 +151,25 @@ export class ProjectRepository implements ProjectStore {
 export class DocumentRepository implements DocumentStore {
   constructor(private readonly db: DatabaseSync) {}
 
-  get(id: string): DocumentSnapshot {
+  list(projectId?: string) {
+    const sql = `SELECT id, project_id, title, revision FROM documents
+      ${projectId ? "WHERE project_id = ?" : ""} ORDER BY created_at, id`;
+    const rows = (projectId ? this.db.prepare(sql).all(projectId) : this.db.prepare(sql).all()) as
+      Array<{ id: string; project_id: string; title: string; revision: number }>;
+    return rows.map((row) => ({ id: row.id, projectId: row.project_id, title: row.title, revision: row.revision }));
+  }
+
+  get(projectId: string, id: string): DocumentSnapshot {
+    if (id === undefined) {
+      id = projectId;
+      const owner = this.db.prepare("SELECT project_id FROM documents WHERE id = ?").get(id) as { project_id: string } | undefined;
+      if (!owner) throw new Error(`Document not found: ${id}`);
+      projectId = owner.project_id;
+    }
     const row = this.db.prepare(
       `SELECT id, project_id, title, blocks_json, markdown, schema_version, revision, updated_at
-       FROM documents WHERE id = ?`,
-    ).get(id) as {
+       FROM documents WHERE project_id = ? AND id = ?`,
+    ).get(projectId, id) as {
       id: string; project_id: string; title: string; blocks_json: string;
       markdown: string; schema_version: number; revision: number; updated_at: number;
     } | undefined;
@@ -163,40 +205,96 @@ export class DocumentRepository implements DocumentStore {
     };
   }
 
-  save(id: string, blocks: unknown[], markdown: string, updatedAt: number) {
+  create(projectId: string, id: string, title: string, now: number) {
+    const blocks = [{ type: "heading", props: { level: 1 }, content: "New Page" }];
+    this.db.prepare(`INSERT INTO documents
+      (id, project_id, title, blocks_json, markdown, schema_version, revision, created_at, updated_at)
+      VALUES (?, ?, ?, ?, '# New Page\n', ?, 0, ?, ?)`)
+      .run(id, projectId, title, encodeVersionedJson(
+        COMPATIBILITY_REGISTRY.documentBlocks.name,
+        COMPATIBILITY_REGISTRY.documentBlocks.currentVersion,
+        blocks,
+        "blocks",
+      ), DOCUMENT_SCHEMA_VERSION, now, now);
+    this.db.prepare(`INSERT INTO suggestion_state
+      (project_id, document_id, state_json, revision, updated_at) VALUES (?, ?, ?, 0, ?)`)
+      .run(projectId, id, encodeVersionedJson(
+        COMPATIBILITY_REGISTRY.suggestionProjection.name,
+        COMPATIBILITY_REGISTRY.suggestionProjection.currentVersion,
+        createEmptySuggestionState(),
+        "state",
+      ), now);
+    return this.get(projectId, id);
+  }
+
+  rename(projectId: string, id: string, title: string, now: number) {
+    const result = this.db.prepare(
+      "UPDATE documents SET title = ?, updated_at = ? WHERE project_id = ? AND id = ?",
+    ).run(title, now, projectId, id);
+    if (result.changes !== 1) throw new Error("Document not found or not owned by project");
+    return this.get(projectId, id);
+  }
+
+  count(projectId: string) {
+    return (this.db.prepare("SELECT COUNT(*) AS count FROM documents WHERE project_id = ?")
+      .get(projectId) as { count: number }).count;
+  }
+
+  delete(projectId: string, id: string) {
+    if (this.count(projectId) <= 1) throw new Error("LAST_DOCUMENT_DELETE_FORBIDDEN");
+    const result = this.db.prepare(
+      "DELETE FROM documents WHERE project_id = ? AND id = ?",
+    ).run(projectId, id);
+    if (result.changes !== 1) throw new Error("Document not found or not owned by project");
+  }
+
+  save(projectId: string, id: string | unknown[], blocks: unknown[] | string, markdown: string | number, updatedAt?: number) {
+    if (updatedAt === undefined) {
+      updatedAt = markdown as number;
+      markdown = blocks as string;
+      blocks = id as unknown[];
+      id = projectId;
+      const owner = this.db.prepare("SELECT project_id FROM documents WHERE id = ?").get(id as string) as { project_id: string } | undefined;
+      if (!owner) throw new Error(`Document not found: ${id as string}`);
+      projectId = owner.project_id;
+    }
     const validatedBlocks = parseOrContractError(
       DocumentBlocksSchema,
-      blocks,
+      blocks as unknown[],
       "persisted.document-blocks.write",
     );
     const result = this.db.prepare(
       `UPDATE documents SET blocks_json = ?, markdown = ?, revision = revision + 1, updated_at = ?
-       WHERE id = ?`,
+       WHERE project_id = ? AND id = ?`,
     ).run(encodeVersionedJson(
       COMPATIBILITY_REGISTRY.documentBlocks.name,
       COMPATIBILITY_REGISTRY.documentBlocks.currentVersion,
       validatedBlocks,
       "blocks",
-    ), markdown, updatedAt, id);
+    ), markdown as string, updatedAt, projectId, id as string);
     if (result.changes !== 1) throw new Error(`Document not found: ${id}`);
-    return this.get(id);
+    return this.get(projectId, id as string);
   }
 }
 
 export class SourceRepository implements SourceStore {
   constructor(private readonly db: DatabaseSync) {}
 
-  list(projectId: string): SourceSnapshot[] {
+  list(projectId: string, documentId: string): SourceSnapshot[] {
+    documentId ??= (this.db.prepare(
+      "SELECT id FROM documents WHERE project_id = ? ORDER BY created_at, id LIMIT 1",
+    ).get(projectId) as { id: string } | undefined)?.id ?? "";
     const rows = this.db.prepare(
-      `SELECT id, project_id, title, storage_path, bytes, updated_at
-       FROM sources WHERE project_id = ? ORDER BY updated_at DESC`,
-    ).all(projectId) as Array<{
-      id: string; project_id: string; title: string; storage_path: string;
+      `SELECT id, project_id, document_id, title, storage_path, bytes, updated_at
+       FROM sources WHERE project_id = ? AND document_id = ? ORDER BY updated_at DESC`,
+    ).all(projectId, documentId) as Array<{
+      id: string; project_id: string; document_id: string; title: string; storage_path: string;
       bytes: number; updated_at: number;
     }>;
     return rows.map((row) => ({
       id: row.id,
       projectId: row.project_id,
+      documentId: row.document_id,
       title: row.title,
       storagePath: row.storage_path,
       bytes: row.bytes,
@@ -207,25 +305,35 @@ export class SourceRepository implements SourceStore {
   insert(source: SourceSnapshot, createdAt: number) {
     this.db.prepare(
       `INSERT INTO sources
-        (id, project_id, title, storage_path, bytes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (id, project_id, document_id, title, storage_path, bytes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
-      source.id, source.projectId, source.title, source.storagePath,
+      source.id, source.projectId, source.documentId, source.title, source.storagePath,
       source.bytes, createdAt, source.updatedAt,
     );
   }
 
-  get(id: string): SourceSnapshot {
+  get(projectId: string, documentId: string, id: string): SourceSnapshot {
+    if (documentId === undefined && id === undefined) {
+      id = projectId;
+      const owner = this.db.prepare("SELECT project_id, document_id FROM sources WHERE id = ?").get(id) as
+        { project_id: string; document_id: string } | undefined;
+      if (!owner) throw new Error(`Source not found: ${id}`);
+      projectId = owner.project_id;
+      documentId = owner.document_id;
+    }
     const source = this.db.prepare(
-      `SELECT id, project_id, title, storage_path, bytes, updated_at FROM sources WHERE id = ?`,
-    ).get(id) as {
-      id: string; project_id: string; title: string; storage_path: string;
+      `SELECT id, project_id, document_id, title, storage_path, bytes, updated_at
+       FROM sources WHERE project_id = ? AND document_id = ? AND id = ?`,
+    ).get(projectId, documentId, id) as {
+      id: string; project_id: string; document_id: string; title: string; storage_path: string;
       bytes: number; updated_at: number;
     } | undefined;
     if (!source) throw new Error(`Source not found: ${id}`);
     return {
       id: source.id,
       projectId: source.project_id,
+      documentId: source.document_id,
       title: source.title,
       storagePath: source.storage_path,
       bytes: source.bytes,
@@ -234,14 +342,50 @@ export class SourceRepository implements SourceStore {
   }
 }
 
+export class SelectionRepository implements SelectionStore {
+  constructor(private readonly db: DatabaseSync) {}
+
+  resolve() {
+    const stored = this.db.prepare(`SELECT selected_project_id, selected_document_id
+      FROM workspace_settings WHERE id = 1`).get() as
+      { selected_project_id: string | null; selected_document_id: string | null } | undefined;
+    if (stored?.selected_project_id && stored.selected_document_id) {
+      const valid = this.db.prepare(`SELECT 1 FROM documents
+        WHERE project_id = ? AND id = ?`).get(stored.selected_project_id, stored.selected_document_id);
+      if (valid) return { projectId: stored.selected_project_id, documentId: stored.selected_document_id };
+    }
+    const fallback = this.db.prepare(`SELECT project_id, id AS document_id FROM documents
+      ORDER BY created_at, id LIMIT 1`).get() as { project_id: string; document_id: string } | undefined;
+    if (!fallback) throw new Error("Workspace has no documents");
+    return this.set(fallback.project_id, fallback.document_id, Date.now());
+  }
+
+  set(projectId: string, documentId: string, now: number) {
+    const owned = this.db.prepare(
+      "SELECT 1 FROM documents WHERE project_id = ? AND id = ?",
+    ).get(projectId, documentId);
+    if (!owned) throw new Error("Document not found or not owned by project");
+    this.db.prepare(`INSERT INTO workspace_settings
+      (id, selected_project_id, selected_document_id, updated_at) VALUES (1, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET selected_project_id = excluded.selected_project_id,
+        selected_document_id = excluded.selected_document_id, updated_at = excluded.updated_at`)
+      .run(projectId, documentId, now);
+    return { projectId, documentId };
+  }
+}
+
 export class SuggestionRepository implements SuggestionStore {
   constructor(private readonly db: DatabaseSync) {}
 
-  get(projectId: string): SuggestionProjection {
+  get(projectId: string, documentId?: string): SuggestionProjection {
+    documentId ??= (this.db.prepare(
+      "SELECT id FROM documents WHERE project_id = ? ORDER BY created_at, id LIMIT 1",
+    ).get(projectId) as { id: string } | undefined)?.id;
+    if (!documentId) throw new Error(`Suggestion projection not found: ${projectId}`);
     const row = this.db.prepare(
-      "SELECT state_json, revision FROM suggestion_state WHERE project_id = ?",
-    ).get(projectId) as { state_json: string; revision: number } | undefined;
-    if (!row) throw new Error(`Suggestion projection not found: ${projectId}`);
+      "SELECT state_json, revision FROM suggestion_state WHERE project_id = ? AND document_id = ?",
+    ).get(projectId, documentId) as { state_json: string; revision: number } | undefined;
+    if (!row) throw new Error(`Suggestion projection not found: ${documentId}`);
     const policy = COMPATIBILITY_REGISTRY.suggestionProjection;
     const decoded = decode(this.db, {
       text: row.state_json,
@@ -251,40 +395,55 @@ export class SuggestionRepository implements SuggestionStore {
       legacyVersion: 0,
       payloadKey: "state",
       migrations: LEGACY_TO_CURRENT,
-      recordIdentity: projectId,
+      recordIdentity: documentId,
     });
     const state = validatePersisted({
       db: this.db, schema: PersistedSuggestionStateSchema, value: decoded.payload,
       boundary: "persisted.suggestion-projection", format: policy.name,
-      identity: projectId, sourceText: row.state_json, version: decoded.detectedVersion,
+      identity: documentId, sourceText: row.state_json, version: decoded.detectedVersion,
     });
     if (decoded.migrated) this.db.prepare(
-      "UPDATE suggestion_state SET state_json = ? WHERE project_id = ? AND state_json = ?",
-    ).run(encodeVersionedJson(policy.name, policy.currentVersion, state, "state"), projectId, row.state_json);
+      "UPDATE suggestion_state SET state_json = ? WHERE project_id = ? AND document_id = ? AND state_json = ?",
+    ).run(encodeVersionedJson(policy.name, policy.currentVersion, state, "state"), projectId, documentId, row.state_json);
     return { state, revision: row.revision };
   }
 
-  compareAndPut(projectId: string, expectedRevision: number, state: PersistedSuggestionState) {
+  compareAndPut(projectId: string, documentId: string | number, expectedRevision: number | PersistedSuggestionState, state?: PersistedSuggestionState) {
+    if (typeof documentId === "number") {
+      state = expectedRevision as PersistedSuggestionState;
+      expectedRevision = documentId;
+      documentId = (this.db.prepare("SELECT id FROM documents WHERE project_id = ? ORDER BY created_at, id LIMIT 1")
+        .get(projectId) as { id: string }).id;
+    }
     const validated = parseOrContractError(
       PersistedSuggestionStateSchema,
-      state,
+      state!,
       "persisted.suggestion-projection.write",
     );
     const result = this.db.prepare(
-      "UPDATE suggestion_state SET state_json = ?, revision = revision + 1, updated_at = ? WHERE project_id = ? AND revision = ?",
+      "UPDATE suggestion_state SET state_json = ?, revision = revision + 1, updated_at = ? WHERE project_id = ? AND document_id = ? AND revision = ?",
     ).run(encodeVersionedJson(
       COMPATIBILITY_REGISTRY.suggestionProjection.name,
       COMPATIBILITY_REGISTRY.suggestionProjection.currentVersion,
       validated,
       "state",
-    ), Date.now(), projectId, expectedRevision);
+    ), Date.now(), projectId, documentId, expectedRevision as number);
     if (result.changes !== 1) throw new Error("SUGGESTION_REVISION_CONFLICT");
-    return this.get(projectId);
+    return this.get(projectId, documentId);
   }
 
-  findReceipt(commandId: string) {
-    const row = this.db.prepare("SELECT result_json FROM suggestion_command_receipts WHERE command_id = ?")
-      .get(commandId) as { result_json: string } | undefined;
+  findReceipt(projectId: string, documentId?: string, commandId?: string) {
+    if (commandId === undefined) {
+      commandId = projectId;
+      const owner = this.db.prepare(`SELECT project_id, document_id FROM suggestion_command_receipts
+        WHERE command_id = ?`).get(commandId) as { project_id: string; document_id: string } | undefined;
+      if (!owner) return undefined;
+      projectId = owner.project_id; documentId = owner.document_id;
+    }
+    if (!documentId) return undefined;
+    const row = this.db.prepare(`SELECT result_json FROM suggestion_command_receipts
+      WHERE command_id = ? AND project_id = ? AND document_id = ?`)
+      .get(commandId, projectId, documentId) as { result_json: string } | undefined;
     if (!row) return undefined;
     const policy = COMPATIBILITY_REGISTRY.suggestionCommands;
     const decoded = decode(this.db, {
@@ -303,10 +462,16 @@ export class SuggestionRepository implements SuggestionStore {
     return result;
   }
 
-  recordReceipt(projectId: string, result: SuggestionCommandResult) {
+  recordReceipt(projectId: string, documentId: string | SuggestionCommandResult, result?: SuggestionCommandResult) {
+    if (typeof documentId !== "string") {
+      result = documentId;
+      documentId = (this.db.prepare("SELECT id FROM documents WHERE project_id = ? ORDER BY created_at, id LIMIT 1")
+        .get(projectId) as { id: string }).id;
+    }
     const validated = parseOrContractError(SuggestionCommandResultSchema, result, "persisted.suggestion-command-receipt.write");
-    this.db.prepare("INSERT INTO suggestion_command_receipts (command_id, project_id, result_json, created_at) VALUES (?, ?, ?, ?)")
-      .run(result.commandId, projectId, encodeVersionedJson(
+    this.db.prepare(`INSERT INTO suggestion_command_receipts
+      (command_id, project_id, document_id, result_json, created_at) VALUES (?, ?, ?, ?, ?)`)
+      .run(result!.commandId, projectId, documentId, encodeVersionedJson(
         COMPATIBILITY_REGISTRY.suggestionCommands.name,
         COMPATIBILITY_REGISTRY.suggestionCommands.currentVersion,
         validated,
@@ -318,21 +483,31 @@ export class SuggestionRepository implements SuggestionStore {
 export class OutboxRepository implements EventOutbox {
   constructor(private readonly db: DatabaseSync) {}
 
-  enqueue(event: DurableEventPayload, causationId?: string) {
+  enqueue(projectId: string | DurableEventPayload, documentId?: string, event?: DurableEventPayload, causationId?: string) {
+    if (typeof projectId !== "string") {
+      causationId = documentId;
+      event = projectId;
+      const selected = this.db.prepare(`SELECT selected_project_id, selected_document_id
+        FROM workspace_settings WHERE id = 1`).get() as
+        { selected_project_id: string; selected_document_id: string };
+      projectId = selected.selected_project_id;
+      documentId = selected.selected_document_id;
+    }
+    if (!documentId || !event) throw new Error("Event scope is required");
     const validated = parseOrContractError(
       DurableEventPayloadSchema,
       event,
       "persisted.outbox-event.write",
     );
-    const streamId = DEFAULT_EVENT_STREAM_ID;
+    const streamId = `document:${documentId}`;
     const sequence = this.head(streamId) + 1;
     const eventId = randomUUID();
     const occurredAt = Date.now();
     this.db.prepare(
       `INSERT INTO event_outbox
-        (event_id, stream_id, sequence, event_json, occurred_at, causation_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(eventId, streamId, sequence, encodeVersionedJson(
+        (event_id, project_id, document_id, stream_id, sequence, event_json, occurred_at, causation_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(eventId, projectId, documentId, streamId, sequence, encodeVersionedJson(
       COMPATIBILITY_REGISTRY.suggestionEvents.name,
       COMPATIBILITY_REGISTRY.suggestionEvents.currentVersion,
       validated,
@@ -365,7 +540,7 @@ export class OutboxRepository implements EventOutbox {
   replay(streamId: string, afterSequence: number, requestedLimit = 100) {
     const limit = clampReplayLimit(requestedLimit);
     const headSequence = this.head(streamId);
-    if (streamId !== DEFAULT_EVENT_STREAM_ID) {
+    if (!this.streamOwnership(streamId)) {
       return { streamId, events: [], headSequence, hasMore: false, historyAvailable: false };
     }
     const first = this.db.prepare(
@@ -389,7 +564,8 @@ export class OutboxRepository implements EventOutbox {
   }
 
   acknowledge(consumerId: string, streamId: string, sequence: number) {
-    if (streamId !== DEFAULT_EVENT_STREAM_ID) throw new Error("UNKNOWN_EVENT_STREAM");
+    const ownership = this.streamOwnership(streamId);
+    if (!ownership) throw new Error("UNKNOWN_EVENT_STREAM");
     const head = this.head(streamId);
     const existing = this.db.prepare(`SELECT acknowledged_sequence FROM event_consumer_cursor
       WHERE consumer_id = ? AND stream_id = ?`).get(consumerId, streamId) as
@@ -400,15 +576,23 @@ export class OutboxRepository implements EventOutbox {
       head,
     );
     this.db.prepare(`INSERT INTO event_consumer_cursor
-      (consumer_id, stream_id, acknowledged_sequence, updated_at) VALUES (?, ?, ?, ?)
+      (consumer_id, project_id, document_id, stream_id, acknowledged_sequence, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT (consumer_id, stream_id) DO UPDATE SET
         acknowledged_sequence = MAX(acknowledged_sequence, excluded.acknowledged_sequence),
         updated_at = CASE WHEN excluded.acknowledged_sequence > acknowledged_sequence
           THEN excluded.updated_at ELSE updated_at END`
-    ).run(consumerId, streamId, acknowledgedSequence, Date.now());
+    ).run(consumerId, ownership.projectId, ownership.documentId, streamId, acknowledgedSequence, Date.now());
     const row = this.db.prepare(`SELECT acknowledged_sequence FROM event_consumer_cursor
       WHERE consumer_id = ? AND stream_id = ?`).get(consumerId, streamId) as { acknowledged_sequence: number };
     return row.acknowledged_sequence;
+  }
+
+  private streamOwnership(streamId: string) {
+    const row = this.db.prepare(`SELECT project_id, id AS document_id FROM documents
+      WHERE 'document:' || id = ?`).get(streamId) as
+      { project_id: string; document_id: string } | undefined;
+    return row && { projectId: row.project_id, documentId: row.document_id };
   }
 
   private parseContiguous(rows: PersistedEventRow[]) {

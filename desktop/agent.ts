@@ -56,6 +56,7 @@ const eventBus = createEventBus();
 let session: AgentSessionPort | undefined;
 let configured = false;
 let draining = false;
+let activeScope: { projectId: string; documentId: string } | undefined;
 
 const storageClient = new AgentStorageClient(randomUUID, (message) =>
   process.parentPort?.postMessage(message),
@@ -65,7 +66,11 @@ function storageCall<Name extends OperationName<typeof StorageOperations>>(
   operation: Name,
   ...args: OperationArgs<typeof StorageOperations, Name>
 ): Promise<OperationResult<typeof StorageOperations, Name>> {
-  return storageClient.call(operation, ...args);
+  const first = args[0];
+  const scoped = activeScope && (first === undefined || (typeof first === "object" && first !== null))
+    ? { ...activeScope, ...(first ?? {}) }
+    : first;
+  return storageClient.call(operation, ...(scoped === undefined ? [] : [scoped]) as never);
 }
 
 function postRuntime(value: AgentRuntime) {
@@ -197,7 +202,8 @@ async function drain() {
   scheduleWorkingCycle();
 }
 
-async function startAgent(revision: ScribeRevision) {
+async function startAgent(revision: ScribeRevision & { projectId: string; documentId: string }) {
+  activeScope = { projectId: revision.projectId, documentId: revision.documentId };
   if (!configured || !session) {
     throw new Error("The agent is unavailable because Pi is not configured");
   }
@@ -363,7 +369,8 @@ const handleParentMessage = createAgentParentTransport({
       if (sequenceDecision === "duplicate") return;
       const gap = sequenceDecision === "gap";
       if (gap) {
-        const seed = await storageClient.call("agent.seed");
+        if (!activeScope) return;
+        const seed = await storageClient.call("agent.seed", activeScope);
         observedStreamId = seed.streamId;
         observedSequence = seed.coveredThroughSequence;
         emitRevision(seed.projectRevision, seed.documentRevision);

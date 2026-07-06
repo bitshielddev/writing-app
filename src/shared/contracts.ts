@@ -115,6 +115,7 @@ export const SuggestionCommandSchema = Type.Union([
 ]);
 export const SuggestionCommandRequestSchema = Type.Object({
   commandId: identifier,
+  projectId: identifier,
   documentId: identifier,
   expectedSuggestionRevision: revision,
   command: SuggestionCommandSchema,
@@ -181,6 +182,7 @@ export const SourceSnapshotSchema = Type.Object(
   {
     id: identifier,
     projectId: identifier,
+    documentId: identifier,
     title: text(1_000),
     storagePath: text(10_000),
     bytes: Type.Integer({ minimum: 0 }),
@@ -192,6 +194,17 @@ export const ProjectSnapshotSchema = Type.Object(
   { id: identifier, name: text(1_000), revision },
   strict,
 );
+export const DocumentSummarySchema = Type.Object({
+  id: identifier, projectId: identifier, title: text(1_000), revision,
+}, strict);
+export const WorkspaceSelectionSchema = Type.Object({
+  projectId: identifier, documentId: identifier,
+}, strict);
+export const WorkspaceCatalogSchema = Type.Object({
+  projects: Type.Array(ProjectSnapshotSchema),
+  documents: Type.Array(DocumentSummarySchema),
+  selection: WorkspaceSelectionSchema,
+}, strict);
 export const ObservationSeedSchema = Type.Object(
   {
     streamId: identifier,
@@ -251,8 +264,18 @@ export const WorkspaceSnapshotSchema = Type.Object(
 );
 
 const noParams = Type.Undefined();
+const documentScope = Type.Object({ projectId: identifier, documentId: identifier }, strict);
+const projectIdentity = Type.Object({ projectId: identifier }, strict);
+const namedProject = Type.Object({ name: text(1_000) }, strict);
+const renamedProject = Type.Object({ projectId: identifier, name: text(1_000) }, strict);
+const namedDocument = Type.Object({ projectId: identifier, title: text(1_000) }, strict);
+const renamedDocument = Type.Object({
+  projectId: identifier, documentId: identifier, title: text(1_000),
+}, strict);
 const accepted = Type.Object({ accepted: Type.Boolean() }, strict);
 const replayParams = Type.Object({
+  projectId: identifier,
+  documentId: identifier,
   streamId: identifier,
   afterSequence: Type.Integer({ minimum: 0 }),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
@@ -265,6 +288,8 @@ const replayResult = Type.Object({
   historyAvailable: Type.Boolean(),
 }, strict);
 const rendererAcknowledgeParams = Type.Object({
+  projectId: identifier,
+  documentId: identifier,
   streamId: identifier,
   sequence: Type.Integer({ minimum: 0 }),
 }, strict);
@@ -274,6 +299,7 @@ const acknowledgeResult = Type.Object({
 }, strict);
 const saveDocumentParams = Type.Object(
   {
+    projectId: identifier,
     documentId: identifier,
     blocks: DocumentBlocksSchema,
     markdown: text(10_000_000),
@@ -282,7 +308,7 @@ const saveDocumentParams = Type.Object(
   strict,
 );
 const suggestionMutation = Type.Object(
-  { item: SuggestionItemSchema, expectedDocumentRevision: revision },
+  { projectId: identifier, documentId: identifier, item: SuggestionItemSchema, expectedDocumentRevision: revision },
   strict,
 );
 const repairResult = Type.Object(
@@ -300,47 +326,67 @@ function operation<Params extends TSchema, Result extends TSchema>(params: Param
 
 export const RendererOperations = {
   "events.subscribe": operation(noParams, Type.Object({ consumerId: identifier }, strict)),
-  hydrate: operation(noParams, WorkspaceSnapshotSchema),
+  "workspace.catalog": operation(noParams, WorkspaceCatalogSchema),
+  "project.create": operation(namedProject, WorkspaceCatalogSchema),
+  "project.rename": operation(renamedProject, WorkspaceCatalogSchema),
+  "project.delete": operation(projectIdentity, WorkspaceCatalogSchema),
+  "project.select": operation(projectIdentity, WorkspaceCatalogSchema),
+  "document.create": operation(namedDocument, WorkspaceCatalogSchema),
+  "document.rename": operation(renamedDocument, WorkspaceCatalogSchema),
+  "document.delete": operation(documentScope, WorkspaceCatalogSchema),
+  "document.select": operation(documentScope, WorkspaceCatalogSchema),
+  hydrate: operation(documentScope, WorkspaceSnapshotSchema),
   "events.replay": operation(replayParams, replayResult),
   "events.acknowledge": operation(rendererAcknowledgeParams, acknowledgeResult),
-  "agent.start": operation(noParams, AgentRuntimeSchema),
-  "agent.stop": operation(noParams, AgentRuntimeSchema),
+  "agent.start": operation(documentScope, AgentRuntimeSchema),
+  "agent.stop": operation(documentScope, AgentRuntimeSchema),
   "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
   "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
-  "source.import": operation(noParams, Type.Union([SourceSnapshotSchema, Type.Undefined()])),
+  "source.import": operation(documentScope, Type.Union([SourceSnapshotSchema, Type.Undefined()])),
   "development.suggestion.create": operation(SuggestionItemSchema, accepted),
 } as const;
 
 export const StorageOperations = {
-  hydrate: operation(noParams, WorkspaceSnapshotSchema),
+  "workspace.catalog": operation(noParams, WorkspaceCatalogSchema),
+  "project.create": operation(namedProject, WorkspaceCatalogSchema),
+  "project.rename": operation(renamedProject, WorkspaceCatalogSchema),
+  "project.delete": operation(projectIdentity, WorkspaceCatalogSchema),
+  "project.select": operation(projectIdentity, WorkspaceCatalogSchema),
+  "document.create": operation(namedDocument, WorkspaceCatalogSchema),
+  "document.rename": operation(renamedDocument, WorkspaceCatalogSchema),
+  "document.delete": operation(documentScope, WorkspaceCatalogSchema),
+  "document.select": operation(documentScope, WorkspaceCatalogSchema),
+  hydrate: operation(documentScope, WorkspaceSnapshotSchema),
   "events.replay": operation(replayParams, replayResult),
   "events.acknowledge": operation(Type.Object({
     consumerId: identifier,
+    projectId: identifier,
+    documentId: identifier,
     streamId: identifier,
     sequence: Type.Integer({ minimum: 0 }),
   }, strict), acknowledgeResult),
-  "workspace.repair": operation(noParams, repairResult),
+  "workspace.repair": operation(documentScope, repairResult),
   "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
   "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
-  "source.import": operation(Type.Object({ path: text(10_000) }, strict), SourceSnapshotSchema),
-  "agent.seed": operation(noParams, ObservationSeedSchema),
-  "agent.suggestions.list": operation(noParams, Type.Object({
+  "source.import": operation(Type.Object({ ...documentScope.properties, path: text(10_000) }, strict), SourceSnapshotSchema),
+  "agent.seed": operation(documentScope, ObservationSeedSchema),
+  "agent.suggestions.list": operation(documentScope, Type.Object({
     live: Type.Array(SuggestionItemSchema), pinned: Type.Array(SuggestionItemSchema),
     workspace: Type.Array(SuggestionItemSchema),
   }, strict)),
   "agent.suggestion.create": operation(suggestionMutation, accepted),
   "agent.suggestion.update": operation(suggestionMutation, accepted),
-  "agent.suggestion.retract": operation(Type.Object({ id: identifier, expectedDocumentRevision: revision }, strict), accepted),
-  "development.suggestion.create": operation(Type.Object({ item: SuggestionItemSchema }, strict), accepted),
+  "agent.suggestion.retract": operation(Type.Object({ ...documentScope.properties, id: identifier, expectedDocumentRevision: revision }, strict), accepted),
+  "development.suggestion.create": operation(Type.Object({ ...documentScope.properties, item: SuggestionItemSchema }, strict), accepted),
 } as const;
 
 const agentStartParams = Type.Object(
-  { projectRevision: revision, documentRevision: revision },
+  { projectId: identifier, documentId: identifier, projectRevision: revision, documentRevision: revision },
   strict,
 );
 export const AgentOperations = {
   "agent.start": operation(agentStartParams, AgentRuntimeSchema),
-  "agent.stop": operation(noParams, AgentRuntimeSchema),
+  "agent.stop": operation(documentScope, AgentRuntimeSchema),
 } as const;
 
 export type OperationRegistry = Record<string, { params: TSchema; result: TSchema; error: TSchema }>;
@@ -360,6 +406,15 @@ export interface OperationCaller<Registry extends OperationRegistry> {
 
 export const DESKTOP_INVOKE_CHANNELS = {
   subscribeEvents: "scribe:events.subscribe",
+  workspaceCatalog: "scribe:workspace.catalog",
+  createProject: "scribe:project.create",
+  renameProject: "scribe:project.rename",
+  deleteProject: "scribe:project.delete",
+  selectProject: "scribe:project.select",
+  createDocument: "scribe:document.create",
+  renameDocument: "scribe:document.rename",
+  deleteDocument: "scribe:document.delete",
+  selectDocument: "scribe:document.select",
   hydrate: "scribe:hydrate",
   replayEvents: "scribe:events.replay",
   acknowledgeEvents: "scribe:events.acknowledge",
@@ -373,6 +428,15 @@ export const DESKTOP_EVENT_CHANNEL = "scribe:event" as const;
 export const DEVELOPMENT_SUGGESTION_CHANNEL = "scribe:development.suggestion.create" as const;
 export const RENDERER_OPERATION_CHANNELS = {
   "events.subscribe": DESKTOP_INVOKE_CHANNELS.subscribeEvents,
+  "workspace.catalog": DESKTOP_INVOKE_CHANNELS.workspaceCatalog,
+  "project.create": DESKTOP_INVOKE_CHANNELS.createProject,
+  "project.rename": DESKTOP_INVOKE_CHANNELS.renameProject,
+  "project.delete": DESKTOP_INVOKE_CHANNELS.deleteProject,
+  "project.select": DESKTOP_INVOKE_CHANNELS.selectProject,
+  "document.create": DESKTOP_INVOKE_CHANNELS.createDocument,
+  "document.rename": DESKTOP_INVOKE_CHANNELS.renameDocument,
+  "document.delete": DESKTOP_INVOKE_CHANNELS.deleteDocument,
+  "document.select": DESKTOP_INVOKE_CHANNELS.selectDocument,
   hydrate: DESKTOP_INVOKE_CHANNELS.hydrate,
   "events.replay": DESKTOP_INVOKE_CHANNELS.replayEvents,
   "events.acknowledge": DESKTOP_INVOKE_CHANNELS.acknowledgeEvents,

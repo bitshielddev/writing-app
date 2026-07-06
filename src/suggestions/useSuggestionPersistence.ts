@@ -19,6 +19,7 @@ export function useSuggestionPersistence(desktop: DesktopBridge) {
   const [status, setStatus] = useState<SuggestionPersistenceStatus>({ state: "idle", acknowledgedVersion: 0 });
   const [failureMessage, setFailureMessage] = useState<string>();
   const mounted = useRef(true);
+  const projectId = useRef<string | undefined>(undefined);
   const documentId = useRef<string | undefined>(undefined);
   const revision = useRef(0);
   const authoritative = useRef<PersistedSuggestionState | undefined>(undefined);
@@ -38,12 +39,13 @@ export function useSuggestionPersistence(desktop: DesktopBridge) {
   }, []);
 
   const drain = useCallback(function drainQueue() {
-    if (!mounted.current || active.current || pending.current.length === 0 || !documentId.current || !authoritative.current) return;
+    if (!mounted.current || active.current || pending.current.length === 0 || !projectId.current || !documentId.current || !authoritative.current) return;
     const candidate = pending.current.shift()!;
     active.current = candidate;
     setStatus({ state: pending.current.length ? "pending" : "saving", acknowledgedVersion: revision.current });
     void desktop.executeSuggestionCommand({
       commandId: candidate.commandId,
+      projectId: projectId.current,
       documentId: documentId.current,
       expectedSuggestionRevision: revision.current,
       command: candidate.command,
@@ -92,9 +94,14 @@ export function useSuggestionPersistence(desktop: DesktopBridge) {
     drain();
   }, [drain]);
 
-  const seedHydratedState = useCallback((state: PersistedSuggestionState, suggestionRevision = 0, hydratedDocumentId?: string) => {
+  const seedHydratedState = useCallback((state: PersistedSuggestionState, suggestionRevision = 0, hydratedProjectId?: string, hydratedDocumentId?: string) => {
+    if (hydratedProjectId && !hydratedDocumentId) {
+      hydratedDocumentId = hydratedProjectId;
+      hydratedProjectId = "default-project";
+    }
     authoritative.current = structuredClone(state);
     revision.current = suggestionRevision;
+    projectId.current = hydratedProjectId;
     documentId.current = hydratedDocumentId;
     active.current = undefined;
     pending.current = [];
@@ -124,10 +131,27 @@ export function useSuggestionPersistence(desktop: DesktopBridge) {
     drain();
   }, [drain]);
 
+  const flush = useCallback(async () => {
+    drain();
+    while (active.current || pending.current.length) {
+      if (failed.current) throw new Error(failureMessage ?? failureText);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    if (failed.current) throw new Error(failureMessage ?? failureText);
+  }, [drain, failureMessage]);
+
+  const discard = useCallback(() => {
+    active.current = undefined;
+    pending.current = [];
+    failed.current = undefined;
+    setFailureMessage(undefined);
+    setStatus({ state: "idle", acknowledgedVersion: revision.current });
+  }, []);
+
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
 
-  return { status, failureMessage, dispatchCommand, seedHydratedState, onDesktopEvent, subscribe, retry };
+  return { status, failureMessage, dispatchCommand, seedHydratedState, onDesktopEvent, subscribe, retry, flush, discard };
 }

@@ -118,7 +118,16 @@ function secureWebPreferences(developmentTools: boolean): WebPreferences {
   };
 }
 
-function registerIpc() {
+const agentEndpoint = {
+  call<Name extends OperationName<typeof AgentOperations>>(
+    operation: Name,
+    ...args: OperationArgs<typeof AgentOperations, Name>
+  ) {
+    return agent.call(operation, ...args);
+  },
+};
+
+function registerIpc(onScopeSelected?: (scope: { projectId: string; documentId: string }) => Promise<void>) {
   registerMainIpc({
     ipcMain,
     validateSender: (sender) =>
@@ -139,7 +148,7 @@ function registerIpc() {
           : dialog.showOpenDialog(options as Electron.OpenDialogOptions),
     },
     storage,
-    agent,
+    agent: agentEndpoint,
     development: isDevelopment,
     getRuntime: () => runtime,
     setRuntime: (nextRuntime) => {
@@ -153,6 +162,7 @@ function registerIpc() {
       completeHydration: (senderId, streamId, sequence) =>
         durableEvents.completeHydration(senderId, streamId, sequence),
     },
+    onScopeSelected,
   });
 }
 
@@ -250,9 +260,7 @@ function installDevelopmentMenu() {
 async function start() {
   const userDataPath = app.getPath("userData");
   const dbPath = join(userDataPath, "scribe.sqlite3");
-  const projectWorkspace = join(userDataPath, "projects", "default-project");
   const agentDir = join(userDataPath, "pi");
-  const sessionDirectory = join(projectWorkspace, ".pi", "sessions");
   const storageEndpoint = {
     call<Name extends OperationName<typeof StorageOperations>>(
       operation: Name,
@@ -273,11 +281,38 @@ async function start() {
     addActivity: (item) => activity.add(item),
     broadcast,
   });
+  let agentGeneration = 0;
+  const spawnDocumentAgent = (scope: { projectId: string; documentId: string }) => {
+    const generation = ++agentGeneration;
+    const documentWorkspace = join(
+      userDataPath, "projects", scope.projectId, "documents", scope.documentId,
+    );
+    const sessionDirectory = join(documentWorkspace, ".pi", "sessions");
+    agent = spawnChild(
+      join(here, "agent.js"),
+      [documentWorkspace, agentDir, sessionDirectory],
+      AgentOperations,
+      AgentChildMessageSchema,
+      "agent-process",
+      (message) => {
+        if (generation === agentGeneration) void handleAgentMessage(message);
+      },
+    );
+    return agent;
+  };
+  const switchDocumentAgent = async (scope: { projectId: string; documentId: string }) => {
+    try { await agent.call("agent.stop", scope); } catch { /* process may already be unavailable */ }
+    agent?.post({ kind: "shutdown", protocolVersion: PROTOCOL_VERSION });
+    agent?.kill();
+    runtime = { status: "offline", cycleCount: 0 };
+    const next = spawnDocumentAgent(scope);
+    await next.ready;
+  };
   await startDesktop({
     spawnStorage: () => {
       storage = spawnChild(
         join(here, "storage.js"),
-        [dbPath, projectWorkspace],
+        [dbPath, userDataPath],
         StorageOperations,
         StorageChildMessageSchema,
         "storage-process",
@@ -285,18 +320,11 @@ async function start() {
       );
       return storage;
     },
-    spawnAgent: () => {
-      agent = spawnChild(
-        join(here, "agent.js"),
-        [projectWorkspace, agentDir, sessionDirectory],
-        AgentOperations,
-        AgentChildMessageSchema,
-        "agent-process",
-        (message) => void handleAgentMessage(message),
-      );
-      return agent;
+    spawnAgent: (scope) => {
+      if (!scope) throw new Error("Agent process requires a selected document");
+      return spawnDocumentAgent(scope);
     },
-    registerIpc: () => registerIpc(),
+    registerIpc: () => registerIpc(switchDocumentAgent),
     installMenu: installDevelopmentMenu,
     createWindow,
   });

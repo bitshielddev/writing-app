@@ -22,7 +22,7 @@ export async function startDesktop({
   createWindow,
 }: {
   spawnStorage: () => DesktopProcess<typeof StorageOperations>;
-  spawnAgent: () => DesktopProcess<typeof AgentOperations>;
+  spawnAgent: (scope?: { projectId: string; documentId: string }) => DesktopProcess<typeof AgentOperations>;
   registerIpc: (
     storage: DesktopProcess<typeof StorageOperations>,
     agent: DesktopProcess<typeof AgentOperations>,
@@ -32,16 +32,17 @@ export async function startDesktop({
 }) {
   const storage = spawnStorage();
   await storage.ready;
-  await storage.call("workspace.repair");
+  const catalog = await storage.call("workspace.catalog");
+  await storage.call("workspace.repair", catalog.selection);
 
-  const agent = spawnAgent();
+  const agent = spawnAgent(catalog.selection);
   await agent.ready;
 
   registerIpc(storage, agent);
   installMenu();
   createWindow();
 
-  const seed = await storage.call("agent.seed");
+  const seed = await storage.call("agent.seed", catalog.selection);
   agent.post({
     kind: "project.changed",
     protocolVersion: PROTOCOL_VERSION,

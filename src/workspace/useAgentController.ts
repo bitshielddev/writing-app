@@ -20,37 +20,60 @@ function upsert(items: AgentActivity[], activity: AgentActivity) {
   next[index] = activity;
   return next;
 }
+function isCurrentScope(
+  mounted: boolean,
+  current: { projectId: string; documentId: string } | undefined,
+  operation: { projectId: string; documentId: string },
+  generation: number,
+  currentGeneration: number,
+) {
+  return mounted && generation === currentGeneration && current?.projectId === operation.projectId &&
+    current.documentId === operation.documentId;
+}
 
-export function useAgentController(desktop: DesktopBridge) {
+export function useAgentController(
+  desktop: DesktopBridge,
+  scope?: { projectId: string; documentId: string },
+) {
   const [runtime, setRuntime] = useState<AgentRuntime>(initialRuntime);
   const [activity, setActivity] = useState<AgentActivity[]>([]);
   const [pending, setPending] = useState<"start" | "stop">();
   const [error, setError] = useState<string>();
   const mountedRef = useRef(true);
   const pendingRef = useRef(false);
+  const generationRef = useRef(0);
+  const scopeRef = useRef(scope);
+  useEffect(() => {
+    scopeRef.current = scope;
+    generationRef.current += 1;
+    pendingRef.current = false;
+  }, [scope]);
 
   const initialize = useCallback(
     (nextRuntime: AgentRuntime, nextActivity: AgentActivity[]) => {
       setRuntime(nextRuntime);
       setActivity(nextActivity.slice(-AGENT_ACTIVITY_LIMIT));
       setError(undefined);
+      setPending(undefined);
     },
     [],
   );
 
   const control = useCallback(
     async (command: "start" | "stop") => {
-      if (pendingRef.current) return;
+      if (pendingRef.current || !scope) return;
       pendingRef.current = true;
+      const operationScope = scope;
+      const generation = generationRef.current;
       setPending(command);
       setError(undefined);
       try {
         const next = await (command === "start"
-          ? desktop.startAgent()
-          : desktop.stopAgent());
-        if (mountedRef.current) setRuntime(next);
+          ? desktop.startAgent(scope)
+          : desktop.stopAgent(scope));
+        if (isCurrentScope(mountedRef.current, scopeRef.current, operationScope, generation, generationRef.current)) setRuntime(next);
       } catch (cause) {
-        if (mountedRef.current) {
+        if (isCurrentScope(mountedRef.current, scopeRef.current, operationScope, generation, generationRef.current)) {
           setError(
             cause instanceof Error
               ? cause.message
@@ -61,15 +84,16 @@ export function useAgentController(desktop: DesktopBridge) {
         }
         console.error(`Agent ${command} failed`, cause);
       } finally {
-        pendingRef.current = false;
-        if (mountedRef.current) setPending(undefined);
+        if (generation === generationRef.current) pendingRef.current = false;
+        if (isCurrentScope(mountedRef.current, scopeRef.current, operationScope, generation, generationRef.current)) setPending(undefined);
       }
     },
-    [desktop],
+    [desktop, scope],
   );
 
   const start = useCallback(() => void control("start"), [control]);
   const stop = useCallback(() => void control("stop"), [control]);
+  const stopAndWait = useCallback(() => control("stop"), [control]);
   const onDesktopEvent = useCallback((event: DesktopEvent) => {
     if (event.type === "agent.runtime") setRuntime(event.runtime);
     if (event.type === "agent.activity") {
@@ -91,6 +115,7 @@ export function useAgentController(desktop: DesktopBridge) {
     error,
     start,
     stop,
+    stopAndWait,
     initialize,
     onDesktopEvent,
   };

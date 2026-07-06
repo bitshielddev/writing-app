@@ -61,6 +61,18 @@ export default function App({ desktop }: AppProps) {
   const editor = useCreateBlockNote({ schema: writingSchema, initialContent });
   const {
     inbox,
+    catalog,
+    switchPending,
+    switchError,
+    selectDocument,
+    createDocument,
+    retrySwitch,
+    discardAndSwitch,
+    createProject,
+    renameProject,
+    deleteProject,
+    renameDocument,
+    deleteDocument,
     sources,
     runtime,
     activity,
@@ -160,6 +172,18 @@ export default function App({ desktop }: AppProps) {
         >
           <Sidebar
             sources={sources}
+            catalog={catalog}
+            switching={switchPending}
+            switchError={switchError}
+            onCreateDocument={createDocument}
+            onSelectDocument={selectDocument}
+            onRetrySwitch={retrySwitch}
+            onDiscardAndSwitch={discardAndSwitch}
+            onCreateProject={createProject}
+            onRenameProject={renameProject}
+            onDeleteProject={deleteProject}
+            onRenameDocument={renameDocument}
+            onDeleteDocument={deleteDocument}
             regionRef={navigationRegionRef}
             onOpenKeybindingHelp={keybindings.openHelp}
             onUploadSource={handleUploadSource}
@@ -231,6 +255,18 @@ export default function App({ desktop }: AppProps) {
       >
         <Sidebar
           sources={sources}
+          catalog={catalog}
+          switching={switchPending}
+          switchError={switchError}
+          onCreateDocument={createDocument}
+          onSelectDocument={selectDocument}
+          onRetrySwitch={retrySwitch}
+          onDiscardAndSwitch={discardAndSwitch}
+          onCreateProject={createProject}
+          onRenameProject={renameProject}
+          onDeleteProject={deleteProject}
+          onRenameDocument={renameDocument}
+          onDeleteDocument={deleteDocument}
           onOpenKeybindingHelp={keybindings.openHelp}
           onUploadSource={handleUploadSource}
         />

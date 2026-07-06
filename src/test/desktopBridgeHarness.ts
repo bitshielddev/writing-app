@@ -69,6 +69,7 @@ export function createSourceSnapshot(
   return {
     id: "source-1",
     projectId: "project-1",
+    documentId: "document-1",
     title: "Research.md",
     storagePath: "/workspace/sources/Research.md",
     bytes: 128,
@@ -110,12 +111,25 @@ export class DesktopBridgeHarness {
   private readonly listeners = new Set<(event: DesktopTransportEvent) => void>();
 
   readonly bridge: DesktopBridge = {
-    hydrate: this.hydrate.invoke,
-    startAgent: this.startAgent.invoke,
-    stopAgent: this.stopAgent.invoke,
+    getWorkspaceCatalog: async () => ({
+      projects: [{ id: "project-1", name: "Writing project", revision: 5 }],
+      documents: [{ id: "document-1", projectId: "project-1", title: "Draft", revision: 3 }],
+      selection: { projectId: "project-1", documentId: "document-1" },
+    }),
+    createProject: async () => this.bridge.getWorkspaceCatalog(),
+    renameProject: async () => this.bridge.getWorkspaceCatalog(),
+    deleteProject: async () => this.bridge.getWorkspaceCatalog(),
+    selectProject: async () => this.bridge.getWorkspaceCatalog(),
+    createDocument: async () => this.bridge.getWorkspaceCatalog(),
+    renameDocument: async () => this.bridge.getWorkspaceCatalog(),
+    deleteDocument: async () => this.bridge.getWorkspaceCatalog(),
+    selectDocument: async () => this.bridge.getWorkspaceCatalog(),
+    hydrate: () => this.hydrate.invoke(),
+    startAgent: () => this.startAgent.invoke(),
+    stopAgent: () => this.stopAgent.invoke(),
     saveDocument: this.saveDocument.invoke,
     executeSuggestionCommand: this.executeSuggestionCommand.invoke,
-    importSource: this.importSource.invoke,
+    importSource: () => this.importSource.invoke(),
     subscribe: (listener) => {
       this.listeners.add(listener);
       return () => this.listeners.delete(listener);

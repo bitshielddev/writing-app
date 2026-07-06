@@ -18,6 +18,7 @@ export function useDocumentAutosave(
 ) {
   const [status, setStatus] = useState<DocumentSaveStatus>("idle");
   const [error, setError] = useState<string>();
+  const projectIdRef = useRef("default-project");
   const documentIdRef = useRef("default-document");
   const revisionRef = useRef(0);
   const initializedRef = useRef(false);
@@ -25,17 +26,22 @@ export function useDocumentAutosave(
   const mountedRef = useRef(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const queueRef = useRef<Promise<void>>(Promise.resolve());
+  const failureRef = useRef<unknown>(undefined);
+  const generationRef = useRef(0);
 
   useEffect(() => {
     readyRef.current = ready;
   }, [ready]);
 
   const initialize = useCallback((document: DocumentSnapshot) => {
+    generationRef.current += 1;
+    projectIdRef.current = document.projectId;
     documentIdRef.current = document.id;
     revisionRef.current = document.revision;
     initializedRef.current = true;
     setStatus("idle");
     setError(undefined);
+    failureRef.current = undefined;
   }, []);
 
   const enqueueSave = useCallback(() => {
@@ -56,24 +62,32 @@ export function useDocumentAutosave(
       return;
     }
 
+    const generation = generationRef.current;
+    const projectId = projectIdRef.current;
+    const documentId = documentIdRef.current;
     queueRef.current = queueRef.current
       .catch(() => undefined)
       .then(async () => {
-        if (mountedRef.current) {
+        if (generation !== generationRef.current) return;
+        if (mountedRef.current && generation === generationRef.current) {
           setStatus("saving");
           setError(undefined);
         }
+        if (generation === generationRef.current) failureRef.current = undefined;
         const document = await desktop.saveDocument({
-          documentId: documentIdRef.current,
+          projectId,
+          documentId,
           blocks,
           markdown,
           expectedRevision: revisionRef.current,
         });
+        if (generation !== generationRef.current) return;
         revisionRef.current = document.revision;
         if (mountedRef.current) setStatus("idle");
       })
       .catch((cause: unknown) => {
-        if (mountedRef.current) {
+        if (generation === generationRef.current) failureRef.current = cause;
+        if (mountedRef.current && generation === generationRef.current) {
           setStatus("failed");
           setError(message(cause));
         }
@@ -88,6 +102,11 @@ export function useDocumentAutosave(
     }
     enqueueSave();
   }, [enqueueSave]);
+  const flushForSwitch = useCallback(async () => {
+    flush();
+    await queueRef.current;
+    if (failureRef.current) throw failureRef.current;
+  }, [flush]);
 
   const handleChange = useCallback(() => {
     if (!readyRef.current || !initializedRef.current) return;
@@ -100,11 +119,21 @@ export function useDocumentAutosave(
 
   const onDesktopEvent = useCallback((event: DesktopEvent) => {
     if (event.type === "document.saved") {
+      if (event.document.id !== documentIdRef.current || event.document.projectId !== projectIdRef.current) return;
       revisionRef.current = Math.max(
         revisionRef.current,
         event.document.revision,
       );
     }
+  }, []);
+
+  const discard = useCallback(() => {
+    generationRef.current += 1;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = undefined;
+    failureRef.current = undefined;
+    setStatus("idle");
+    setError(undefined);
   }, []);
 
   const flushRef = useRef(flush);
@@ -114,10 +143,10 @@ export function useDocumentAutosave(
   useEffect(() => {
     mountedRef.current = true;
     return () => {
-      flushRef.current();
+      void flushRef.current();
       mountedRef.current = false;
     };
   }, []);
 
-  return { handleChange, flush, status, error, initialize, onDesktopEvent };
+  return { handleChange, flush, flushForSwitch, discard, status, error, initialize, onDesktopEvent };
 }

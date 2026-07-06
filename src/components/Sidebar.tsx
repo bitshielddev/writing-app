@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { Ref } from "react";
 
-import type { SourceSnapshot } from "../shared/desktop";
+import type { SourceSnapshot, WorkspaceCatalog } from "../shared/desktop";
 
 type NavigationItem = {
   icon: LucideIcon;
@@ -36,9 +36,21 @@ const footerItems: NavigationItem[] = [
 
 type SidebarProps = {
   sources?: SourceSnapshot[];
+  catalog?: WorkspaceCatalog;
+  switching?: boolean;
+  switchError?: string;
   regionRef?: Ref<HTMLElement>;
   onOpenKeybindingHelp?: () => void;
   onUploadSource?: () => void;
+  onCreateDocument?: () => void;
+  onSelectDocument?: (projectId: string, documentId: string) => void;
+  onRetrySwitch?: () => void;
+  onDiscardAndSwitch?: () => void;
+  onCreateProject?: () => void;
+  onRenameProject?: (projectId: string, name: string) => void;
+  onDeleteProject?: (projectId: string) => void;
+  onRenameDocument?: (projectId: string, documentId: string, title: string) => void;
+  onDeleteDocument?: (projectId: string, documentId: string) => void;
 };
 
 function NavigationButton({
@@ -66,9 +78,21 @@ function NavigationButton({
 
 export function Sidebar({
   sources = [],
+  catalog,
+  switching,
+  switchError,
   regionRef,
   onOpenKeybindingHelp,
   onUploadSource,
+  onCreateDocument,
+  onSelectDocument,
+  onRetrySwitch,
+  onDiscardAndSwitch,
+  onCreateProject,
+  onRenameProject,
+  onDeleteProject,
+  onRenameDocument,
+  onDeleteDocument,
 }: SidebarProps) {
   return (
     <aside
@@ -94,11 +118,48 @@ export function Sidebar({
 
         <button
           type="button"
+          disabled={switching}
+          onClick={onCreateDocument}
           className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow-lg shadow-brand-600/15 transition-colors hover:bg-brand-700"
         >
           <Plus className="size-5" aria-hidden="true" />
           <span>New Document</span>
         </button>
+
+        {catalog ? (
+          <nav aria-label="Projects and documents" className="grid gap-3">
+            <button type="button" className="px-2 text-left text-xs font-semibold text-brand-700"
+              disabled={switching} onClick={onCreateProject}>+ New project</button>
+            {catalog.projects.map((project) => (
+              <section key={project.id} aria-label={project.name}>
+                <div className="flex items-center gap-1 px-2">
+                  <h2 className="min-w-0 flex-1 truncate text-xs font-bold text-[#686577]">{project.name}</h2>
+                  <button type="button" aria-label={`Rename ${project.name}`} onClick={() => onRenameProject?.(project.id, project.name)}>✎</button>
+                  <button type="button" aria-label={`Delete ${project.name}`} onClick={() => onDeleteProject?.(project.id)}>×</button>
+                </div>
+                <div className="mt-1 grid gap-1">
+                  {catalog.documents.filter((document) => document.projectId === project.id).map((document) => {
+                    const selected = catalog.selection.documentId === document.id;
+                    return <div key={document.id} className="flex items-center gap-1">
+                      <button type="button" aria-current={selected ? "page" : undefined} disabled={switching}
+                        className={`min-h-9 min-w-0 flex-1 truncate rounded-md px-3 text-left text-sm ${selected ? "bg-[#e8e7f1] font-bold text-brand-700" : "text-[#5d5b6d] hover:bg-white/70"}`}
+                        onClick={() => onSelectDocument?.(project.id, document.id)}>{document.title}</button>
+                      <button type="button" aria-label={`Rename ${document.title}`} onClick={() => onRenameDocument?.(project.id, document.id, document.title)}>✎</button>
+                      <button type="button" aria-label={`Delete ${document.title}`} onClick={() => onDeleteDocument?.(project.id, document.id)}>×</button>
+                    </div>;
+                  })}
+                </div>
+              </section>
+            ))}
+            {switchError ? <div role="alert" className="px-2 text-xs text-red-700">
+              <p>{switchError}</p>
+              <div className="mt-2 flex gap-2">
+                <button type="button" className="underline" onClick={onRetrySwitch}>Retry</button>
+                <button type="button" className="underline" onClick={onDiscardAndSwitch}>Discard local changes</button>
+              </div>
+            </div> : null}
+          </nav>
+        ) : null}
 
         <nav aria-label="Main sections" className="grid gap-1.5">
           {navigationItems.map((item) => (

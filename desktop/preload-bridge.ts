@@ -49,17 +49,26 @@ export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBri
   );
   return {
     subscribeEvents,
-    hydrate: async () => {
+    getWorkspaceCatalog: () => invoke(ipcRenderer, "workspace.catalog", DESKTOP_INVOKE_CHANNELS.workspaceCatalog),
+    createProject: (input) => invoke(ipcRenderer, "project.create", DESKTOP_INVOKE_CHANNELS.createProject, input),
+    renameProject: (input) => invoke(ipcRenderer, "project.rename", DESKTOP_INVOKE_CHANNELS.renameProject, input),
+    deleteProject: (input) => invoke(ipcRenderer, "project.delete", DESKTOP_INVOKE_CHANNELS.deleteProject, input),
+    selectProject: (input) => invoke(ipcRenderer, "project.select", DESKTOP_INVOKE_CHANNELS.selectProject, input),
+    createDocument: (input) => invoke(ipcRenderer, "document.create", DESKTOP_INVOKE_CHANNELS.createDocument, input),
+    renameDocument: (input) => invoke(ipcRenderer, "document.rename", DESKTOP_INVOKE_CHANNELS.renameDocument, input),
+    deleteDocument: (input) => invoke(ipcRenderer, "document.delete", DESKTOP_INVOKE_CHANNELS.deleteDocument, input),
+    selectDocument: (input) => invoke(ipcRenderer, "document.select", DESKTOP_INVOKE_CHANNELS.selectDocument, input),
+    hydrate: async (input) => {
       await subscribeEvents();
-      return invoke(ipcRenderer, "hydrate", DESKTOP_INVOKE_CHANNELS.hydrate);
+      return invoke(ipcRenderer, "hydrate", DESKTOP_INVOKE_CHANNELS.hydrate, input);
     },
     replayEvents: (input) => invoke(ipcRenderer, "events.replay", DESKTOP_INVOKE_CHANNELS.replayEvents, input),
     acknowledgeEvents: (input) => invoke(ipcRenderer, "events.acknowledge", DESKTOP_INVOKE_CHANNELS.acknowledgeEvents, input),
-    startAgent: () => invoke(ipcRenderer, "agent.start", DESKTOP_INVOKE_CHANNELS.startAgent),
-    stopAgent: () => invoke(ipcRenderer, "agent.stop", DESKTOP_INVOKE_CHANNELS.stopAgent),
+    startAgent: (input) => invoke(ipcRenderer, "agent.start", DESKTOP_INVOKE_CHANNELS.startAgent, input),
+    stopAgent: (input) => invoke(ipcRenderer, "agent.stop", DESKTOP_INVOKE_CHANNELS.stopAgent, input),
     saveDocument: (input) => invoke(ipcRenderer, "document.save", DESKTOP_INVOKE_CHANNELS.saveDocument, input),
     executeSuggestionCommand: (input) => invoke(ipcRenderer, "suggestions.command", DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, input),
-    importSource: () => invoke(ipcRenderer, "source.import", DESKTOP_INVOKE_CHANNELS.importSource),
+    importSource: (input) => invoke(ipcRenderer, "source.import", DESKTOP_INVOKE_CHANNELS.importSource, input),
     subscribe(listener) {
       const handler = (_event: unknown, payload: unknown) => {
         try {

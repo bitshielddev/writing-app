@@ -58,6 +58,10 @@ export class NodeWorkspaceFiles implements WorkspaceFiles {
   async removeSource(path: string) {
     await rm(path, { force: true });
   }
+
+  async removeWorkspace() {
+    await rm(this.paths.workspaceRoot, { recursive: true, force: true });
+  }
 }
 
 export function validateMarkdownSource(path: string, bytes: Uint8Array) {

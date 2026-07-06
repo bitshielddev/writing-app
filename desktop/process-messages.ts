@@ -40,7 +40,10 @@ export function createStorageMessageHandler({
         documentRevision: event.document.revision,
       });
     } else if (event.type === "source.imported") {
-      const seed = await storage.call("agent.seed");
+      const seed = await storage.call("agent.seed", {
+        projectId: event.source.projectId,
+        documentId: event.source.documentId,
+      });
       getAgent()?.post({
         kind: "project.changed",
         protocolVersion: PROTOCOL_VERSION,

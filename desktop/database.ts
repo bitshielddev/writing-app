@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const DATABASE_VERSION = 5;
+export const DATABASE_VERSION = 6;
 export const MINIMUM_SUPPORTED_DATABASE_VERSION = 2;
 
 export const CURRENT_SCHEMA_SQL = `
@@ -34,35 +34,44 @@ export const CURRENT_SCHEMA_SQL = `
     schema_version INTEGER NOT NULL,
     revision INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+    updated_at INTEGER NOT NULL,
+    UNIQUE (project_id, id)
   ) STRICT;
 
   CREATE TABLE sources (
     id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
     title TEXT NOT NULL,
     storage_path TEXT NOT NULL,
     bytes INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
   ) STRICT;
 
   CREATE TABLE suggestion_state (
-    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    project_id TEXT NOT NULL,
+    document_id TEXT PRIMARY KEY,
     state_json TEXT NOT NULL,
     revision INTEGER NOT NULL DEFAULT 0,
-    updated_at INTEGER NOT NULL
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
   ) STRICT;
 
   CREATE TABLE suggestion_command_receipts (
     command_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
     result_json TEXT NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
   ) STRICT;
 
   CREATE TABLE event_outbox (
     event_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
     stream_id TEXT NOT NULL,
     sequence INTEGER NOT NULL,
     event_json TEXT NOT NULL,
@@ -70,7 +79,8 @@ export const CURRENT_SCHEMA_SQL = `
     causation_id TEXT,
     created_at INTEGER NOT NULL,
     dispatched_at INTEGER,
-    UNIQUE (stream_id, sequence)
+    UNIQUE (stream_id, sequence),
+    FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
   ) STRICT;
 
   CREATE INDEX event_outbox_stream_sequence
@@ -78,10 +88,20 @@ export const CURRENT_SCHEMA_SQL = `
 
   CREATE TABLE event_consumer_cursor (
     consumer_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
     stream_id TEXT NOT NULL,
     acknowledged_sequence INTEGER NOT NULL DEFAULT 0,
     updated_at INTEGER NOT NULL,
-    PRIMARY KEY (consumer_id, stream_id)
+    PRIMARY KEY (consumer_id, stream_id),
+    FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+  ) STRICT;
+
+  CREATE TABLE workspace_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    selected_project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    selected_document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+    updated_at INTEGER NOT NULL
   ) STRICT;
 
   CREATE TABLE durable_json_quarantine (
@@ -159,6 +179,114 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
       quarantined_at INTEGER NOT NULL,
       UNIQUE (format_name, record_identity)
     ) STRICT`);
+  },
+}, {
+  fromVersion: 5,
+  toVersion: 6,
+  name: "document-scoped-identities",
+  requiresBackup: true,
+  up(db) {
+    const counts = {
+      sources: (db.prepare("SELECT COUNT(*) AS count FROM sources").get() as { count: number }).count,
+      suggestions: (db.prepare("SELECT COUNT(*) AS count FROM suggestion_state").get() as { count: number }).count,
+      receipts: (db.prepare("SELECT COUNT(*) AS count FROM suggestion_command_receipts").get() as { count: number }).count,
+      events: (db.prepare("SELECT COUNT(*) AS count FROM event_outbox").get() as { count: number }).count,
+      cursors: (db.prepare("SELECT COUNT(*) AS count FROM event_consumer_cursor").get() as { count: number }).count,
+    };
+    const document = db.prepare(
+      "SELECT id, project_id FROM documents ORDER BY created_at, id LIMIT 1",
+    ).get() as { id: string; project_id: string } | undefined;
+    if (!document) throw new Error("Cannot migrate a workspace without a document");
+
+    db.exec("CREATE UNIQUE INDEX documents_project_identity ON documents(project_id, id)");
+    db.exec(`ALTER TABLE sources RENAME TO sources_v5;
+      CREATE TABLE sources (
+        id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document_id TEXT NOT NULL,
+        title TEXT NOT NULL, storage_path TEXT NOT NULL, bytes INTEGER NOT NULL,
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+        FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+      ) STRICT`);
+    db.prepare(`INSERT INTO sources
+      (id, project_id, document_id, title, storage_path, bytes, created_at, updated_at)
+      SELECT s.id, s.project_id,
+        (SELECT d.id FROM documents d WHERE d.project_id = s.project_id ORDER BY d.created_at, d.id LIMIT 1),
+        s.title, s.storage_path, s.bytes, s.created_at, s.updated_at FROM sources_v5 s`).run();
+    db.exec("DROP TABLE sources_v5");
+
+    db.exec(`ALTER TABLE suggestion_state RENAME TO suggestion_state_v5;
+      CREATE TABLE suggestion_state (
+        project_id TEXT NOT NULL, document_id TEXT PRIMARY KEY, state_json TEXT NOT NULL,
+        revision INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL,
+        FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+      ) STRICT`);
+    db.prepare(`INSERT INTO suggestion_state
+      (project_id, document_id, state_json, revision, updated_at)
+      SELECT s.project_id,
+        (SELECT d.id FROM documents d WHERE d.project_id = s.project_id ORDER BY d.created_at, d.id LIMIT 1),
+        s.state_json, s.revision, s.updated_at FROM suggestion_state_v5 s`).run();
+    db.exec("DROP TABLE suggestion_state_v5");
+
+    db.exec(`ALTER TABLE suggestion_command_receipts RENAME TO suggestion_command_receipts_v5;
+      CREATE TABLE suggestion_command_receipts (
+        command_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document_id TEXT NOT NULL,
+        result_json TEXT NOT NULL, created_at INTEGER NOT NULL,
+        FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+      ) STRICT`);
+    db.prepare(`INSERT INTO suggestion_command_receipts
+      (command_id, project_id, document_id, result_json, created_at)
+      SELECT r.command_id, r.project_id,
+        (SELECT d.id FROM documents d WHERE d.project_id = r.project_id ORDER BY d.created_at, d.id LIMIT 1),
+        r.result_json, r.created_at FROM suggestion_command_receipts_v5 r`).run();
+    db.exec("DROP TABLE suggestion_command_receipts_v5");
+
+    db.exec(`ALTER TABLE event_outbox RENAME TO event_outbox_v5;
+      CREATE TABLE event_outbox (
+        event_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document_id TEXT NOT NULL,
+        stream_id TEXT NOT NULL, sequence INTEGER NOT NULL, event_json TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL, causation_id TEXT, created_at INTEGER NOT NULL,
+        dispatched_at INTEGER, UNIQUE (stream_id, sequence),
+        FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+      ) STRICT`);
+    db.prepare(`INSERT INTO event_outbox
+      (event_id, project_id, document_id, stream_id, sequence, event_json, occurred_at,
+       causation_id, created_at, dispatched_at)
+      SELECT event_id, ?, ?, 'document:' || ?, sequence, event_json, occurred_at,
+       causation_id, created_at, dispatched_at FROM event_outbox_v5`)
+      .run(document.project_id, document.id, document.id);
+    db.exec("DROP TABLE event_outbox_v5; CREATE INDEX event_outbox_stream_sequence ON event_outbox(stream_id, sequence)");
+
+    db.exec(`ALTER TABLE event_consumer_cursor RENAME TO event_consumer_cursor_v5;
+      CREATE TABLE event_consumer_cursor (
+        consumer_id TEXT NOT NULL, project_id TEXT NOT NULL, document_id TEXT NOT NULL,
+        stream_id TEXT NOT NULL, acknowledged_sequence INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL, PRIMARY KEY (consumer_id, stream_id),
+        FOREIGN KEY (project_id, document_id) REFERENCES documents(project_id, id) ON DELETE CASCADE
+      ) STRICT`);
+    db.prepare(`INSERT INTO event_consumer_cursor
+      (consumer_id, project_id, document_id, stream_id, acknowledged_sequence, updated_at)
+      SELECT consumer_id, ?, ?, 'document:' || ?, acknowledged_sequence, updated_at
+      FROM event_consumer_cursor_v5`).run(document.project_id, document.id, document.id);
+    db.exec("DROP TABLE event_consumer_cursor_v5");
+
+    db.exec(`CREATE TABLE workspace_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      selected_project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+      selected_document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+      updated_at INTEGER NOT NULL
+    ) STRICT`);
+    db.prepare(`INSERT INTO workspace_settings
+      (id, selected_project_id, selected_document_id, updated_at) VALUES (1, ?, ?, ?)`)
+      .run(document.project_id, document.id, Date.now());
+    for (const [table, expected] of Object.entries(counts)) {
+      const actualTable = table === "suggestions" ? "suggestion_state"
+        : table === "receipts" ? "suggestion_command_receipts"
+        : table === "events" ? "event_outbox"
+        : table === "cursors" ? "event_consumer_cursor" : table;
+      const actual = (db.prepare(`SELECT COUNT(*) AS count FROM ${actualTable}`).get() as { count: number }).count;
+      if (actual !== expected) throw new Error(`Document scoping migration lost rows from ${actualTable}`);
+    }
+    const violations = db.prepare("PRAGMA foreign_key_check").all();
+    if (violations.length) throw new Error("Document scoping migration created foreign-key violations");
   },
 }];
 
