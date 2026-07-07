@@ -18,6 +18,10 @@ function paramsFor<Name extends StorageRpcMethod>(value: unknown): Params<Name> 
 
 export function createStorageRequestHandler(operations: StorageOperations) {
   const operationMap = {
+    "health.ping": () => {
+      operations.catalog();
+      return { respondedAt: Date.now(), databaseReadable: true };
+    },
     "workspace.catalog": () => operations.catalog(),
     "project.create": (params) => operations.createProject(paramsFor<"project.create">(params)),
     "project.rename": (params) => operations.renameProject(paramsFor<"project.rename">(params)),

@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 
-import { ChildRpc, ChildStartupError, type UtilityProcessAdapter } from "./child-rpc";
+import { ChildRpc, ChildStartupError, OperationTimeoutError, type UtilityProcessAdapter } from "./child-rpc";
 import {
   AGENT_PROTOCOL_NAME,
   AgentChildMessageSchema,
@@ -19,6 +19,7 @@ const ready = (overrides: Record<string, unknown> = {}) => ({
   operations: Object.keys(AgentOperations),
   ...overrides,
 });
+const scope = { projectId: "project-1", documentId: "document-1" };
 
 class FakeUtilityProcess extends EventEmitter {
   readonly posted: unknown[] = [];
@@ -52,21 +53,21 @@ describe("ChildRpc", () => {
     child.emit("message", ready());
     await rpc.ready;
 
-    const first = rpc.call("agent.start", { projectRevision: 1, documentRevision: 1 });
-    const second = rpc.call("agent.stop");
+    const first = rpc.call("agent.start", { ...scope, projectRevision: 1, documentRevision: 1 });
+    const second = rpc.call("agent.stop", scope);
     await Promise.resolve();
     expect(child.posted).toEqual([
       {
         kind: "rpc", protocolVersion: PROTOCOL_VERSION,
         id: "first",
         operation: "agent.start",
-        params: { projectRevision: 1, documentRevision: 1 },
+        params: { ...scope, projectRevision: 1, documentRevision: 1 },
       },
       {
         kind: "rpc", protocolVersion: PROTOCOL_VERSION,
         id: "second",
         operation: "agent.stop",
-        params: undefined,
+        params: scope,
       },
     ]);
 
@@ -79,8 +80,8 @@ describe("ChildRpc", () => {
   it("rejects only the correlated remote error and ignores unknown responses", async () => {
     const { child, rpc, onMessage } = createRpc();
     child.emit("message", ready());
-    const failed = rpc.call("agent.start", { projectRevision: 1, documentRevision: 1 });
-    const successful = rpc.call("agent.stop");
+    const failed = rpc.call("agent.start", { ...scope, projectRevision: 1, documentRevision: 1 });
+    const successful = rpc.call("agent.stop", scope);
     await Promise.resolve();
 
     child.emit("message", { kind: "rpc.success", protocolVersion: 1, id: "unknown", operation: "agent.stop", result: { status: "stopped", cycleCount: 1 } });
@@ -138,8 +139,8 @@ describe("ChildRpc", () => {
     const { child, rpc } = createRpc();
     child.emit("message", ready());
     await rpc.ready;
-    const first = rpc.call("agent.stop");
-    const second = rpc.call("agent.stop");
+    const first = rpc.call("agent.stop", scope);
+    const second = rpc.call("agent.stop", scope);
     await Promise.resolve();
 
     child.emit("exit", 9);
@@ -165,7 +166,7 @@ describe("ChildRpc", () => {
     await expect(rpc.ready).rejects.toEqual(expect.objectContaining({
       code: "PROTOCOL_VERSION_MISMATCH",
     }));
-    await expect(rpc.call("agent.stop")).rejects.toThrow();
+    await expect(rpc.call("agent.stop", scope)).rejects.toThrow();
     expect(child.posted).toEqual([]);
   });
 
@@ -175,5 +176,35 @@ describe("ChildRpc", () => {
     await expect(rpc.ready).rejects.toEqual(expect.objectContaining({
       code: "MALFORMED_READY_HANDSHAKE",
     }));
+  });
+
+  it("times out, cancels, cleans pending state, and ignores a late result", async () => {
+    vi.useFakeTimers();
+    const { child, rpc } = createRpc();
+    child.emit("message", ready());
+    const result = rpc.callWithOptions("health.ping", { deadlineMs: 25 });
+    const rejection = expect(result).rejects.toBeInstanceOf(OperationTimeoutError);
+    await Promise.resolve();
+    expect(rpc.pendingCount).toBe(1);
+    await vi.advanceTimersByTimeAsync(25);
+    await rejection;
+    expect(rpc.pendingCount).toBe(0);
+    expect(child.posted.at(-1)).toMatchObject({ kind: "rpc.cancel", id: "first", operation: "health.ping" });
+    child.emit("message", { kind: "rpc.success", protocolVersion: 1, id: "first", operation: "health.ping", result: { respondedAt: 1 } });
+    expect(rpc.pendingCount).toBe(0);
+    rpc.dispose();
+    vi.useRealTimers();
+  });
+
+  it("supports AbortSignal cancellation without leaking a pending entry", async () => {
+    const { child, rpc } = createRpc();
+    child.emit("message", ready());
+    const controller = new AbortController();
+    const result = rpc.callWithOptions("health.ping", { signal: controller.signal });
+    await Promise.resolve();
+    controller.abort();
+    await expect(result).rejects.toMatchObject({ code: "OPERATION_CANCELLED" });
+    expect(rpc.pendingCount).toBe(0);
+    rpc.dispose();
   });
 });

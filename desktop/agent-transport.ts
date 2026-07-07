@@ -76,6 +76,7 @@ export function createAgentParentTransport({
   handleControl,
   handleProjectChanged,
   handleShutdown,
+  handleCancel = () => undefined,
   logger = console,
 }: {
   storage: AgentStorageClient;
@@ -84,6 +85,7 @@ export function createAgentParentTransport({
     message: Extract<AgentParentMessage, { kind: "project.changed" }>,
   ) => void;
   handleShutdown: () => void;
+  handleCancel?: (id: string) => void;
   logger?: Pick<Console, "error">;
 }) {
   return (value: unknown) => {
@@ -107,6 +109,9 @@ export function createAgentParentTransport({
         break;
       case "shutdown":
         handleShutdown();
+        break;
+      case "rpc.cancel":
+        handleCancel(message.id);
         break;
     }
   };

@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Supervised desktop process recovery</title>
+  <style>
+    :root {
+      --bg: #f6f3ee;
+      --paper: #fffaf2;
+      --ink: #1f2528;
+      --muted: #64706f;
+      --line: #ddd4c7;
+      --code-bg: #172026;
+      --code-ink: #edf7f6;
+      --accent: #315f5d;
+      --accent-soft: #dfecea;
+      --warn: #8b4a17;
+      --warn-soft: #fff1dc;
+      --bad: #8a2631;
+      --bad-soft: #f9e2e5;
+      --ok: #1f6a43;
+      --ok-soft: #e3f1e8;
+      --shadow: 0 18px 45px rgba(39, 30, 19, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #fbf8f1 0, var(--bg) 38rem);
+      color: var(--ink);
+      font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page { max-width: 1120px; margin: 0 auto; padding: 48px 22px 72px; }
+    header {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 34px;
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 28px;
+      align-items: start;
+    }
+    h1, h2, h3 { line-height: 1.18; margin: 0 0 14px; letter-spacing: -0.02em; }
+    h1 { font-size: clamp(2rem, 4vw, 3.9rem); max-width: 780px; }
+    h2 { font-size: clamp(1.55rem, 2.6vw, 2.35rem); margin-top: 12px; }
+    h3 { font-size: 1.18rem; margin-top: 18px; }
+    p { margin: 0 0 14px; }
+    a { color: var(--accent); }
+    .lede { font-size: 1.1rem; color: #394240; max-width: 760px; }
+    .meta {
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      border-radius: 18px;
+      padding: 18px 20px;
+      color: #263d3b;
+    }
+    .meta div { margin-bottom: 10px; }
+    .meta div:last-child { margin-bottom: 0; }
+    .section {
+      margin-top: 28px;
+      background: rgba(255, 250, 242, 0.84);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .card h3 { margin-top: 0; color: var(--accent); }
+    .file-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 10px 18px; }
+    .file-grid code { color: #29312f; background: #f1eadf; padding: 2px 6px; border-radius: 7px; }
+    .file-grid div { padding: 9px 0; border-bottom: 1px solid #ece4d9; }
+    .timeline { display: grid; gap: 10px; margin-top: 12px; }
+    .event { display: grid; grid-template-columns: 8rem 1fr; gap: 14px; align-items: start; }
+    .hash { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 20px 0 4px;
+    }
+    .flow div {
+      min-height: 92px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      padding: 14px;
+      position: relative;
+    }
+    .flow div + div:before {
+      content: "=>";
+      position: absolute;
+      left: -18px;
+      top: 34px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+    }
+    .callout {
+      border-radius: 18px;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      margin: 16px 0;
+    }
+    .callout.warn { border-color: #e4b26c; background: var(--warn-soft); color: #56310f; }
+    .callout.bad { border-color: #e2a0a8; background: var(--bad-soft); color: #5c1b24; }
+    .callout.ok { border-color: #a9d4b7; background: var(--ok-soft); color: #174b30; }
+    pre {
+      margin: 14px 0 18px;
+      padding: 18px;
+      overflow: auto;
+      border-radius: 18px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      line-height: 1.45;
+      font-size: 0.91rem;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    mark {
+      color: inherit;
+      background: rgba(255, 221, 102, 0.22);
+      padding: 0 2px;
+      border-radius: 3px;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 11px 8px; }
+    th { color: var(--accent); font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .small { color: var(--muted); font-size: 0.94rem; }
+    .quiz details {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin: 12px 0;
+    }
+    .quiz summary { cursor: pointer; font-weight: 700; }
+    .quiz p { margin-top: 10px; }
+    .pill {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: #eee5d8;
+      color: #3d4745;
+      font-size: 0.82rem;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+    @media (max-width: 860px) {
+      header, .split, .flow { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: 1fr; }
+      .flow div + div:before { display: none; }
+      .event { grid-template-columns: 1fr; gap: 2px; }
+      .file-grid { grid-template-columns: 1fr; }
+      .file-grid div:nth-child(odd) { border-bottom: 0; padding-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <p class="small"><span class="pill">desktop runtime</span><span class="pill">process recovery</span><span class="pill">E2E coverage</span></p>
+        <h1>Supervised utility processes, visible health, and safer shutdown</h1>
+        <p class="lede">This change turns storage and agent utility processes into monitored runtime dependencies. The main process now tracks their health, retries bounded failures, exposes that state to the renderer, and gives tests a way to kill the child processes and verify recovery.</p>
+      </div>
+      <aside class="meta">
+        <div><strong>Working tree:</strong> 27 changed files; outside <code>package-lock.json</code> the staged diff is about 746 insertions and 57 deletions.</div>
+        <div><strong>Most affected path:</strong> Electron main process, child RPC, renderer health UI, and E2E test harness.</div>
+        <div><strong>Validation run for this review:</strong> <code>npm test -- --run desktop/process-supervisor.test.ts desktop/child-rpc.test.ts</code> passed with 15 tests.</div>
+      </aside>
+    </header>
+
+    <section class="section">
+      <h2>The runtime now has a health loop</h2>
+      <p>The main behavioural change is a loop around each utility process. Before this diff, <code>desktop/main.ts</code> spawned storage and agent processes during startup and killed them during shutdown or document switching. The new path adds a supervisor that can spawn, validate, recover, mark health, and stop after a bounded number of retries.</p>
+
+      <div class="flow" aria-label="Process lifecycle flow">
+        <div><strong>spawn</strong><br><span class="small">Create storage or agent utility process through <code>spawnChild</code>.</span></div>
+        <div><strong>validate</strong><br><span class="small">Call <code>health.ping</code> over child RPC.</span></div>
+        <div><strong>recover</strong><br><span class="small">Repair/hydrate storage, or seed agent state from storage.</span></div>
+        <div><strong>publish</strong><br><span class="small">Broadcast <code>process.health</code> and unblock UI paths only when healthy.</span></div>
+      </div>
+
+      <p>The new supervisor is small enough to read directly. Its key invariant is that automatic restart attempts are bounded by <code>RESTART_DELAYS_MS</code>, and a non-retryable error becomes a stable <code>failed</code> state.</p>
+
+      <pre><code>export const RESTART_DELAYS_MS = [500, 2_000, 5_000] as const;
+export const RESTART_WINDOW_MS = 5 * 60_000;
+
+export class ProcessSupervisor&lt;Process extends SupervisedProcess&gt; {
+  private process?: Process;
+  private attempts: number[] = [];
+  private cycle?: Promise&lt;Process&gt;;
+  private currentHealth: ProcessHealth = { state: "starting" };
+
+  start() {
+    this.stopped = false;
+    return this.beginCycle(false);
+  }
+
+  processFailed(error: unknown) {
+    if (this.stopped) return Promise.reject(error);
+    this.publish({ state: "degraded", reason: errorMessage(error) });
+    return this.beginCycle(false, error);
+  }
+
+  retry() {
+    this.attempts = [];
+    this.healthySince = undefined;
+    this.stopped = false;
+    return this.beginCycle(true);
+  }
+}</code></pre>
+
+      <div class="callout ok">
+        <strong>What to notice:</strong> <code>processFailed</code> does not spawn directly. It enters the same serialized cycle as startup and manual retry. That <code>cycle</code> promise prevents overlapping restarts from racing each other.
+      </div>
+
+      <p>The restart decision is made in <code>prepareAttempt</code>. It filters old attempt timestamps, stops immediately on non-retryable errors, and stops after the configured retry count.</p>
+
+      <pre><code>private prepareAttempt(error: unknown, manual: boolean) {
+  const now = this.options.now?.() ?? Date.now();
+  if (this.healthySince !== undefined && now - this.healthySince &gt;= HEALTHY_RESET_MS) this.attempts = [];
+  this.attempts = this.attempts.filter((time) =&gt; now - time &lt; RESTART_WINDOW_MS);
+  if (error && this.options.classifyRetryable?.(error) === false) {
+    this.publish({ state: "failed", reason: errorMessage(error) });
+    throw error;
+  }
+  if (this.attempts.length &gt;= RESTART_DELAYS_MS.length) {
+    const reason = error ? errorMessage(error) : "Automatic restart limit reached";
+    this.publish({ state: "failed", reason });
+    throw error instanceof Error ? error : new Error(reason);
+  }
+  return { restarting: Boolean(error || manual), attempt: this.attempts.length + 1, now };
+}</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Where the process state crosses boundaries</h2>
+      <p>The diff adds health as a contract, not just a local main-process detail. That matters because the renderer uses the state to change editing behaviour and offer manual retry.</p>
+
+      <div class="split">
+        <div>
+          <h3>Shared contract additions</h3>
+          <pre><code>export const ProcessHealthSchema = Type.Union([
+  Type.Object({ state: Type.Literal("starting") }, strict),
+  Type.Object({ state: Type.Literal("healthy"), since: timestamp }, strict),
+  Type.Object({ state: Type.Literal("degraded"), reason: text(2_000) }, strict),
+  Type.Object({ state: Type.Literal("restarting"), attempt: Type.Integer({ minimum: 1, maximum: 3 }), nextAttemptAt: timestamp }, strict),
+  Type.Object({ state: Type.Literal("failed"), reason: text(2_000) }, strict),
+]);
+export const ProcessHealthSnapshotSchema = Type.Object({
+  storage: ProcessHealthSchema,
+  agent: ProcessHealthSchema,
+}, strict);</code></pre>
+        </div>
+        <div>
+          <h3>Renderer bridge additions</h3>
+          <pre><code>export type DesktopBridge = {
+  // existing methods omitted
+  retryProcess?(input: OperationParams&lt;typeof RendererOperations, "process.retry"&gt;):
+    Promise&lt;OperationResult&lt;typeof RendererOperations, "process.retry"&gt;&gt;;
+  subscribe(listener: (event: DesktopTransportEvent) =&gt; void): () =&gt; void;
+};</code></pre>
+        </div>
+      </div>
+
+      <p>In <code>desktop/main.ts</code>, the snapshot starts as both processes <code>starting</code>. Each supervisor publishes into that snapshot, and <code>broadcast</code> sends an ephemeral desktop event.</p>
+
+      <pre><code>let health: ProcessHealthSnapshot = {
+  storage: { state: "starting" },
+  agent: { state: "starting" },
+};
+
+function setProcessHealth(process: "storage" | "agent", next: ProcessHealth) {
+  health = { ...health, [process]: next };
+  broadcast({ type: "process.health", health });
+}</code></pre>
+
+      <p>The renderer subscribes to the same event in <code>useWorkspaceController</code>, and hydration can also provide an initial snapshot:</p>
+
+      <pre><code>const [health, setHealth] = useState&lt;ProcessHealthSnapshot&gt;({
+  storage: { state: "starting" }, agent: { state: "starting" },
+});
+
+// during snapshot initialization
+if (snapshot.health) setHealth(snapshot.health);
+
+// during event handling
+if (event.type === "process.health") setHealth(event.health);</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>The user-facing behaviour is deliberately asymmetric</h2>
+      <p>Storage health and agent health do not affect the UI in the same way. The change treats storage as authoritative for local workspace mutations, while the agent is optional for basic editing and saving.</p>
+
+      <table>
+        <thead>
+          <tr><th>Condition</th><th>Renderer behaviour</th><th>Main-process guard</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Storage is not healthy</td>
+            <td>Show a red alert, make the editor read-only, and stop enqueueing autosaves.</td>
+            <td>Reject storage mutations with <code>STORAGE_UNAVAILABLE</code>.</td>
+          </tr>
+          <tr>
+            <td>Agent is not healthy</td>
+            <td>Show an amber status banner. Editing and saving continue.</td>
+            <td>Reject <code>agent.start</code> and <code>agent.stop</code> with <code>AGENT_UNAVAILABLE</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <pre><code>function ProcessHealthBanner({ health, canRetry, retry }: { ... }) {
+  if (health.storage.state !== "healthy") {
+    const retryable = health.storage.state === "failed" || health.storage.state === "degraded";
+    return (
+      &lt;div role="alert" className="... bg-red-800 ..."&gt;
+        &lt;span&gt;Storage is unavailable. Editing and workspace changes are read-only; unsaved text is retained.&lt;/span&gt;
+        {retryable && canRetry ? &lt;button onClick={() =&gt; void retry("storage")}&gt;Retry storage&lt;/button&gt; : null}
+      &lt;/div&gt;
+    );
+  }
+  if (health.agent.state === "healthy") return null;
+  // agent banner leaves document editing available
+}</code></pre>
+
+      <pre><code>&lt;EditorWorkspace
+  editor={editor}
+  editable={health.storage.state === "healthy"}
+  workspacePins={inbox.workspacePins}
+  ...
+/&gt;</code></pre>
+
+      <p>The autosave hook gets the same storage-health gate. It does not enqueue a save when storage is unhealthy, and if storage becomes healthy after a failed save, it attempts another save.</p>
+
+      <pre><code>const enqueueSave = useCallback(() =&gt; {
+  if (!readyRef.current || !initializedRef.current || !storageHealthy) return;
+  // serialize editor document and call desktop.saveDocument(...)
+}, [desktop, editor, storageHealthy]);
+
+useEffect(() =&gt; {
+  if (storageHealthy && failureRef.current) enqueueSave();
+}, [enqueueSave, storageHealthy]);</code></pre>
+
+      <div class="callout warn">
+        <strong>Maintenance note:</strong> the banner text says unsaved text is retained. The code supports that by avoiding destructive writes while storage is down and by retrying a failed save when storage recovers. It does not make the child operation itself durable during a crash; the retention here is renderer/editor state plus retry after failure.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>RPC calls now have deadlines and cancellation messages</h2>
+      <p>The supervisor depends on <code>health.ping</code>, startup deadlines, and predictable shutdown. Those behaviours are built into <code>ChildRpc</code> in this diff.</p>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Deadlines</h3>
+          <p>Read calls default to 10s, mutations to 15s, agent control to 30s, startup to 60s, and shutdown to 10s.</p>
+        </div>
+        <div class="card">
+          <h3>Cancellation</h3>
+          <p>A timed-out or aborted call posts <code>rpc.cancel</code> and clears its pending entry.</p>
+        </div>
+        <div class="card">
+          <h3>Graceful shutdown</h3>
+          <p><code>shutdown()</code> posts a shutdown message, waits for disposal, and kills the child only after the grace period.</p>
+        </div>
+      </div>
+
+      <pre><code>async callWithOptions&lt;Name extends OperationName&lt;Registry&gt;&gt;(
+  operation: Name,
+  options: RpcCallOptions,
+  ...args: OperationArgs&lt;Registry, Name&gt;
+): Promise&lt;OperationResult&lt;Registry, Name&gt;&gt; {
+  await this.ready;
+  const deadlineMs = options.deadlineMs ?? deadlineFor(operation);
+  return new Promise((resolve, reject) =&gt; {
+    const finishFailure = (error: Error) =&gt; {
+      const request = this.pending.get(id);
+      if (!request) return;
+      this.pending.delete(id);
+      clearTimeout(request.timer);
+      this.child.postMessage({
+        kind: "rpc.cancel",
+        protocolVersion: PROTOCOL_VERSION,
+        id,
+        operation,
+      });
+      reject(error);
+    };
+    const timer = setTimeout(
+      () =&gt; finishFailure(new OperationTimeoutError(operation, deadlineMs)),
+      deadlineMs,
+    );
+    const abort = () =&gt; finishFailure(new OperationCancelledError(operation));
+    // pending registration and postMessage follow
+  });
+}</code></pre>
+
+      <p>The child sides understand cancellation, but the semantics are narrow: cancellation suppresses a late response after work finishes. The changed code does not interrupt a storage operation mid-query or abort an agent start mid-call.</p>
+
+      <pre><code>// storage transport
+const cancelled = new Set&lt;string&gt;();
+try {
+  const cancel = parseOrContractError(RpcCancelSchema, value, "storage.cancel");
+  cancelled.add(cancel.id);
+  return;
+} catch { /* a normal request follows */ }
+
+const result = parseOrContractError(
+  StorageOperations[request.operation].result,
+  await handleRequest(request.operation, request.params),
+  `storage.${request.operation}.result`,
+);
+if (cancelled.delete(request.id)) return;</code></pre>
+
+      <pre><code>// agent control path
+const result = message.operation === "health.ping"
+  ? { respondedAt: Date.now() }
+  : message.operation === "agent.start"
+    ? await startAgent(message.params)
+    : await stopAgent();
+if (cancelledControls.delete(message.id)) return;</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Main-process recovery is scoped differently for storage and agent</h2>
+      <p>The two supervisors use the same lifecycle mechanics, but their recovery steps are different because storage owns workspace state and the agent owns per-document runtime work.</p>
+
+      <div class="split">
+        <div>
+          <h3>Storage recovery</h3>
+          <pre><code>const storageSupervisor = new ProcessSupervisor({
+  spawn: () =&gt; storage = spawnChild(...),
+  validate: async (process) =&gt; { await process.call("health.ping"); },
+  recover: async (process) =&gt; {
+    const catalog = await process.call("workspace.catalog");
+    selectedScope = catalog.selection;
+    await process.call("workspace.repair", selectedScope);
+    await process.call("hydrate", selectedScope);
+  },
+  classifyRetryable: retryable,
+  onHealth: (next) =&gt; setProcessHealth("storage", next),
+});</code></pre>
+          <p>Evidence from the code: storage recovery reads the catalog, restores the selected scope, repairs the selected workspace, and hydrates it before reporting healthy.</p>
+        </div>
+        <div>
+          <h3>Agent recovery</h3>
+          <pre><code>recover: async (process) =&gt; {
+  const seed = await storage.call("agent.seed", scope);
+  process.post({
+    kind: "project.changed", protocolVersion: PROTOCOL_VERSION,
+    streamId: seed.streamId, sequence: seed.coveredThroughSequence,
+    projectRevision: seed.projectRevision,
+    documentRevision: seed.documentRevision,
+  });
+  if (agentShouldRun) {
+    await process.call("agent.start", {
+      ...scope,
+      projectRevision: seed.projectRevision,
+      documentRevision: seed.documentRevision,
+    });
+  }
+}</code></pre>
+          <p>Evidence from the code: agent recovery reseeds the agent from storage and restarts the agent only if the remembered runtime state says it should be running.</p>
+        </div>
+      </div>
+
+      <p>The retry classifier is shared. The inferred intent is to avoid retry loops for compatibility, migration, or corruption errors, because those are unlikely to fix themselves by respawning the process.</p>
+
+      <pre><code>const retryable = (error: unknown) =&gt; !(error instanceof Error && (
+  error.message.includes("compatibility mismatch") ||
+  ("code" in error && typeof error.code === "string" && (
+    error.code.includes("PROTOCOL") || error.code.includes("UNSUPPORTED") ||
+    error.code.includes("MIGRATION") || error.code.includes("DATABASE_CORRUPT")
+  ))
+));</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Shutdown now flushes renderer state before exiting</h2>
+      <p>The previous <code>before-quit</code> handler posted shutdown to the agent and killed both children. The new path prevents the quit, asks renderer windows to flush, asks both children to shut down, then exits.</p>
+
+      <pre><code>app.on("before-quit", (event) =&gt; {
+  if (quitting) return;
+  event.preventDefault();
+  quitting = true;
+  void (async () =&gt; {
+    await Promise.allSettled(BrowserWindow.getAllWindows().map((window) =&gt;
+      window.webContents.executeJavaScript("window.scribeFlush?.()")));
+    await Promise.allSettled([agent?.shutdown(), storage?.shutdown()]);
+    app.exit(0);
+  })();
+});</code></pre>
+
+      <p>The renderer side wires that global to a workspace flush that covers both document content and suggestion persistence.</p>
+
+      <pre><code>useEffect(() =&gt; {
+  window.scribeFlush = flushDocument;
+  return () =&gt; { delete window.scribeFlush; };
+}, [flushDocument]);
+
+const flushWorkspace = useCallback(async () =&gt; {
+  await Promise.allSettled([document.flushForSwitch(), suggestionPersistence.flush()]);
+}, [document, suggestionPersistence]);</code></pre>
+
+      <div class="callout warn">
+        <strong>Invariant to keep:</strong> anything that must be persisted on app quit needs to be reachable from <code>window.scribeFlush</code>. This change currently includes document saves and suggestion persistence. If another local buffer is added later, it should join <code>flushWorkspace</code> or an equivalent quit-flush path.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>The tests now exercise the desktop as a process system</h2>
+      <p>Unit tests cover the new mechanics directly, and Playwright tests cover the assembled Electron app.</p>
+
+      <div class="split">
+        <div>
+          <h3>Unit tests</h3>
+          <ul>
+            <li><code>desktop/process-supervisor.test.ts</code> verifies bounded backoff, non-retryable failures, and manual retry after failure.</li>
+            <li><code>desktop/child-rpc.test.ts</code> now verifies timeout cancellation, pending-map cleanup, and abort signal cleanup.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>E2E and packaged smoke</h3>
+          <ul>
+            <li><code>e2e/electron.spec.ts</code> launches Electron with <code>SCRIBE_E2E=1</code>, kills agent and storage processes, and waits for health to recover.</li>
+            <li><code>scripts/run-packaged-smoke.mjs</code> starts the unpacked packaged app and waits for <code>SCRIBE_E2E_READY</code>.</li>
+            <li><code>.github/workflows/quality.yml</code> runs both under <code>xvfb-run</code> and uploads diagnostics on failure.</li>
+          </ul>
+        </div>
+      </div>
+
+      <pre><code>test("built app starts, persists edits, and recovers utility processes", async () =&gt; {
+  // launch omitted
+  await waitForHealth(page, "storage", "healthy");
+  await waitForHealth(page, "agent", "healthy");
+  const editor = page.locator(".bn-editor[contenteditable=true]").first();
+  await editor.fill("Persistent e2e draft");
+
+  await page.evaluate(() =&gt; window.scribeTest!.terminateAgent());
+  await waitForHealth(page, "agent", "healthy");
+
+  await page.evaluate(() =&gt; window.scribeTest!.terminateStorage());
+  await expect(page.getByRole("alert")).toContainText("Storage is unavailable");
+  await waitForHealth(page, "storage", "healthy");
+
+  await app.close();
+  ({ app, page } = await launch(profile));
+  await expect(page.locator(".bn-editor")).toContainText("Persistent e2e draft");
+});</code></pre>
+
+      <div class="callout ok">
+        <strong>Review run:</strong> the targeted Vitest command for <code>ProcessSupervisor</code> and <code>ChildRpc</code> passed locally. The Playwright and packaged smoke tests were inspected but not run during this review generation.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Changed files by role</h2>
+      <div class="file-grid">
+        <div><code>desktop/process-supervisor.ts</code></div><div>New bounded lifecycle manager for utility processes.</div>
+        <div><code>desktop/main.ts</code></div><div>Replaces direct startup orchestration with storage and agent supervisors, health broadcasting, E2E controls, and flush-before-quit shutdown.</div>
+        <div><code>desktop/child-rpc.ts</code></div><div>Adds deadlines, startup timeout, cancellation, pending count for tests, and graceful shutdown.</div>
+        <div><code>desktop/storage.ts</code>, <code>desktop/agent.ts</code></div><div>Add child-side <code>shutdown</code>, <code>health.ping</code>, and cancellation handling.</div>
+        <div><code>desktop/ipc-routing.ts</code></div><div>Includes health in hydration, blocks storage/agent operations while unhealthy, and exposes manual process retry.</div>
+        <div><code>src/shared/contracts.ts</code>, <code>src/shared/desktop.ts</code></div><div>Defines health schemas, events, retry operation, and bridge types.</div>
+        <div><code>src/App.tsx</code>, <code>DocumentEditor.tsx</code>, <code>EditorWorkspace.tsx</code></div><div>Shows health banners and wires storage health into editor editability.</div>
+        <div><code>src/workspace/useDocumentAutosave.ts</code>, <code>useWorkspaceController.ts</code></div><div>Stores health state, retries process recovery, gates autosave, and flushes document plus suggestions on quit.</div>
+        <div><code>e2e/*</code>, <code>playwright.config.ts</code>, <code>scripts/run-packaged-smoke.mjs</code>, workflow/package files</div><div>Adds Electron E2E, packaged smoke, CI steps, and Playwright dependency/script entries.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>How this fits the recent history</h2>
+      <p>The last few commits moved the desktop toward stronger runtime boundaries and durable state. This diff continues that direction by treating the child processes themselves as monitored dependencies.</p>
+      <div class="timeline">
+        <div class="event"><div class="hash">b3763b9</div><div>Durable compatibility policies were added. This diff respects that by not retrying protocol, unsupported, migration, or corrupt-database failures.</div></div>
+        <div class="event"><div class="hash">0f6bef4</div><div>Event subscription ordering was tightened. This diff keeps health as an ephemeral event while still adding it to hydration snapshots.</div></div>
+        <div class="event"><div class="hash">919be47</div><div>Desktop inward dependencies separated storage/application/domain concerns. This diff builds recovery at the Electron boundary instead of pushing process lifecycle into storage or agent domain code.</div></div>
+        <div class="event"><div class="hash">dc491a6</div><div>Project/document workspaces made the selected scope central. Storage recovery now restores <code>selectedScope</code> from <code>workspace.catalog</code>, and agent recovery is scoped to the selected document.</div></div>
+        <div class="event"><div class="hash">39c6a64</div><div>Suggestion persistence and projection repair became more durable. This diff adds quit-time suggestion flush and tests persistence across Electron restart.</div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Risks and assumptions worth keeping in your head</h2>
+      <div class="callout bad">
+        <strong>Cancellation is not execution abort.</strong> The parent stops waiting and the child suppresses a late response, but the underlying storage or agent work can still run to completion. Do not assume <code>rpc.cancel</code> rolls back a mutation.
+      </div>
+      <div class="callout warn">
+        <strong>Health gates are broad.</strong> <code>ipc-routing.ts</code> blocks a fixed set of storage mutation operation names while storage is not healthy. If a new mutation is added later, it must be added to that set or covered by a more central classification.
+      </div>
+      <div class="callout warn">
+        <strong>Agent restart depends on <code>agentShouldRun</code>.</strong> That flag is inferred from runtime status changes in <code>setRuntime</code>. If future statuses are added, the flag logic may need to change so recovery restarts only when intended.</div>
+      <div class="callout warn">
+        <strong>The E2E-only bridge is gated by <code>SCRIBE_E2E</code>.</strong> This is supported by <code>secureWebPreferences</code> adding <code>--scribe-e2e</code> only when the environment variable is set, and preload exposing <code>window.scribeTest</code> only with that argument. Keep that gate intact when changing test controls.</div>
+    </section>
+
+    <section class="section quiz">
+      <h2>Comprehension check</h2>
+      <details>
+        <summary>1. If storage is killed during an editing session, which layers react before the user can edit again?</summary>
+        <p><strong>Answer:</strong> The storage <code>ChildRpc</code> disposes on exit, the storage supervisor publishes <code>degraded</code> or <code>restarting</code>, <code>desktop/main.ts</code> broadcasts <code>process.health</code>, <code>useWorkspaceController</code> stores the new health snapshot, and <code>App</code> renders the storage alert while passing <code>editable={false}</code> to the editor. Editing becomes available again after the supervisor validates and recovers storage and publishes <code>healthy</code>.</p>
+      </details>
+      <details>
+        <summary>2. What would break if a new storage mutation operation were added only to <code>RendererOperations</code>?</summary>
+        <p><strong>Answer:</strong> It might bypass the unhealthy-storage guard in <code>ipc-routing.ts</code>, because the guard uses a hand-maintained <code>storageMutations</code> set. The operation would still need contract schemas and routing, but the health safety rule would be incomplete.</p>
+      </details>
+      <details>
+        <summary>3. Does <code>rpc.cancel</code> stop an in-flight database mutation?</summary>
+        <p><strong>Answer:</strong> No evidence in the changed code shows mid-operation abort. Storage records the canceled id, awaits <code>handleRequest</code>, then suppresses success or failure if the id was canceled. The parent pending entry is cleaned up, but the child-side work can finish.</p>
+      </details>
+      <details>
+        <summary>4. Why does agent recovery call <code>storage.call("agent.seed", scope)</code> before optionally restarting the agent?</summary>
+        <p><strong>Answer:</strong> The recovered agent process needs current stream and revision data for the selected document. The code posts <code>project.changed</code> with the seed revisions, then calls <code>agent.start</code> only when <code>agentShouldRun</code> is true.</p>
+      </details>
+      <details>
+        <summary>5. Where would you start debugging if the packaged app opens but the CI smoke test times out?</summary>
+        <p><strong>Answer:</strong> Start with <code>scripts/run-packaged-smoke.mjs</code> and <code>desktop/main.ts</code>'s <code>SCRIBE_E2E_READY</code> log. The script waits for that exact stdout/stderr text, and main only logs it after the workspace window fires <code>did-finish-load</code> when <code>SCRIBE_E2E=1</code>.</p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>

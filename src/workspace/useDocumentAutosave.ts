@@ -15,6 +15,7 @@ export function useDocumentAutosave(
   desktop: DesktopBridge,
   editor: WritingEditor,
   ready: boolean,
+  storageHealthy = true,
 ) {
   const [status, setStatus] = useState<DocumentSaveStatus>("idle");
   const [error, setError] = useState<string>();
@@ -45,7 +46,7 @@ export function useDocumentAutosave(
   }, []);
 
   const enqueueSave = useCallback(() => {
-    if (!readyRef.current || !initializedRef.current) return;
+    if (!readyRef.current || !initializedRef.current || !storageHealthy) return;
 
     let blocks: WritingEditor["document"];
     let markdown: string;
@@ -93,7 +94,7 @@ export function useDocumentAutosave(
         }
         console.error("Document save failed", cause);
       });
-  }, [desktop, editor]);
+  }, [desktop, editor, storageHealthy]);
 
   const flush = useCallback(() => {
     if (timerRef.current) {
@@ -147,6 +148,10 @@ export function useDocumentAutosave(
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (storageHealthy && failureRef.current) enqueueSave();
+  }, [enqueueSave, storageHealthy]);
 
   return { handleChange, flush, flushForSwitch, discard, status, error, initialize, onDesktopEvent };
 }

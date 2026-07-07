@@ -14,6 +14,7 @@ import {
 import type {
   AgentActivity,
   AgentRuntime,
+  ProcessHealthSnapshot,
 } from "../src/shared/desktop.js";
 
 export type MainInvokeEvent = { sender: { id: number; send?(channel: string, payload: unknown): void } };
@@ -45,6 +46,8 @@ export function registerMainIpc({
   activitySnapshot,
   eventConsumers,
   onScopeSelected,
+  getHealth,
+  retryProcess,
   logger = console,
 }: {
   ipcMain: IpcMainAdapter;
@@ -59,6 +62,8 @@ export function registerMainIpc({
   activitySnapshot: () => AgentActivity[];
   eventConsumers?: RendererEventConsumers;
   onScopeSelected?: (scope: { projectId: string; documentId: string }) => void | Promise<void>;
+  getHealth?: () => ProcessHealthSnapshot;
+  retryProcess?: (process: "storage" | "agent") => Promise<void>;
   logger?: Pick<Console, "error">;
 }) {
   const register = <Name extends OperationName<typeof RendererOperations>>(
@@ -72,6 +77,21 @@ export function registerMainIpc({
     ipcMain.handle(channel, async (event, ...args) => {
       if (!validateSender(event.sender)) throw new Error("Unknown renderer");
       try {
+        const storageMutations = new Set([
+          "project.create", "project.rename", "project.delete", "project.select",
+          "document.create", "document.rename", "document.delete", "document.select",
+          "document.save", "suggestions.command", "source.import", "development.suggestion.create",
+        ]);
+        if (storageMutations.has(operation) && getHealth && getHealth().storage.state !== "healthy") {
+          throw Object.assign(new Error("Storage is unavailable; local changes have been retained"), {
+            contract: { code: "STORAGE_UNAVAILABLE", message: "Storage is unavailable; local changes have been retained", retryable: true },
+          });
+        }
+        if ((operation === "agent.start" || operation === "agent.stop") && getHealth && getHealth().agent.state !== "healthy") {
+          throw Object.assign(new Error("The writing agent is unavailable"), {
+            contract: { code: "AGENT_UNAVAILABLE", message: "The writing agent is unavailable", retryable: true },
+          });
+        }
         const params = parseOrContractError(
           RendererOperations[operation].params,
           args[0],
@@ -142,7 +162,7 @@ export function registerMainIpc({
     }
     const runtime = { ...snapshot.agent, ...getRuntime() };
     setRuntime(runtime);
-    return { ...snapshot, agent: runtime, activity: activitySnapshot() };
+    return { ...snapshot, agent: runtime, activity: activitySnapshot(), health: getHealth?.() };
   });
 
   register("events.replay", DESKTOP_INVOKE_CHANNELS.replayEvents, (_event, input) =>
@@ -182,6 +202,12 @@ export function registerMainIpc({
     const path = selection.filePaths[0];
     if (selection.canceled || !path) return undefined;
     return storage.call("source.import", { ...input, path });
+  });
+
+  register("process.retry", DESKTOP_INVOKE_CHANNELS.retryProcess, async (_event, input) => {
+    await retryProcess?.(input.process);
+    if (!getHealth) throw new Error("Process health is unavailable");
+    return getHealth();
   });
 
   if (development) {

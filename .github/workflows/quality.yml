@@ -37,3 +37,16 @@ jobs:
 
       - name: Enforce renderer bundle budget
         run: npm run bundle:check
+
+      - name: Run built Electron end-to-end tests
+        run: xvfb-run --auto-servernum npm run test:e2e
+
+      - name: Run unpacked packaged smoke test
+        run: xvfb-run --auto-servernum npm run test:packaged-smoke
+
+      - name: Upload Electron diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: electron-test-results
+          path: test-results/

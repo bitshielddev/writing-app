@@ -69,6 +69,7 @@ export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBri
     saveDocument: (input) => invoke(ipcRenderer, "document.save", DESKTOP_INVOKE_CHANNELS.saveDocument, input),
     executeSuggestionCommand: (input) => invoke(ipcRenderer, "suggestions.command", DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, input),
     importSource: (input) => invoke(ipcRenderer, "source.import", DESKTOP_INVOKE_CHANNELS.importSource, input),
+    retryProcess: (input) => invoke(ipcRenderer, "process.retry", DESKTOP_INVOKE_CHANNELS.retryProcess, input),
     subscribe(listener) {
       const handler = (_event: unknown, payload: unknown) => {
         try {
@@ -100,10 +101,12 @@ export function exposePreloadBridges({
   contextBridge,
   ipcRenderer,
   development,
+  testing = false,
 }: {
   contextBridge: PreloadContextBridge;
   ipcRenderer: PreloadIpcRenderer;
   development: boolean;
+  testing?: boolean;
 }) {
   contextBridge.exposeInMainWorld("scribe", createDesktopBridge(ipcRenderer));
   if (development) {
@@ -111,5 +114,12 @@ export function exposePreloadBridges({
       "scribeDevelopment",
       createDesktopDevelopmentBridge(ipcRenderer),
     );
+  }
+  if (testing) {
+    contextBridge.exposeInMainWorld("scribeTest", {
+      readiness: () => ipcRenderer.invoke("scribe:test:control", "readiness"),
+      terminateStorage: () => ipcRenderer.invoke("scribe:test:control", "terminate-storage"),
+      terminateAgent: () => ipcRenderer.invoke("scribe:test:control", "terminate-agent"),
+    });
   }
 }

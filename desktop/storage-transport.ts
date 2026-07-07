@@ -2,6 +2,7 @@ import {
   PROTOCOL_VERSION,
   StorageOperations,
   StorageRpcRequestSchema,
+  RpcCancelSchema,
   type StorageRpcRequest,
   type StorageRpcResult,
   parseOrContractError,
@@ -13,7 +14,13 @@ export function createStorageTransport(
   postMessage: (message: StorageRpcResult) => void,
   logger: Pick<Console, "error"> = console,
 ) {
+  const cancelled = new Set<string>();
   return async (value: unknown) => {
+    try {
+      const cancel = parseOrContractError(RpcCancelSchema, value, "storage.cancel");
+      cancelled.add(cancel.id);
+      return;
+    } catch { /* a normal request follows */ }
     let request;
     try {
       request = parseOrContractError(
@@ -31,6 +38,7 @@ export function createStorageTransport(
         await handleRequest(request.operation, request.params),
         `storage.${request.operation}.result`,
       );
+      if (cancelled.delete(request.id)) return;
       postMessage({
         kind: "rpc.success",
         protocolVersion: PROTOCOL_VERSION,
@@ -39,6 +47,7 @@ export function createStorageTransport(
         result,
       } as StorageRpcResult);
     } catch (error) {
+      if (cancelled.delete(request.id)) return;
       logger.error(`Storage operation failed: ${request.operation}`, error);
       postMessage({
         kind: "rpc.failure",

@@ -16,6 +16,7 @@ import { createInitialWorkspacePinRect } from "./workspacePins/geometry";
 type DocumentEditorProps = {
   editor: WritingEditor;
   workspacePins: WorkspacePin[];
+  editable: boolean;
   onSelectionChange: () => void;
   onChange: () => void;
   onWorkspacePinGeometryChange: (id: string, rect: WorkspacePinRect) => void;
@@ -26,6 +27,7 @@ type DocumentEditorProps = {
 export function DocumentEditor({
   editor,
   workspacePins,
+  editable,
   onSelectionChange,
   onChange,
   onWorkspacePinGeometryChange,
@@ -110,6 +112,7 @@ export function DocumentEditor({
         <div className="mx-auto min-h-full w-full max-w-[55rem]">
           <BlockNoteView
             editor={editor}
+            editable={editable}
             theme="light"
             aria-label="Editable draft content"
             data-editor-surface

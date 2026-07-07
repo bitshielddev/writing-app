@@ -13,6 +13,8 @@ import type {
   EphemeralDesktopEventSchema,
   DocumentSnapshotSchema,
   ObservationSeedSchema,
+  ProcessHealthSchema,
+  ProcessHealthSnapshotSchema,
   OperationParams,
   OperationResult,
   RendererOperations,
@@ -37,6 +39,8 @@ export type DurableEventEnvelope = Static<typeof DurableEventEnvelopeSchema>;
 export type DurableEventPayload = Static<typeof DurableEventPayloadSchema>;
 export type EphemeralDesktopEvent = Static<typeof EphemeralDesktopEventSchema>;
 export type ObservationSeed = Static<typeof ObservationSeedSchema>;
+export type ProcessHealth = Static<typeof ProcessHealthSchema>;
+export type ProcessHealthSnapshot = Static<typeof ProcessHealthSnapshotSchema>;
 export type { PersistedSuggestionState } from "../suggestions/state";
 
 export type DesktopBridge = {
@@ -58,6 +62,7 @@ export type DesktopBridge = {
   saveDocument(input: OperationParams<typeof RendererOperations, "document.save">): Promise<OperationResult<typeof RendererOperations, "document.save">>;
   executeSuggestionCommand(input: OperationParams<typeof RendererOperations, "suggestions.command">): Promise<OperationResult<typeof RendererOperations, "suggestions.command">>;
   importSource(input: OperationParams<typeof RendererOperations, "source.import">): Promise<OperationResult<typeof RendererOperations, "source.import">>;
+  retryProcess?(input: OperationParams<typeof RendererOperations, "process.retry">): Promise<OperationResult<typeof RendererOperations, "process.retry">>;
   subscribe(listener: (event: DesktopTransportEvent) => void): () => void;
 };
 

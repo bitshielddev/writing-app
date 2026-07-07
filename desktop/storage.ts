@@ -6,6 +6,8 @@ import {
   PROTOCOL_VERSION,
   STORAGE_PROTOCOL_NAME,
   STORAGE_RPC_METHODS,
+  ShutdownSchema,
+  parseOrContractError,
 } from "../src/shared/contracts.js";
 
 export async function startStorageProcess(
@@ -57,6 +59,11 @@ export async function startStorageProcess(
     (message) => process.parentPort?.postMessage(message),
   );
   process.parentPort?.on("message", ({ data }: { data: unknown }) => {
+    try {
+      parseOrContractError(ShutdownSchema, data, "storage.shutdown");
+      service.close();
+      process.exit(0);
+    } catch { /* normal request */ }
     void receive(data);
   });
   process.once("exit", () => service.close());

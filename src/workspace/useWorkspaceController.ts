@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createSuggestionFeedRelay } from "../desktop/desktopClient";
 import type { WritingEditor } from "../editor/schema";
-import type { DesktopBridge, DesktopEvent, WorkspaceCatalog, WorkspaceSnapshot } from "../shared/desktop";
+import type { DesktopBridge, DesktopEvent, ProcessHealthSnapshot, WorkspaceCatalog, WorkspaceSnapshot } from "../shared/desktop";
 import { useSuggestionInbox } from "../suggestions/inbox";
 import { useSuggestionKeyboardNavigation } from "../suggestions/keyboardNavigation";
 import { useSuggestionPersistence } from "../suggestions/useSuggestionPersistence";
@@ -28,6 +28,9 @@ export function useWorkspaceController(
   const [switchPending, setSwitchPending] = useState(false);
   const [switchError, setSwitchError] = useState<string>();
   const [failedSwitch, setFailedSwitch] = useState<{ projectId: string; documentId: string }>();
+  const [health, setHealth] = useState<ProcessHealthSnapshot>({
+    storage: { state: "starting" }, agent: { state: "starting" },
+  });
   useEffect(() => {
     let cancelled = false;
     if (!catalogAvailable) return;
@@ -70,6 +73,7 @@ export function useWorkspaceController(
     desktop,
     editor,
     hydration.phase === "ready",
+    health.storage.state === "healthy",
   );
   const source = useSourceController(desktop, scope);
   const agent = useAgentController(desktop, scope);
@@ -94,6 +98,7 @@ export function useWorkspaceController(
       seedSuggestionState(snapshot.suggestions, snapshot.suggestionRevision, snapshot.project.id, snapshot.document.id);
       hydrateInbox(snapshot.suggestions);
       initializePreview();
+      if (snapshot.health) setHealth(snapshot.health);
     };
   }, [
     hydrateInbox,
@@ -111,12 +116,21 @@ export function useWorkspaceController(
 
   useEffect(() => {
     eventRef.current = (event) => {
+      if (event.type === "process.health") setHealth(event.health);
       onDocumentEvent(event);
       onSourceEvent(event);
       onAgentEvent(event);
       if (event.type === "suggestion.event") onSuggestionEvent(event);
     };
   }, [onAgentEvent, onDocumentEvent, onSourceEvent, onSuggestionEvent]);
+
+  const retryProcess = useCallback(async (process: "storage" | "agent") => {
+    if (!desktop.retryProcess) return;
+    setHealth(await desktop.retryProcess({ process }));
+  }, [desktop]);
+  const flushWorkspace = useCallback(async () => {
+    await Promise.allSettled([document.flushForSwitch(), suggestionPersistence.flush()]);
+  }, [document, suggestionPersistence]);
 
   const [partnerView, setPartnerView] = useState<"suggestions" | "activity">(
     "suggestions",
@@ -261,6 +275,8 @@ export function useWorkspaceController(
     sourceImportPending: source.pending,
     sourceImportError: source.error,
     runtime: agent.runtime,
+    health,
+    retryProcess,
     activity: agent.activity,
     agentControlPending: agent.pending,
     agentError: agent.error ?? agent.runtime.error,
@@ -271,7 +287,7 @@ export function useWorkspaceController(
     setPartnerView,
     suggestionNavigator,
     handleEditorChange: document.handleChange,
-    flushDocument: document.flush,
+    flushDocument: flushWorkspace,
     handleEditorSelectionChange: preview.handleSelectionChange,
     handleUploadSource: source.importSource,
     handleStartAgent: agent.start,

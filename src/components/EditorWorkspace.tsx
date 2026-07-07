@@ -6,6 +6,7 @@ import type { WorkspacePin, WorkspacePinRect } from "../suggestions/inbox";
 type EditorWorkspaceProps = {
   editor: WritingEditor;
   workspacePins: WorkspacePin[];
+  editable: boolean;
   navigationPanelOpen: boolean;
   contextPanelOpen: boolean;
   navigationDrawerOpen: boolean;
@@ -25,6 +26,7 @@ type EditorWorkspaceProps = {
 export function EditorWorkspace({
   editor,
   workspacePins,
+  editable,
   navigationPanelOpen,
   contextPanelOpen,
   navigationDrawerOpen,
@@ -58,6 +60,7 @@ export function EditorWorkspace({
       />
       <DocumentEditor
         editor={editor}
+        editable={editable}
         workspacePins={workspacePins}
         onSelectionChange={onEditorSelectionChange}
         onChange={onEditorChange}

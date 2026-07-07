@@ -5,4 +5,5 @@ exposePreloadBridges({
   contextBridge,
   ipcRenderer,
   development: process.argv.includes("--scribe-development"),
+  testing: process.argv.includes("--scribe-e2e"),
 });

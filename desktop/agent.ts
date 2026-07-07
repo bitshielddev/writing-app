@@ -245,13 +245,17 @@ async function stopAgent() {
 }
 
 let controlQueue = Promise.resolve();
+const cancelledControls = new Set<string>();
 
 function handleControl(message: AgentRpcRequest) {
   controlQueue = controlQueue.then(async () => {
     try {
-      const result = message.operation === "agent.start"
-        ? await startAgent(message.params)
-        : await stopAgent();
+      const result = message.operation === "health.ping"
+        ? { respondedAt: Date.now() }
+        : message.operation === "agent.start"
+          ? await startAgent(message.params)
+          : await stopAgent();
+      if (cancelledControls.delete(message.id)) return;
       process.parentPort?.postMessage({
         kind: "rpc.success",
         protocolVersion: PROTOCOL_VERSION,
@@ -260,6 +264,7 @@ function handleControl(message: AgentRpcRequest) {
         result,
       });
     } catch (error) {
+      if (cancelledControls.delete(message.id)) return;
       process.parentPort?.postMessage({
         kind: "rpc.failure",
         protocolVersion: PROTOCOL_VERSION,
@@ -381,7 +386,11 @@ const handleParentMessage = createAgentParentTransport({
     }
     emitRevision(data.projectRevision, data.documentRevision);
   },
-  handleShutdown: () => session?.dispose(),
+  handleShutdown: () => {
+    session?.dispose();
+    process.exit(0);
+  },
+  handleCancel: (id) => { cancelledControls.add(id); },
 });
 
 process.parentPort?.on("message", ({ data }: { data: unknown }) => {

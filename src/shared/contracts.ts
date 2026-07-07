@@ -179,6 +179,14 @@ export const AgentRuntimeSchema = Type.Object(
   strict,
 );
 export const AgentRuntimeUpdateSchema = Type.Partial(AgentRuntimeSchema, strict);
+export const ProcessHealthSchema = Type.Union([
+  Type.Object({ state: Type.Literal("starting") }, strict),
+  Type.Object({ state: Type.Literal("healthy"), since: timestamp }, strict),
+  Type.Object({ state: Type.Literal("degraded"), reason: text(2_000) }, strict),
+  Type.Object({ state: Type.Literal("restarting"), attempt: Type.Integer({ minimum: 1, maximum: 3 }), nextAttemptAt: timestamp }, strict),
+  Type.Object({ state: Type.Literal("failed"), reason: text(2_000) }, strict),
+]);
+export const ProcessHealthSnapshotSchema = Type.Object({ storage: ProcessHealthSchema, agent: ProcessHealthSchema }, strict);
 export const AgentActivityKindSchema = Type.Union([
   Type.Literal("lifecycle"), Type.Literal("message"), Type.Literal("reasoning"),
   Type.Literal("tool"), Type.Literal("provider"), Type.Literal("loop"), Type.Literal("error"),
@@ -279,6 +287,7 @@ export const DurableEventEnvelopeSchema = Type.Object({
 export const EphemeralDesktopEventSchema = Type.Union([
   Type.Object({ type: Type.Literal("agent.runtime"), runtime: AgentRuntimeSchema }, strict),
   Type.Object({ type: Type.Literal("agent.activity"), activity: AgentActivitySchema }, strict),
+  Type.Object({ type: Type.Literal("process.health"), health: ProcessHealthSnapshotSchema }, strict),
 ]);
 export const DesktopEventSchema = Type.Union([
   DurableEventEnvelopeSchema,
@@ -295,6 +304,7 @@ export const WorkspaceSnapshotSchema = Type.Object(
     suggestionRevision: revision,
     agent: AgentRuntimeSchema,
     activity: Type.Array(AgentActivitySchema, { maxItems: 500 }),
+    health: Type.Optional(ProcessHealthSnapshotSchema),
   },
   strict,
 );
@@ -355,6 +365,7 @@ const repairResult = Type.Object(
   },
   strict,
 );
+const healthResult = Type.Object({ respondedAt: timestamp, databaseReadable: Type.Optional(Type.Boolean()) }, strict);
 
 function operation<Params extends TSchema, Result extends TSchema>(params: Params, result: Result) {
   return { params, result, error: ContractErrorSchema } as const;
@@ -380,9 +391,11 @@ export const RendererOperations = {
   "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
   "source.import": operation(documentScope, Type.Union([SourceSnapshotSchema, Type.Undefined()])),
   "development.suggestion.create": operation(SuggestionItemSchema, accepted),
+  "process.retry": operation(Type.Object({ process: Type.Union([Type.Literal("storage"), Type.Literal("agent")]) }, strict), ProcessHealthSnapshotSchema),
 } as const;
 
 export const StorageOperations = {
+  "health.ping": operation(noParams, healthResult),
   "workspace.catalog": operation(noParams, WorkspaceCatalogSchema),
   "project.create": operation(namedProject, WorkspaceCatalogSchema),
   "project.rename": operation(renamedProject, WorkspaceCatalogSchema),
@@ -421,6 +434,7 @@ const agentStartParams = Type.Object(
   strict,
 );
 export const AgentOperations = {
+  "health.ping": operation(noParams, healthResult),
   "agent.start": operation(agentStartParams, AgentRuntimeSchema),
   "agent.stop": operation(documentScope, AgentRuntimeSchema),
 } as const;
@@ -459,6 +473,7 @@ export const DESKTOP_INVOKE_CHANNELS = {
   saveDocument: "scribe:document.save",
   executeSuggestionCommand: "scribe:suggestions.command",
   importSource: "scribe:source.import",
+  retryProcess: "scribe:process.retry",
 } as const;
 export const DESKTOP_EVENT_CHANNEL = "scribe:event" as const;
 export const DEVELOPMENT_SUGGESTION_CHANNEL = "scribe:development.suggestion.create" as const;
@@ -482,6 +497,7 @@ export const RENDERER_OPERATION_CHANNELS = {
   "suggestions.command": DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand,
   "source.import": DESKTOP_INVOKE_CHANNELS.importSource,
   "development.suggestion.create": DEVELOPMENT_SUGGESTION_CHANNEL,
+  "process.retry": DESKTOP_INVOKE_CHANNELS.retryProcess,
 } as const satisfies Record<OperationName<typeof RendererOperations>, string>;
 export const STORAGE_RPC_METHODS = Object.keys(StorageOperations) as OperationName<typeof StorageOperations>[];
 export type StorageRpcMethod = OperationName<typeof StorageOperations>;
@@ -497,6 +513,7 @@ export const DESKTOP_EVENT_TYPES = {
   "agent.activity": true,
   "document.saved": true,
   "source.imported": true,
+  "process.health": true,
 } as const;
 
 function requestSchemas(registry: OperationRegistry) {
@@ -525,6 +542,10 @@ export const ProjectChangedSchema = Type.Object({
 }, strict);
 export const ShutdownSchema = Type.Object({
   kind: Type.Literal("shutdown"), protocolVersion: ProtocolVersionSchema,
+}, strict);
+export const RpcCancelSchema = Type.Object({
+  kind: Type.Literal("rpc.cancel"), protocolVersion: ProtocolVersionSchema,
+  id: identifier, operation: identifier,
 }, strict);
 export const StorageForwardRequestSchema = Type.Union(requestSchemas(StorageOperations).map((schema) =>
   Type.Object({ ...schema.properties, kind: Type.Literal("storage.request") }, strict),
@@ -572,7 +593,7 @@ export const AgentChildMessageSchema = Type.Union([
   AgentRuntimeMessageSchema, AgentActivityMessageSchema,
 ]);
 export const AgentParentMessageSchema = Type.Union([
-  AgentRpcRequestSchema, StorageForwardResultSchema, ProjectChangedSchema, ShutdownSchema,
+  AgentRpcRequestSchema, StorageForwardResultSchema, ProjectChangedSchema, ShutdownSchema, RpcCancelSchema,
 ]);
 
 type RpcRequestFor<Registry extends OperationRegistry> = {
@@ -607,7 +628,7 @@ export type AgentChildMessage = ReadyMessage | HealthMessage | StartupErrorMessa
   Static<typeof AgentRuntimeMessageSchema> | Static<typeof AgentActivityMessageSchema>;
 export type ChildMessage = StorageChildMessage | AgentChildMessage;
 export type AgentParentMessage = AgentRpcRequest | StorageForwardResult |
-  Static<typeof ProjectChangedSchema> | Static<typeof ShutdownSchema>;
+  Static<typeof ProjectChangedSchema> | Static<typeof ShutdownSchema> | Static<typeof RpcCancelSchema>;
 
 export class ContractValidationError extends Error {
   constructor(readonly contract: ContractError) {
@@ -679,5 +700,5 @@ export const CHILD_MESSAGE_KINDS = {
 } as const;
 export const AGENT_PARENT_MESSAGE_KINDS = {
   rpc: true, "storage.success": true, "storage.failure": true,
-  "project.changed": true, shutdown: true,
+  "project.changed": true, shutdown: true, "rpc.cancel": true,
 } as const;

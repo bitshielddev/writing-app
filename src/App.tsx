@@ -11,7 +11,7 @@ import { KeybindingCommandStrip } from "./keybindings/KeybindingCommandStrip";
 import { KeybindingHelpBoundary } from "./keybindings/KeybindingHelpBoundary";
 import { useWorkspaceKeybindings } from "./keybindings/useWorkspaceKeybindings";
 import { markPerformance, PERFORMANCE_MARKS } from "./performance/marks";
-import type { DesktopBridge } from "./shared/desktop";
+import type { DesktopBridge, ProcessHealthSnapshot } from "./shared/desktop";
 import { useWorkspaceController } from "./workspace/useWorkspaceController";
 import {
   MIN_CONTEXT_WIDTH,
@@ -30,6 +30,34 @@ const initialContent: WritingPartialBlock[] = [
 type AppProps = {
   desktop: DesktopBridge;
 };
+
+function ProcessHealthBanner({
+  health,
+  canRetry,
+  retry,
+}: {
+  health: ProcessHealthSnapshot;
+  canRetry: boolean;
+  retry: (process: "storage" | "agent") => Promise<void>;
+}) {
+  if (health.storage.state !== "healthy") {
+    const retryable = health.storage.state === "failed" || health.storage.state === "degraded";
+    return (
+      <div role="alert" className="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-4 bg-red-800 px-4 py-2 text-sm text-white">
+        <span>Storage is unavailable. Editing and workspace changes are read-only; unsaved text is retained.</span>
+        {retryable && canRetry ? <button className="rounded border border-white/60 px-3 py-1 font-semibold" onClick={() => void retry("storage")}>Retry storage</button> : null}
+      </div>
+    );
+  }
+  if (health.agent.state === "healthy") return null;
+  const retryable = health.agent.state === "failed" || health.agent.state === "degraded";
+  return (
+    <div role="status" className="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-4 bg-amber-100 px-4 py-2 text-sm text-amber-950">
+      <span>The writing agent is unavailable. Document editing and saving remain available.</span>
+      {retryable && canRetry ? <button className="rounded border border-amber-700 px-3 py-1 font-semibold" onClick={() => void retry("agent")}>Retry agent</button> : null}
+    </div>
+  );
+}
 
 export default function App({ desktop }: AppProps) {
   const layout = useWorkspaceLayout();
@@ -75,6 +103,8 @@ export default function App({ desktop }: AppProps) {
     deleteDocument,
     sources,
     runtime,
+    health,
+    retryProcess,
     activity,
     agentControlPending,
     agentError,
@@ -91,6 +121,7 @@ export default function App({ desktop }: AppProps) {
     handleStopAgent,
     handlePreview,
     handlePlaceOnWorkspace,
+    flushDocument,
   } = useWorkspaceController(desktop, editor);
 
   const keybindings = useWorkspaceKeybindings({
@@ -112,6 +143,11 @@ export default function App({ desktop }: AppProps) {
   useEffect(() => {
     markPerformance(PERFORMANCE_MARKS.reactMounted);
   }, []);
+
+  useEffect(() => {
+    window.scribeFlush = flushDocument;
+    return () => { delete window.scribeFlush; };
+  }, [flushDocument]);
 
   const renderDock = (
     keyboardNavigationActive: boolean,
@@ -151,6 +187,7 @@ export default function App({ desktop }: AppProps) {
 
   return (
     <div className="min-h-dvh bg-white">
+      <ProcessHealthBanner health={health} canRetry={Boolean(desktop.retryProcess)} retry={retryProcess} />
       <main
         ref={workspaceRef}
         aria-label="ScribeAI writing workspace"
@@ -204,6 +241,7 @@ export default function App({ desktop }: AppProps) {
 
         <EditorWorkspace
           editor={editor}
+          editable={health.storage.state === "healthy"}
           workspacePins={inbox.workspacePins}
           navigationPanelOpen={navigationPanelOpen}
           contextPanelOpen={contextPanelOpen}
