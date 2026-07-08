@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { DurableEventEnvelope } from "../src/contracts/desktop-bridge";
-import { createDocumentSnapshot } from "../src/test/desktopBridgeHarness";
+import type { DurableEventEnvelope } from "../../contracts/desktop-bridge";
+import { createDocumentSnapshot } from "../../test/desktopBridgeHarness";
 import { DurableEventBroker } from "./durable-event-broker";
 
 function envelope(sequence: number): DurableEventEnvelope {

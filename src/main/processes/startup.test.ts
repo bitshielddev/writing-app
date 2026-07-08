@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { deferred } from "../src/test/desktopBridgeHarness";
+import { deferred } from "../../test/desktopBridgeHarness";
 import {
   databaseStartupGuidance,
   runDesktopStartup,
@@ -8,8 +8,8 @@ import {
   type DesktopProcess,
 } from "./startup";
 import { ChildStartupError } from "./child-rpc";
-import { AgentOperations } from "../src/contracts/operations/agent";
-import { StorageOperations } from "../src/contracts/operations/storage";
+import { AgentOperations } from "../../contracts/operations/agent";
+import { StorageOperations } from "../../contracts/operations/storage";
 
 function processHarness(ready: Promise<void>, calls: string[], name: string) {
   return {

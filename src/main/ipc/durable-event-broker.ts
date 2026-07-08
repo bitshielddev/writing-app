@@ -1,4 +1,4 @@
-import type { DurableEventEnvelope } from "../src/contracts/desktop-bridge.js";
+import type { DurableEventEnvelope } from "../../contracts/desktop-bridge.js";
 
 type Sender = { id: number; send(channel: string, event: DurableEventEnvelope): void };
 type Consumer = {

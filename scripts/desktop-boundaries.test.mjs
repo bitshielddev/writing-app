@@ -17,7 +17,7 @@ function sourceFiles(directory) {
 }
 
 export function importSpecifiers(source) {
-  return [...source.matchAll(/(?:from\s+|import\s*)["']([^"']+)["']/g)]
+  return [...source.matchAll(/(?:\bfrom\s+|^\s*import\s*)["']([^"']+)["']/gm)]
     .map((match) => match[1]);
 }
 
@@ -48,6 +48,14 @@ export function prohibitedRuntimeNeutralImports(owner, source) {
       specifier.includes("/infrastructure/") ||
       specifier.includes("/storage/");
   });
+}
+
+export function prohibitedPreloadImports(source) {
+  return importSpecifiers(source).filter((specifier) =>
+    specifier !== "electron" &&
+    !specifier.startsWith("./") &&
+    !specifier.startsWith("../contracts/"),
+  );
 }
 
 describe("desktop dependency direction", () => {
@@ -106,6 +114,27 @@ describe("desktop dependency direction", () => {
     `)).toEqual([
       "node:fs/promises",
       "../../utility/storage/service.js",
+    ]);
+  });
+
+  it("preload modules import only Electron, preload peers, and contracts", () => {
+    const directory = join(sourceRoot, "preload");
+    const violations = sourceFiles(directory).flatMap((file) =>
+      prohibitedPreloadImports(readFileSync(file, "utf8"))
+        .map((specifier) => `${relative(root, file)} -> ${specifier}`),
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it("detects prohibited preload dependency examples", () => {
+    expect(prohibitedPreloadImports(`
+      import { ipcRenderer } from "electron";
+      import { DesktopBridge } from "../contracts/desktop-bridge.js";
+      import { WorkspaceController } from "../renderer/features/workspace/controller.js";
+      import { ProcessSupervisor } from "../main/processes/process-supervisor.js";
+    `)).toEqual([
+      "../renderer/features/workspace/controller.js",
+      "../main/processes/process-supervisor.js",
     ]);
   });
 });

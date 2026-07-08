@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createDocumentSnapshot, createSourceSnapshot } from "../src/test/desktopBridgeHarness";
+import { createDocumentSnapshot, createSourceSnapshot } from "../../test/desktopBridgeHarness";
 import {
   createAgentMessageHandler,
   createStorageMessageHandler,
-} from "./process-messages";
+} from "./message-handlers";
 
 function endpoint() {
   return {

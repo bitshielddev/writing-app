@@ -23,7 +23,7 @@ import { ScribeLoopState } from "./domain/agent-loop.js";
 import { classifyEventSequence } from "./domain/event-sequence.js";
 import type { AgentSessionPort } from "./application/agent-session-port.js";
 import { PiAgentSessionAdapter } from "./infrastructure/agent/pi-agent-session.js";
-import { safeActivityPayload } from "./activity.js";
+import { safeActivityPayload } from "../src/domain/activity/payload.js";
 import type { AgentActivity, AgentRuntime } from "../src/contracts/desktop-bridge.js";
 import {
   PROTOCOL_VERSION,

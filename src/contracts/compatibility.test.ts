@@ -14,7 +14,7 @@ import {
 
 const fixtures = JSON.parse(readFileSync(join(
   process.cwd(),
-  "desktop/fixtures/compatibility/durable-formats.json",
+  "src/contracts/fixtures/compatibility/durable-formats.json",
 ), "utf8")) as Record<string, Record<string, unknown>>;
 const identityMigration = [{ fromVersion: 0, toVersion: 1, migrate: (value: unknown) => value }];
 

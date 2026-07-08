@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { exposePreloadBridges } from "./preload-bridge.js";
+import { exposePreloadBridges } from "./bridge.js";
 
 exposePreloadBridges({
   contextBridge,

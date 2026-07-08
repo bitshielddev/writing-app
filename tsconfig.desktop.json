@@ -16,7 +16,9 @@
     "desktop/**/*.ts",
     "src/contracts/**/*.ts",
     "src/domain/**/*.ts",
-    "src/domain/**/*.tsx"
+    "src/domain/**/*.tsx",
+    "src/main/**/*.ts",
+    "src/preload/**/*.ts"
   ],
   "exclude": ["desktop/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
 }

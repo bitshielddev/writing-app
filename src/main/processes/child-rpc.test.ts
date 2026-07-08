@@ -6,12 +6,12 @@ import {
   AGENT_PROTOCOL_NAME,
   BUILD_IDENTIFIER,
   PROTOCOL_VERSION,
-} from "../src/contracts/base";
+} from "../../contracts/base";
 import {
   AgentChildMessageSchema,
   type AgentChildMessage,
-} from "../src/contracts/process-messages";
-import { AgentOperations } from "../src/contracts/operations/agent";
+} from "../../contracts/process-messages";
+import { AgentOperations } from "../../contracts/operations/agent";
 
 const ready = (overrides: Record<string, unknown> = {}) => ({
   kind: "ready",

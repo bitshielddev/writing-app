@@ -1,24 +1,24 @@
 import {
   DESKTOP_INVOKE_CHANNELS,
   RendererOperations,
-} from "../src/contracts/operations/renderer.js";
-import { AgentOperations } from "../src/contracts/operations/agent.js";
-import { StorageOperations } from "../src/contracts/operations/storage.js";
+} from "../../contracts/operations/renderer.js";
+import { AgentOperations } from "../../contracts/operations/agent.js";
+import { StorageOperations } from "../../contracts/operations/storage.js";
 import type {
   OperationCaller,
   OperationName,
   OperationParams,
   OperationResult,
-} from "../src/contracts/base.js";
+} from "../../contracts/base.js";
 import {
   parseOrContractError,
   toContractError,
-} from "../src/contracts/validation.js";
+} from "../../contracts/validation.js";
 import type {
   AgentActivity,
   AgentRuntime,
   ProcessHealthSnapshot,
-} from "../src/contracts/desktop-bridge.js";
+} from "../../contracts/desktop-bridge.js";
 
 export type MainInvokeEvent = { sender: { id: number; send?(channel: string, payload: unknown): void } };
 export type IpcMainAdapter = {

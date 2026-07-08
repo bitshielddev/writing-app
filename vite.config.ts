@@ -12,7 +12,9 @@ const nodeTestFiles = [
   "src/keybindings/sequenceMatcher.test.ts",
   "src/contracts/*.test.ts",
   "src/suggestions/inbox.test.ts",
-  "src/domain/suggestions/*.test.ts",
+  "src/domain/**/*.test.ts",
+  "src/main/**/*.test.ts",
+  "src/preload/**/*.test.ts",
 ];
 
 function cleanElectronOutput(): Plugin {
@@ -76,7 +78,7 @@ export default defineConfig({
     electron({
       main: {
         entry: {
-          main: "desktop/main.ts",
+          main: "src/main/index.ts",
           storage: "desktop/storage.ts",
           agent: "desktop/agent.ts",
         },
@@ -85,7 +87,7 @@ export default defineConfig({
         },
       },
       preload: {
-        input: fileURLToPath(new URL("./desktop/preload.ts", import.meta.url)),
+        input: fileURLToPath(new URL("./src/preload/index.ts", import.meta.url)),
         vite: {
           build: {
             rolldownOptions: {

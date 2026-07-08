@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ActivityRing, safeActivityPayload } from "./activity";
+import { ActivityRing } from "./activity";
 
 describe("agent activity ring", () => {
   it("aggregates streaming entries by ID", () => {
@@ -13,22 +13,7 @@ describe("agent activity ring", () => {
     expect(ring.snapshot()[0]).toMatchObject({ timestamp: 1, text: "ab" });
   });
 
-  it("redacts credential and header fields recursively", () => {
-    expect(safeActivityPayload({
-      authorization: "Bearer secret",
-      nested: { apiKey: "key", safe: "visible" },
-      headers: { "x-request-id": "also hidden" },
-    })).toEqual({
-      authorization: "[redacted]",
-      nested: { apiKey: "[redacted]", safe: "visible" },
-      headers: "[redacted]",
-    });
-  });
-
-  it("truncates payloads at 50 KB and evicts beyond 500 items", () => {
-    const payload = safeActivityPayload({ body: "x".repeat(60 * 1024) });
-    expect(payload).toMatchObject({ truncated: true });
-    expect(Buffer.byteLength(JSON.stringify(payload), "utf8")).toBeLessThanOrEqual(50 * 1024);
+  it("evicts beyond 500 items", () => {
     const ring = new ActivityRing();
     for (let index = 0; index < 505; index += 1) {
       ring.add({

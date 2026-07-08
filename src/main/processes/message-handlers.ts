@@ -1,23 +1,23 @@
 import {
   PROTOCOL_VERSION,
   type OperationCaller,
-} from "../src/contracts/base.js";
-import { StorageOperations } from "../src/contracts/operations/storage.js";
+} from "../../contracts/base.js";
+import { StorageOperations } from "../../contracts/operations/storage.js";
 import type {
   AgentChildMessage,
   StorageChildMessage,
   StorageForwardResult,
-} from "../src/contracts/process-messages.js";
+} from "../../contracts/process-messages.js";
 import {
   toContractError,
-} from "../src/contracts/validation.js";
+} from "../../contracts/validation.js";
 import type {
   AgentActivity,
   AgentActivityInput,
   AgentRuntime,
   DurableEventEnvelope,
   EphemeralDesktopEvent,
-} from "../src/contracts/desktop-bridge.js";
+} from "../../contracts/desktop-bridge.js";
 
 type PostEndpoint = { post(message: unknown): void };
 

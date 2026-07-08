@@ -4,7 +4,7 @@ import {
   AgentChildMessageSchema,
   type ChildMessage,
   StorageChildMessageSchema,
-} from "../src/contracts/process-messages.js";
+} from "../../contracts/process-messages.js";
 import {
   BUILD_IDENTIFIER,
   type ContractError,
@@ -13,13 +13,13 @@ import {
   type OperationRegistry,
   type OperationResult,
   PROTOCOL_VERSION,
-} from "../src/contracts/base.js";
+} from "../../contracts/base.js";
 import {
   RemoteContractError,
   parseOrContractError,
-} from "../src/contracts/validation.js";
-import { AgentOperations } from "../src/contracts/operations/agent.js";
-import { StorageOperations } from "../src/contracts/operations/storage.js";
+} from "../../contracts/validation.js";
+import { AgentOperations } from "../../contracts/operations/agent.js";
+import { StorageOperations } from "../../contracts/operations/storage.js";
 
 type MessageListener = (message: unknown) => void;
 type ExitListener = (code: number | null) => void;

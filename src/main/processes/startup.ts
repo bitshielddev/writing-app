@@ -3,9 +3,9 @@ import {
   PROTOCOL_VERSION,
   type OperationCaller,
   type OperationRegistry,
-} from "../src/contracts/base.js";
-import { AgentOperations } from "../src/contracts/operations/agent.js";
-import { StorageOperations } from "../src/contracts/operations/storage.js";
+} from "../../contracts/base.js";
+import { AgentOperations } from "../../contracts/operations/agent.js";
+import { StorageOperations } from "../../contracts/operations/storage.js";
 import { ChildStartupError } from "./child-rpc.js";
 
 export type DesktopProcess<Registry extends OperationRegistry> = OperationCaller<Registry> & {

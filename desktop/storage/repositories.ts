@@ -15,7 +15,7 @@ import {
   decodeVersionedJson,
   encodeVersionedJson,
   type JsonMigration,
-} from "../compatibility.js";
+} from "../../src/contracts/compatibility.js";
 import {
   DurableEventEnvelopeSchema,
   DurableEventPayloadSchema,

@@ -3,18 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 import {
   DESKTOP_EVENT_CHANNEL,
   DESKTOP_INVOKE_CHANNELS,
-} from "../src/contracts/operations/renderer";
-import type { DesktopEvent } from "../src/contracts/desktop-bridge";
+} from "../contracts/operations/renderer";
+import type { DesktopEvent } from "../contracts/desktop-bridge";
 import {
   createDocumentSnapshot,
   createSourceSnapshot,
   createWorkspaceSnapshot,
-} from "../src/test/desktopBridgeHarness";
+} from "../test/desktopBridgeHarness";
 import {
   createDesktopBridge,
   exposePreloadBridges,
   type PreloadIpcRenderer,
-} from "./preload-bridge";
+} from "./bridge";
 
 function ipcHarness() {
   const invoke = vi.fn(async (channel: string) => {

@@ -5,7 +5,7 @@ import { Type } from "typebox";
 
 import { ScribeLoopState, PersistedScribeLoopStateSchema } from "./domain/agent-loop.js";
 import { parseOrContractError } from "../src/contracts/validation.js";
-import { COMPATIBILITY_REGISTRY } from "./compatibility.js";
+import { COMPATIBILITY_REGISTRY } from "../src/contracts/compatibility.js";
 import {
   StorageOperations,
 } from "../src/contracts/operations/storage.js";

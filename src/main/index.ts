@@ -13,30 +13,30 @@ import {
   type WebPreferences,
 } from "electron";
 
-import { ActivityRing } from "./activity.js";
-import { ChildRpc } from "./child-rpc.js";
-import { ProcessSupervisor, type ProcessHealth } from "./process-supervisor.js";
-import { DurableEventBroker } from "./durable-event-broker.js";
-import { registerMainIpc } from "./ipc-routing.js";
+import { ActivityRing } from "./diagnostics/activity.js";
+import { DurableEventBroker } from "./ipc/durable-event-broker.js";
+import { registerMainIpc } from "./ipc/routing.js";
+import { ChildRpc } from "./processes/child-rpc.js";
+import { ProcessSupervisor, type ProcessHealth } from "./processes/process-supervisor.js";
 import {
   createAgentMessageHandler,
   createStorageMessageHandler,
-} from "./process-messages.js";
+} from "./processes/message-handlers.js";
 import {
   databaseStartupGuidance,
   runDesktopStartup,
-} from "./startup.js";
+} from "./processes/startup.js";
 import type {
   AgentRuntime,
   DesktopTransportEvent,
   ProcessHealthSnapshot,
-} from "../src/contracts/desktop-bridge.js";
+} from "../contracts/desktop-bridge.js";
 import {
   AgentChildMessageSchema,
   StorageChildMessageSchema,
   type AgentChildMessage,
   type StorageChildMessage,
-} from "../src/contracts/process-messages.js";
+} from "../contracts/process-messages.js";
 import {
   AGENT_PROTOCOL_NAME,
   PROTOCOL_VERSION,
@@ -44,14 +44,14 @@ import {
   type OperationArgs,
   type OperationName,
   type OperationRegistry,
-} from "../src/contracts/base.js";
-import { DesktopEventSchema } from "../src/contracts/events.js";
-import { AgentOperations } from "../src/contracts/operations/agent.js";
-import { StorageOperations } from "../src/contracts/operations/storage.js";
-import { DESKTOP_EVENT_CHANNEL } from "../src/contracts/operations/renderer.js";
+} from "../contracts/base.js";
+import { DesktopEventSchema } from "../contracts/events.js";
+import { AgentOperations } from "../contracts/operations/agent.js";
+import { StorageOperations } from "../contracts/operations/storage.js";
+import { DESKTOP_EVENT_CHANNEL } from "../contracts/operations/renderer.js";
 import {
   parseOrContractError,
-} from "../src/contracts/validation.js";
+} from "../contracts/validation.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const developmentServerUrl = process.env.VITE_DEV_SERVER_URL;

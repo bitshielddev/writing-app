@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import { createEmptySuggestionState } from "../../src/domain/suggestions/state.js";
 import { DOCUMENT_SCHEMA_VERSION } from "./config.js";
-import { COMPATIBILITY_REGISTRY, encodeVersionedJson } from "../compatibility.js";
+import { COMPATIBILITY_REGISTRY, encodeVersionedJson } from "../../src/contracts/compatibility.js";
 import { suggestionProjectionChecksum } from "./projection-checksum.js";
 
 export function bootstrapWorkspace(

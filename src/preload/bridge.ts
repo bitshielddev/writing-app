@@ -2,17 +2,17 @@ import {
   DESKTOP_EVENT_CHANNEL,
   DESKTOP_INVOKE_CHANNELS,
   RendererOperations,
-} from "../src/contracts/operations/renderer.js";
-import { DesktopEventSchema } from "../src/contracts/events.js";
+} from "../contracts/operations/renderer.js";
+import { DesktopEventSchema } from "../contracts/events.js";
 import type {
   OperationName,
   OperationParams,
   OperationResult,
-} from "../src/contracts/base.js";
+} from "../contracts/base.js";
 import {
   parseOrContractError,
-} from "../src/contracts/validation.js";
-import type { DesktopBridge } from "../src/contracts/desktop-bridge.js";
+} from "../contracts/validation.js";
+import type { DesktopBridge } from "../contracts/desktop-bridge.js";
 
 export type PreloadIpcRenderer = {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>;
