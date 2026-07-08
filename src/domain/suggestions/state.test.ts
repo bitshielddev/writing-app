@@ -16,7 +16,7 @@ import {
   isVisualSuggestion,
   type SuggestionItem,
   type TextSuggestion,
-} from "../domain/suggestions/schema";
+} from "./schema";
 
 function entry(index: number, viewed = false): PersistedInboxEntry {
   const item: TextSuggestion = {

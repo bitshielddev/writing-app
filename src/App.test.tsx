@@ -9,7 +9,7 @@ import {
   DesktopBridgeHarness,
 } from "./test/desktopBridgeHarness";
 import type { TextSuggestion } from "./domain/suggestions/schema";
-import { createEmptySuggestionState } from "./suggestions/state";
+import { createEmptySuggestionState } from "./domain/suggestions/state";
 
 const appHarness = vi.hoisted(() => {
   const state = {

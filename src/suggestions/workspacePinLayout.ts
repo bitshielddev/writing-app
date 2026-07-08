@@ -1,4 +1,4 @@
-import type { WorkspacePinRect } from "./state";
+import type { WorkspacePinRect } from "../domain/suggestions/state";
 import {
   SUGGESTION_CAPABILITIES,
   type SuggestionItem,

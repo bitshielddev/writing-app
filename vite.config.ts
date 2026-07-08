@@ -10,10 +10,9 @@ import { defineConfig } from "vitest/config";
 const nodeTestFiles = [
   "src/components/workspacePins/geometry.test.ts",
   "src/keybindings/sequenceMatcher.test.ts",
-  "src/shared/contracts.test.ts",
+  "src/contracts/*.test.ts",
   "src/suggestions/inbox.test.ts",
-  "src/domain/suggestions/schema.test.ts",
-  "src/suggestions/state.test.ts",
+  "src/domain/suggestions/*.test.ts",
 ];
 
 function cleanElectronOutput(): Plugin {

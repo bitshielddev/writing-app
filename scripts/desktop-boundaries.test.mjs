@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const desktopRoot = join(root, "desktop");
+const sourceRoot = join(root, "src");
 const forbiddenRuntimeImports = /^(electron|node:|@earendil-works\/pi-coding-agent)/;
 
 function sourceFiles(directory) {
@@ -29,6 +30,23 @@ export function prohibitedImports(layer, source) {
         specifier.includes("/storage/");
     }
     return specifier.includes("/infrastructure/") || specifier.includes("/storage/");
+  });
+}
+
+export function prohibitedRuntimeNeutralImports(owner, source) {
+  return importSpecifiers(source).filter((specifier) => {
+    if (forbiddenRuntimeImports.test(specifier)) return true;
+    const runtimePaths = ["/renderer/", "/main/", "/preload/", "/utility/", "/desktop/"];
+    if (runtimePaths.some((segment) => specifier.includes(segment))) return true;
+    if (owner === "domain") {
+      return specifier.includes("/contracts/") ||
+        specifier.includes("/application/") ||
+        specifier.includes("/infrastructure/") ||
+        specifier.includes("/storage/");
+    }
+    return specifier.includes("/application/") ||
+      specifier.includes("/infrastructure/") ||
+      specifier.includes("/storage/");
   });
 }
 
@@ -58,5 +76,36 @@ describe("desktop dependency direction", () => {
     expect(prohibitedImports("application", `
       import { PiSession } from "../infrastructure/agent/pi-agent-session.js";
     `)).toEqual(["../infrastructure/agent/pi-agent-session.js"]);
+  });
+
+  it.each(["domain", "contracts"])(
+    "src/%s modules do not import runtime implementations",
+    (owner) => {
+      const directory = join(sourceRoot, owner);
+      const violations = sourceFiles(directory).flatMap((file) =>
+        prohibitedRuntimeNeutralImports(owner, readFileSync(file, "utf8"))
+          .map((specifier) => `${relative(root, file)} -> ${specifier}`),
+      );
+      expect(violations).toEqual([]);
+    },
+  );
+
+  it("detects prohibited runtime-neutral dependency examples", () => {
+    expect(prohibitedRuntimeNeutralImports("domain", `
+      import { app } from "electron";
+      import { DesktopBridge } from "../../contracts/desktop-bridge.js";
+      import { RendererController } from "../../renderer/features/workspace/controller.js";
+    `)).toEqual([
+      "electron",
+      "../../contracts/desktop-bridge.js",
+      "../../renderer/features/workspace/controller.js",
+    ]);
+    expect(prohibitedRuntimeNeutralImports("contracts", `
+      import { readFile } from "node:fs/promises";
+      import { StorageService } from "../../utility/storage/service.js";
+    `)).toEqual([
+      "node:fs/promises",
+      "../../utility/storage/service.js",
+    ]);
   });
 });

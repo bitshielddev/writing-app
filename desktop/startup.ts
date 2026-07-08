@@ -1,11 +1,11 @@
 import {
   DEFAULT_EVENT_STREAM_ID,
-  AgentOperations,
   PROTOCOL_VERSION,
-  StorageOperations,
   type OperationCaller,
   type OperationRegistry,
-} from "../src/shared/contracts.js";
+} from "../src/contracts/base.js";
+import { AgentOperations } from "../src/contracts/operations/agent.js";
+import { StorageOperations } from "../src/contracts/operations/storage.js";
 import { ChildStartupError } from "./child-rpc.js";
 
 export type DesktopProcess<Registry extends OperationRegistry> = OperationCaller<Registry> & {

@@ -2,7 +2,7 @@ import { GripVertical, MoveDiagonal2, Undo2 } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import type { WorkspacePin } from "../../suggestions/inboxReducer";
-import type { WorkspacePinRect } from "../../suggestions/state";
+import type { WorkspacePinRect } from "../../domain/suggestions/state";
 import { isVisualSuggestion } from "../../domain/suggestions/schema";
 import { KindBadge, SuggestionVisual } from "../SuggestionPresentation";
 

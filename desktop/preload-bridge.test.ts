@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   DESKTOP_EVENT_CHANNEL,
   DESKTOP_INVOKE_CHANNELS,
-} from "../src/shared/contracts";
-import type { DesktopEvent } from "../src/shared/desktop";
+} from "../src/contracts/operations/renderer";
+import type { DesktopEvent } from "../src/contracts/desktop-bridge";
 import {
   createDocumentSnapshot,
   createSourceSnapshot,

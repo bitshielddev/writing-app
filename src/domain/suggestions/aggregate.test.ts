@@ -2,14 +2,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createEmptySuggestionState } from "../../src/suggestions/state";
-import type { TextSuggestion } from "../../src/domain/suggestions/schema.js";
+import { createEmptySuggestionState } from "./state";
+import type { TextSuggestion } from "./schema.js";
 import {
   applySuggestionFact,
   decideSuggestionCommand,
   type SuggestionProjectionView,
-} from "./suggestion-persistence";
-import { suggestionProjectionChecksum } from "../storage/projection-checksum";
+} from "./aggregate";
 
 const item: TextSuggestion = {
   id: "suggestion-1", dedupeKey: "dedupe-1", kind: "snippet", title: "Opening",
@@ -44,7 +43,6 @@ describe("command-driven suggestion persistence", () => {
 
     expect(projection).toMatchObject({ revision: 5, coveredThroughSequence: 5 });
     expect(projection.state.workspacePins[0]).toMatchObject({ x: 5, y: 6, width: 320, height: 210 });
-    expect(suggestionProjectionChecksum(projection.state, 5)).toHaveLength(64);
   });
 
   it("is idempotent for covered events and rejects sequence gaps", () => {

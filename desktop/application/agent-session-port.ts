@@ -1,4 +1,4 @@
-import type { AgentActivity } from "../../src/shared/desktop.js";
+import type { AgentActivity } from "../../src/contracts/desktop-bridge.js";
 
 export type AgentActivityInput = Omit<AgentActivity, "updatedAt">;
 

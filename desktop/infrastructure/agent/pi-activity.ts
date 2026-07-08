@@ -1,6 +1,6 @@
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
-import type { AgentActivity } from "../../../src/shared/desktop.js";
+import type { AgentActivity } from "../../../src/contracts/desktop-bridge.js";
 
 type ActivityInput = Omit<AgentActivity, "updatedAt">;
 type LifecycleEvent = Extract<

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WritingEditor } from "../editor/schema";
-import type { DesktopBridge, DesktopEvent, ProcessHealthSnapshot, WorkspaceCatalog, WorkspaceSnapshot } from "../shared/desktop";
+import type { DesktopBridge, DesktopEvent, ProcessHealthSnapshot, WorkspaceCatalog, WorkspaceSnapshot } from "../contracts/desktop-bridge";
 import { useSuggestionController } from "../suggestions/inbox";
 import { useSuggestionKeyboardNavigation } from "../suggestions/keyboardNavigation";
 import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";

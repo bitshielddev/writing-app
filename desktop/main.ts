@@ -30,24 +30,28 @@ import type {
   AgentRuntime,
   DesktopTransportEvent,
   ProcessHealthSnapshot,
-} from "../src/shared/desktop.js";
+} from "../src/contracts/desktop-bridge.js";
 import {
   AgentChildMessageSchema,
-  AgentOperations,
-  DESKTOP_EVENT_CHANNEL,
-  DesktopEventSchema,
-  PROTOCOL_VERSION,
   StorageChildMessageSchema,
-  StorageOperations,
-  AGENT_PROTOCOL_NAME,
-  STORAGE_PROTOCOL_NAME,
   type AgentChildMessage,
+  type StorageChildMessage,
+} from "../src/contracts/process-messages.js";
+import {
+  AGENT_PROTOCOL_NAME,
+  PROTOCOL_VERSION,
+  STORAGE_PROTOCOL_NAME,
   type OperationArgs,
   type OperationName,
   type OperationRegistry,
-  type StorageChildMessage,
+} from "../src/contracts/base.js";
+import { DesktopEventSchema } from "../src/contracts/events.js";
+import { AgentOperations } from "../src/contracts/operations/agent.js";
+import { StorageOperations } from "../src/contracts/operations/storage.js";
+import { DESKTOP_EVENT_CHANNEL } from "../src/contracts/operations/renderer.js";
+import {
   parseOrContractError,
-} from "../src/shared/contracts.js";
+} from "../src/contracts/validation.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const developmentServerUrl = process.env.VITE_DEV_SERVER_URL;

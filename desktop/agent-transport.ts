@@ -1,17 +1,21 @@
 import {
   AgentParentMessageSchema,
-  PROTOCOL_VERSION,
-  RemoteContractError,
-  StorageOperations,
   type AgentParentMessage,
   type AgentRpcRequest,
+  type StorageForwardRequest,
+  type StorageForwardResult,
+} from "../src/contracts/process-messages.js";
+import {
+  PROTOCOL_VERSION,
   type OperationArgs,
   type OperationName,
   type OperationResult,
-  type StorageForwardRequest,
-  type StorageForwardResult,
+} from "../src/contracts/base.js";
+import { StorageOperations } from "../src/contracts/operations/storage.js";
+import {
+  RemoteContractError,
   parseOrContractError,
-} from "../src/shared/contracts.js";
+} from "../src/contracts/validation.js";
 
 export class AgentStorageClient {
   private readonly pending = new Map<string, {

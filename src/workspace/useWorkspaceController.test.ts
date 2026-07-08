@@ -8,8 +8,8 @@ import type {
   DesktopEvent,
   DocumentSnapshot,
   WorkspaceSnapshot,
-} from "../shared/desktop";
-import { createEmptySuggestionState } from "../suggestions/state";
+} from "../contracts/desktop-bridge";
+import { createEmptySuggestionState } from "../domain/suggestions/state";
 import { useWorkspaceController } from "./useWorkspaceController";
 
 function documentSnapshot(revision: number, blocks: unknown[]): DocumentSnapshot {

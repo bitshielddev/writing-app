@@ -7,9 +7,9 @@ import {
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-import type { AgentStatus } from "../shared/desktop";
+import type { AgentStatus } from "../contracts/desktop-bridge";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
-import { SUGGESTION_ENTRY_LIMIT } from "../suggestions/state";
+import { SUGGESTION_ENTRY_LIMIT } from "../domain/suggestions/state";
 import { KindBadge } from "./SuggestionPresentation";
 
 type StatusPresentation = {

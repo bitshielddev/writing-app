@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { DurableEventEnvelope } from "../src/shared/desktop";
+import type { DurableEventEnvelope } from "../src/contracts/desktop-bridge";
 import { createDocumentSnapshot } from "../src/test/desktopBridgeHarness";
 import { DurableEventBroker } from "./durable-event-broker";
 

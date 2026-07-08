@@ -1,13 +1,15 @@
 import {
-  PROTOCOL_VERSION,
-  StorageOperations,
   StorageRpcRequestSchema,
   RpcCancelSchema,
   type StorageRpcRequest,
   type StorageRpcResult,
+} from "../src/contracts/process-messages.js";
+import { PROTOCOL_VERSION } from "../src/contracts/base.js";
+import { StorageOperations } from "../src/contracts/operations/storage.js";
+import {
   parseOrContractError,
   toContractError,
-} from "../src/shared/contracts.js";
+} from "../src/contracts/validation.js";
 
 export function createStorageTransport(
   handleRequest: (operation: string, params?: unknown) => unknown | Promise<unknown>,

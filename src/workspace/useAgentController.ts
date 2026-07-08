@@ -5,7 +5,7 @@ import type {
   AgentRuntime,
   DesktopBridge,
   DesktopEvent,
-} from "../shared/desktop";
+} from "../contracts/desktop-bridge";
 
 export const AGENT_ACTIVITY_LIMIT = 500;
 

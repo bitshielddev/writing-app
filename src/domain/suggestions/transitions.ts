@@ -1,5 +1,5 @@
 import { trimSuggestionEntries, type PersistedSuggestionState } from "./state";
-import type { SuggestionEvent } from "../domain/suggestions/schema";
+import type { SuggestionEvent } from "./schema";
 
 export type DurableSuggestionCommand =
   | { type: "markViewed"; suggestionId: string }

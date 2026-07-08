@@ -1,4 +1,4 @@
-import type { WorkspacePinRect } from "../../suggestions/state";
+import type { WorkspacePinRect } from "../../domain/suggestions/state";
 
 export type WorkspacePinBounds = { width: number; height: number };
 

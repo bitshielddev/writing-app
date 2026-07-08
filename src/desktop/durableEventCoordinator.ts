@@ -4,7 +4,7 @@ import type {
   DesktopTransportEvent,
   DurableEventEnvelope,
   WorkspaceSnapshot,
-} from "../shared/desktop";
+} from "../contracts/desktop-bridge";
 
 type CoordinatorOptions = {
   desktop: DesktopBridge;

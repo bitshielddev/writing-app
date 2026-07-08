@@ -2,20 +2,24 @@ import type { TSchema } from "typebox";
 
 import {
   AgentChildMessageSchema,
-  AgentOperations,
-  BUILD_IDENTIFIER,
   type ChildMessage,
+  StorageChildMessageSchema,
+} from "../src/contracts/process-messages.js";
+import {
+  BUILD_IDENTIFIER,
   type ContractError,
   type OperationArgs,
   type OperationName,
   type OperationRegistry,
   type OperationResult,
   PROTOCOL_VERSION,
+} from "../src/contracts/base.js";
+import {
   RemoteContractError,
-  StorageChildMessageSchema,
-  StorageOperations,
   parseOrContractError,
-} from "../src/shared/contracts.js";
+} from "../src/contracts/validation.js";
+import { AgentOperations } from "../src/contracts/operations/agent.js";
+import { StorageOperations } from "../src/contracts/operations/storage.js";
 
 type MessageListener = (message: unknown) => void;
 type ExitListener = (code: number | null) => void;

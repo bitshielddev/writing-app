@@ -11,7 +11,7 @@ import { KeybindingCommandStrip } from "./keybindings/KeybindingCommandStrip";
 import { KeybindingHelpBoundary } from "./keybindings/KeybindingHelpBoundary";
 import { useWorkspaceKeybindings } from "./keybindings/useWorkspaceKeybindings";
 import { markPerformance, PERFORMANCE_MARKS } from "./performance/marks";
-import type { DesktopBridge, ProcessHealthSnapshot } from "./shared/desktop";
+import type { DesktopBridge, ProcessHealthSnapshot } from "./contracts/desktop-bridge";
 import { useWorkspaceController } from "./workspace/useWorkspaceController";
 import {
   MIN_CONTEXT_WIDTH,

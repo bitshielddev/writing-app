@@ -1,9 +1,13 @@
 import {
-  StorageOperations as StorageOperationContracts,
   type OperationParams,
+} from "../../src/contracts/base.js";
+import {
+  StorageOperations as StorageOperationContracts,
   type StorageRpcMethod,
+} from "../../src/contracts/operations/storage.js";
+import {
   parseOrContractError,
-} from "../../src/shared/contracts.js";
+} from "../../src/contracts/validation.js";
 import type { StorageOperations } from "../application/storage-operations.js";
 
 type Operation = (params?: unknown) => unknown | Promise<unknown>;

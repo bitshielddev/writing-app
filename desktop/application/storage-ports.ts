@@ -3,10 +3,10 @@ import type {
   DurableEventPayload,
   DocumentSnapshot,
   SourceSnapshot,
-} from "../../src/shared/desktop.js";
-import type { OperationResult } from "../../src/shared/contracts.js";
-import { StorageOperations } from "../../src/shared/contracts.js";
-import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
+} from "../../src/contracts/desktop-bridge.js";
+import type { OperationResult } from "../../src/contracts/base.js";
+import { StorageOperations } from "../../src/contracts/operations/storage.js";
+import type { PersistedSuggestionState } from "../../src/domain/suggestions/state.js";
 
 export type ProjectSnapshot = { id: string; name: string; revision: number };
 export type DocumentSummary = { id: string; projectId: string; title: string; revision: number };
@@ -59,12 +59,12 @@ export interface SuggestionStore {
   ): SuggestionProjection;
   findReceipt(projectIdOrCommandId: string, documentId?: string, commandId?: string): SuggestionCommandResult | undefined;
   recordReceipt(projectId: string, documentIdOrResult: string | SuggestionCommandResult, result?: SuggestionCommandResult): void;
-  appendFacts(command: import("../domain/suggestion-persistence.js").SuggestionCommandEnvelope,
-    facts: import("../domain/suggestion-persistence.js").SuggestionFact[], eventIds: string[]): {
+  appendFacts(command: import("../../src/domain/suggestions/aggregate.js").SuggestionCommandEnvelope,
+    facts: import("../../src/domain/suggestions/aggregate.js").SuggestionFact[], eventIds: string[]): {
       projection: SuggestionProjection;
-      events: import("../domain/suggestion-persistence.js").SequencedSuggestionFact[];
+      events: import("../../src/domain/suggestions/aggregate.js").SequencedSuggestionFact[];
     };
-  recordCommandReceipt(command: import("../domain/suggestion-persistence.js").SuggestionCommandEnvelope,
+  recordCommandReceipt(command: import("../../src/domain/suggestions/aggregate.js").SuggestionCommandEnvelope,
     result: SuggestionCommandResult, firstSequence?: number, resultingSequence?: number,
     errorCode?: string): void;
   createCheckpoint(projectId: string, documentId: string, replayDurationMs?: number, force?: boolean): unknown;

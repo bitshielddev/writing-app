@@ -3,12 +3,12 @@ import type {
   ObservationSeed,
   SourceSnapshot,
   WorkspaceSnapshot,
-} from "../../src/shared/desktop.js";
+} from "../../src/contracts/desktop-bridge.js";
 import {
-  StorageOperations as StorageOperationContracts,
   type OperationParams,
-} from "../../src/shared/contracts.js";
-import type { DurableSuggestionCommand } from "../../src/suggestions/transitions.js";
+} from "../../src/contracts/base.js";
+import { StorageOperations as StorageOperationContracts } from "../../src/contracts/operations/storage.js";
+import type { DurableSuggestionCommand } from "../../src/domain/suggestions/transitions.js";
 import type {
   Clock, DocumentStore, EventDispatcher, EventOutbox, IdentityGenerator,
   ProjectStore, SelectionStore, SourceStore, SuggestionStore, TransactionManager,
@@ -21,7 +21,7 @@ import {
   type SuggestionActor,
   type SuggestionCommandEnvelope,
   type SuggestionIntent,
-} from "../domain/suggestion-persistence.js";
+} from "../../src/domain/suggestions/aggregate.js";
 
 type Params<Name extends keyof typeof StorageOperationContracts> = OperationParams<typeof StorageOperationContracts, Name>;
 type Scope = { projectId: string; documentId: string };

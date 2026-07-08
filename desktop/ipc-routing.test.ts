@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { DESKTOP_INVOKE_CHANNELS } from "../src/shared/contracts";
+import { DESKTOP_INVOKE_CHANNELS } from "../src/contracts/operations/renderer";
 import {
   createDocumentSnapshot,
   createSourceSnapshot,

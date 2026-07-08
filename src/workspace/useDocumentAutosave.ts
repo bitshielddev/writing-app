@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WritingEditor } from "../editor/schema";
-import type { DesktopBridge, DesktopEvent, DocumentSnapshot } from "../shared/desktop";
+import type { DesktopBridge, DesktopEvent, DocumentSnapshot } from "../contracts/desktop-bridge";
 
 export const DOCUMENT_AUTOSAVE_DELAY_MS = 650;
 

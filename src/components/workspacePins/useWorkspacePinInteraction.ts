@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 
-import type { WorkspacePinRect } from "../../suggestions/state";
+import type { WorkspacePinRect } from "../../domain/suggestions/state";
 import {
   clampWorkspacePinRect,
   type WorkspacePinBounds,

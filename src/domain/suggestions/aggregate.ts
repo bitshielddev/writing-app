@@ -1,10 +1,10 @@
-import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
-import type { SuggestionItem } from "../../src/domain/suggestions/schema.js";
+import type { PersistedSuggestionState } from "./state.js";
+import type { SuggestionItem } from "./schema.js";
 import {
   applySuggestionAgentEvent,
   applySuggestionCommand,
   type DurableSuggestionCommand,
-} from "../../src/suggestions/transitions.js";
+} from "./transitions.js";
 
 export const SUGGESTION_COMMAND_VERSION = 1 as const;
 export const SUGGESTION_EVENT_VERSION = 1 as const;

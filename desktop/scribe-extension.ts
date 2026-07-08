@@ -4,15 +4,17 @@ import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 import { ScribeLoopState, PersistedScribeLoopStateSchema } from "./domain/agent-loop.js";
-import { parseOrContractError } from "../src/shared/contracts.js";
+import { parseOrContractError } from "../src/contracts/validation.js";
 import { COMPATIBILITY_REGISTRY } from "./compatibility.js";
 import {
   StorageOperations,
-  type OperationArgs,
-  type OperationName,
-  type OperationResult,
-} from "../src/shared/contracts.js";
-import type { AgentActivity } from "../src/shared/desktop.js";
+} from "../src/contracts/operations/storage.js";
+import type {
+  OperationArgs,
+  OperationName,
+  OperationResult,
+} from "../src/contracts/base.js";
+import type { AgentActivity } from "../src/contracts/desktop-bridge.js";
 import type { SuggestionItem } from "../src/domain/suggestions/schema.js";
 import {
   SuggestionToolInputSchema,

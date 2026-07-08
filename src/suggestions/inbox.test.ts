@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEmptySuggestionState } from "./state";
+import { createEmptySuggestionState } from "../domain/suggestions/state";
 import {
   presentInboxEntry,
   selectSortedInboxEntries,

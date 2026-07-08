@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { DesktopBridge, DesktopEvent } from "../shared/desktop";
+import type { DesktopBridge, DesktopEvent } from "../contracts/desktop-bridge";
 import {
   presentInboxEntry,
   presentPinnedEntry,
@@ -10,8 +10,8 @@ import {
   type InboxEntry,
   type WorkspacePinRect,
 } from "./inboxReducer";
-import { createEmptySuggestionState, type PersistedSuggestionState } from "./state";
-import { applySuggestionCommand, type DurableSuggestionCommand } from "./transitions";
+import { createEmptySuggestionState, type PersistedSuggestionState } from "../domain/suggestions/state";
+import { applySuggestionCommand, type DurableSuggestionCommand } from "../domain/suggestions/transitions";
 
 export type SuggestionControllerStatus =
   | { state: "idle"; acknowledgedVersion: number }

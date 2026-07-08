@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { DurableEventEnvelope, DocumentSnapshot } from "../../src/shared/desktop";
-import { createEmptySuggestionState } from "../../src/suggestions/state";
+import type { DurableEventEnvelope, DocumentSnapshot } from "../../src/contracts/desktop-bridge";
+import { createEmptySuggestionState } from "../../src/domain/suggestions/state";
 import {
   StorageOperations,
   type StorageOperationDependencies,

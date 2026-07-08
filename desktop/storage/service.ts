@@ -1,4 +1,4 @@
-import type { DurableEventEnvelope } from "../../src/shared/desktop.js";
+import type { DurableEventEnvelope } from "../../src/contracts/desktop-bridge.js";
 import { randomUUID } from "node:crypto";
 import { StorageOperations } from "../application/storage-operations.js";
 import type { WorkspaceFiles } from "../application/storage-ports.js";

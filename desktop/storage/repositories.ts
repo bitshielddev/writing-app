@@ -7,8 +7,8 @@ import type {
   DurableEventPayload,
   DocumentSnapshot,
   SourceSnapshot,
-} from "../../src/shared/desktop.js";
-import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
+} from "../../src/contracts/desktop-bridge.js";
+import type { PersistedSuggestionState } from "../../src/domain/suggestions/state.js";
 import {
   COMPATIBILITY_REGISTRY,
   DurableCompatibilityError,
@@ -25,8 +25,10 @@ import {
   SuggestionCommandEnvelopeSchema,
   SuggestionFactSchema,
   SuggestionCommandResultSchema,
+} from "../../src/contracts/events.js";
+import {
   parseOrContractError,
-} from "../../src/shared/contracts.js";
+} from "../../src/contracts/validation.js";
 import type {
   DocumentStore,
   EventOutbox,
@@ -38,7 +40,7 @@ import type {
   SuggestionStore,
   SelectionStore,
 } from "../application/storage-ports.js";
-import { createEmptySuggestionState } from "../../src/suggestions/state.js";
+import { createEmptySuggestionState } from "../../src/domain/suggestions/state.js";
 import { DOCUMENT_SCHEMA_VERSION } from "./config.js";
 import {
   clampReplayLimit,
@@ -50,7 +52,7 @@ import {
   type SequencedSuggestionFact,
   type SuggestionCommandEnvelope,
   type SuggestionFact,
-} from "../domain/suggestion-persistence.js";
+} from "../../src/domain/suggestions/aggregate.js";
 import { suggestionProjectionChecksum } from "./projection-checksum.js";
 
 export type PendingEvent = DurableEventEnvelope;

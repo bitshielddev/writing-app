@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { createStorageService, type StorageService } from "./storage/service";
-import type { SourceSnapshot, WorkspaceSnapshot } from "../src/shared/desktop";
+import type { SourceSnapshot, WorkspaceSnapshot } from "../src/contracts/desktop-bridge";
 import type { TextSuggestion } from "../src/domain/suggestions/schema.js";
 
 describe("desktop storage service", () => {

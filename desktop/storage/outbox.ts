@@ -1,4 +1,4 @@
-import type { DurableEventEnvelope } from "../../src/shared/desktop.js";
+import type { DurableEventEnvelope } from "../../src/contracts/desktop-bridge.js";
 import type { EventDispatcher, EventOutbox } from "../application/storage-ports.js";
 
 export interface EventPublisher {

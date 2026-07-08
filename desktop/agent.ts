@@ -24,22 +24,26 @@ import { classifyEventSequence } from "./domain/event-sequence.js";
 import type { AgentSessionPort } from "./application/agent-session-port.js";
 import { PiAgentSessionAdapter } from "./infrastructure/agent/pi-agent-session.js";
 import { safeActivityPayload } from "./activity.js";
-import type { AgentActivity, AgentRuntime } from "../src/shared/desktop.js";
+import type { AgentActivity, AgentRuntime } from "../src/contracts/desktop-bridge.js";
 import {
   PROTOCOL_VERSION,
   BUILD_IDENTIFIER,
   AGENT_PROTOCOL_NAME,
-  AGENT_RPC_METHODS,
-  AgentActivityMessageSchema,
-  AgentRuntimeMessageSchema,
-  StorageOperations,
-  type AgentRpcRequest,
   type OperationName,
   type OperationArgs,
   type OperationResult,
+} from "../src/contracts/base.js";
+import { AGENT_RPC_METHODS } from "../src/contracts/operations/agent.js";
+import { StorageOperations } from "../src/contracts/operations/storage.js";
+import {
+  AgentActivityMessageSchema,
+  AgentRuntimeMessageSchema,
+  type AgentRpcRequest,
+} from "../src/contracts/process-messages.js";
+import {
   toContractError,
   parseOrContractError,
-} from "../src/shared/contracts.js";
+} from "../src/contracts/validation.js";
 import {
   AgentStorageClient,
   createAgentParentTransport,

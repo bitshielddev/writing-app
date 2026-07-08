@@ -1,4 +1,4 @@
-import type { AgentActivity } from "../src/shared/desktop.js";
+import type { AgentActivity } from "../src/contracts/desktop-bridge.js";
 
 const MAX_ITEMS = 500;
 const MAX_PAYLOAD_BYTES = 50 * 1024;

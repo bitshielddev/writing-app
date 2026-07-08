@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { WritingEditor, WritingPartialBlock } from "../editor/schema";
 import { DurableEventCoordinator } from "../desktop/durableEventCoordinator";
 import { markPerformance, PERFORMANCE_MARKS } from "../performance/marks";
-import type { DesktopBridge, DesktopEvent, WorkspaceSnapshot } from "../shared/desktop";
+import type { DesktopBridge, DesktopEvent, WorkspaceSnapshot } from "../contracts/desktop-bridge";
 
 export type WorkspacePhase = "loading" | "ready" | "failed";
 

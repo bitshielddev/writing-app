@@ -5,11 +5,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import type { WorkspaceSnapshot } from "../../src/shared/desktop";
+import type { WorkspaceSnapshot } from "../../src/contracts/desktop-bridge";
 import type { TextSuggestion } from "../../src/domain/suggestions/schema.js";
 import { createStorageService, type StorageService } from "./service";
 import { SuggestionRepository } from "./repositories";
-import { decideSuggestionCommand } from "../domain/suggestion-persistence";
+import { decideSuggestionCommand } from "../../src/domain/suggestions/aggregate";
 
 const item: TextSuggestion = {
   id: "durable-item", dedupeKey: "durable-item", kind: "snippet", title: "Opening",

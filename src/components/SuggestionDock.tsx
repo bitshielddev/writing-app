@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useRef } from "react";
 
-import type { AgentActivity, AgentRuntime } from "../shared/desktop";
+import type { AgentActivity, AgentRuntime } from "../contracts/desktop-bridge";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type { SuggestionItem } from "../domain/suggestions/schema";
 import type { SuggestionControllerStatus } from "../suggestions/useSuggestionController";

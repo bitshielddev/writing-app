@@ -6,8 +6,8 @@ import type {
   DocumentSnapshot,
   SourceSnapshot,
   WorkspaceSnapshot,
-} from "../shared/desktop";
-import { createEmptySuggestionState } from "../suggestions/state";
+} from "../contracts/desktop-bridge";
+import { createEmptySuggestionState } from "../domain/suggestions/state";
 
 export type Deferred<T> = {
   promise: Promise<T>;

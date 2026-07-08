@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 
-import { createEmptySuggestionState } from "../../src/suggestions/state.js";
+import { createEmptySuggestionState } from "../../src/domain/suggestions/state.js";
 import { DOCUMENT_SCHEMA_VERSION } from "./config.js";
 import { COMPATIBILITY_REGISTRY, encodeVersionedJson } from "../compatibility.js";
 import { suggestionProjectionChecksum } from "./projection-checksum.js";

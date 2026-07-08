@@ -14,10 +14,9 @@
   },
   "include": [
     "desktop/**/*.ts",
-    "src/shared/**/*.ts",
+    "src/contracts/**/*.ts",
     "src/domain/**/*.ts",
-    "src/suggestions/state.ts",
-    "src/suggestions/validation.ts"
+    "src/domain/**/*.tsx"
   ],
   "exclude": ["desktop/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
 }

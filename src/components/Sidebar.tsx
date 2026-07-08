@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { Ref } from "react";
 
-import type { SourceSnapshot, WorkspaceCatalog } from "../shared/desktop";
+import type { SourceSnapshot, WorkspaceCatalog } from "../contracts/desktop-bridge";
 
 type NavigationItem = {
   icon: LucideIcon;

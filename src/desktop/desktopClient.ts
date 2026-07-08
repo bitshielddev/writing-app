@@ -1,4 +1,4 @@
-import type { DesktopBridge } from "../shared/desktop";
+import type { DesktopBridge } from "../contracts/desktop-bridge";
 
 export function getDesktopBridge(): DesktopBridge {
   const bridge = window.scribe;

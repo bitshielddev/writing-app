@@ -5,10 +5,14 @@ import {
   BUILD_IDENTIFIER,
   PROTOCOL_VERSION,
   STORAGE_PROTOCOL_NAME,
-  STORAGE_RPC_METHODS,
+} from "../src/contracts/base.js";
+import { STORAGE_RPC_METHODS } from "../src/contracts/operations/storage.js";
+import {
   ShutdownSchema,
+} from "../src/contracts/process-messages.js";
+import {
   parseOrContractError,
-} from "../src/shared/contracts.js";
+} from "../src/contracts/validation.js";
 
 export async function startStorageProcess(
   databasePath: string | undefined,

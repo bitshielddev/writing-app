@@ -8,7 +8,8 @@ import {
   type DesktopProcess,
 } from "./startup";
 import { ChildStartupError } from "./child-rpc";
-import { AgentOperations, StorageOperations } from "../src/shared/contracts";
+import { AgentOperations } from "../src/contracts/operations/agent";
+import { StorageOperations } from "../src/contracts/operations/storage";
 
 function processHarness(ready: Promise<void>, calls: string[], name: string) {
   return {

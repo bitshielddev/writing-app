@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { DesktopBridge, DesktopEvent, SourceSnapshot } from "../shared/desktop";
+import type { DesktopBridge, DesktopEvent, SourceSnapshot } from "../contracts/desktop-bridge";
 
 function reconcile(sources: SourceSnapshot[], source: SourceSnapshot) {
   return [source, ...sources.filter((candidate) => candidate.id !== source.id)];

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceSnapshot } from "../../src/shared/desktop";
+import type { WorkspaceSnapshot } from "../../src/contracts/desktop-bridge";
 import { createStorageService, type StorageService } from "./service";
 import {
   DocumentRepository,

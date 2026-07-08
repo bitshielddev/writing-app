@@ -3,21 +3,31 @@ import { Check } from "typebox/schema";
 
 import {
   AGENT_PARENT_MESSAGE_KINDS,
-  AGENT_RPC_METHODS,
   CHILD_MESSAGE_KINDS,
-  DESKTOP_EVENT_TYPES,
-  DESKTOP_INVOKE_CHANNELS,
-  STORAGE_RPC_METHODS,
-  AgentOperations,
-  DesktopEventSchema,
-  RendererOperations,
-  StorageOperations,
   StorageRpcRequestSchema,
+} from "./process-messages";
+import {
+  DESKTOP_EVENT_TYPES,
+  DesktopEventSchema,
+} from "./events";
+import {
+  AGENT_RPC_METHODS,
+  AgentOperations,
+} from "./operations/agent";
+import {
+  DESKTOP_INVOKE_CHANNELS,
+  RendererOperations,
+} from "./operations/renderer";
+import {
+  STORAGE_RPC_METHODS,
+  StorageOperations,
+} from "./operations/storage";
+import {
   parseOrContractError,
   toContractError,
-} from "./contracts";
+} from "./validation";
 import { createDocumentSnapshot, createSourceSnapshot, createWorkspaceSnapshot } from "../test/desktopBridgeHarness";
-import { createEmptySuggestionState } from "../suggestions/state";
+import { createEmptySuggestionState } from "../domain/suggestions/state";
 
 const suggestion = {
   id: "suggestion",

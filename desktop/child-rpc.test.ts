@@ -4,12 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import { ChildRpc, ChildStartupError, OperationTimeoutError, type UtilityProcessAdapter } from "./child-rpc";
 import {
   AGENT_PROTOCOL_NAME,
-  AgentChildMessageSchema,
-  AgentOperations,
   BUILD_IDENTIFIER,
   PROTOCOL_VERSION,
+} from "../src/contracts/base";
+import {
+  AgentChildMessageSchema,
   type AgentChildMessage,
-} from "../src/shared/contracts";
+} from "../src/contracts/process-messages";
+import { AgentOperations } from "../src/contracts/operations/agent";
 
 const ready = (overrides: Record<string, unknown> = {}) => ({
   kind: "ready",

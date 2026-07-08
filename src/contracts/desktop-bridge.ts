@@ -1,5 +1,6 @@
 import type { Static } from "typebox";
 
+import type { OperationParams, OperationResult } from "./base";
 import type {
   AgentActivityInputSchema,
   AgentActivityKindSchema,
@@ -7,20 +8,18 @@ import type {
   AgentRuntimeSchema,
   AgentStatusSchema,
   DesktopEventSchema,
+  DocumentSnapshotSchema,
   DurableEventEnvelopeSchema,
   DurableEventPayloadSchema,
   EphemeralDesktopEventSchema,
-  DocumentSnapshotSchema,
   ObservationSeedSchema,
   ProcessHealthSchema,
   ProcessHealthSnapshotSchema,
-  OperationParams,
-  OperationResult,
-  RendererOperations,
   SourceSnapshotSchema,
   WorkspaceCatalogSchema,
   WorkspaceSnapshotSchema,
-} from "./contracts";
+} from "./events";
+import type { RendererOperations } from "./operations/renderer";
 
 export type AgentStatus = Static<typeof AgentStatusSchema>;
 export type AgentRuntime = Static<typeof AgentRuntimeSchema>;
@@ -40,7 +39,7 @@ export type EphemeralDesktopEvent = Static<typeof EphemeralDesktopEventSchema>;
 export type ObservationSeed = Static<typeof ObservationSeedSchema>;
 export type ProcessHealth = Static<typeof ProcessHealthSchema>;
 export type ProcessHealthSnapshot = Static<typeof ProcessHealthSnapshotSchema>;
-export type { PersistedSuggestionState } from "../suggestions/state";
+export type { PersistedSuggestionState } from "../domain/suggestions/state";
 
 export type DesktopBridge = {
   subscribeEvents?(): Promise<OperationResult<typeof RendererOperations, "events.subscribe">>;

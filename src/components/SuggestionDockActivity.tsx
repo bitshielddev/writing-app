@@ -1,4 +1,4 @@
-import type { AgentActivity, AgentRuntime } from "../shared/desktop";
+import type { AgentActivity, AgentRuntime } from "../contracts/desktop-bridge";
 
 type SuggestionDockActivityProps = {
   items: AgentActivity[];

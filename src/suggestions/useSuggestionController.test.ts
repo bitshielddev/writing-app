@@ -1,9 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { DesktopBridge } from "../shared/desktop";
+import type { DesktopBridge } from "../contracts/desktop-bridge";
 import { deferred } from "../test/desktopBridgeHarness";
-import { createEmptySuggestionState, type PersistedSuggestionState } from "./state";
+import { createEmptySuggestionState, type PersistedSuggestionState } from "../domain/suggestions/state";
 import { useSuggestionController } from "./useSuggestionController";
 import type { TextSuggestion } from "../domain/suggestions/schema";
 

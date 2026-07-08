@@ -1,26 +1,19 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
-const targetModules = [
-  "suggestions/inbox.ts",
-  "suggestions/inboxReducer.ts",
-  "suggestions/useSuggestionController.ts",
-  "workspace/useWorkspaceController.ts",
-  "workspace/useAgentController.ts",
-  "workspace/useDocumentAutosave.ts",
-  "workspace/usePreviewController.ts",
-  "workspace/useSourceController.ts",
-  "workspace/useWorkspaceHydration.ts",
-  "components/WorkspacePins.tsx",
-  "components/workspacePins/WorkspacePins.tsx",
-  "components/workspacePins/WorkspacePinCard.tsx",
-  "components/workspacePins/geometry.ts",
-  "components/workspacePins/useWorkspacePinBounds.ts",
-  "components/workspacePins/useWorkspacePinInteraction.ts",
-];
+function discoverModules(directory = sourceRoot) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return discoverModules(path);
+    if (!/\.(?:ts|tsx)$/.test(entry.name) || /\.test\.(?:ts|tsx)$/.test(entry.name)) return [];
+    return [relative(sourceRoot, path).replaceAll("\\", "/")];
+  });
+}
+
+const targetModules = discoverModules();
 
 function resolveImport(importer, specifier) {
   if (!specifier.startsWith(".")) return undefined;
@@ -74,8 +67,10 @@ function findCycle() {
   return undefined;
 }
 
-describe("extracted module boundaries", () => {
-  it("contain no import cycles", () => {
+describe("source module boundaries", () => {
+  it("discovers the src tree and contains no import cycles", () => {
+    expect(targetModules).toContain("contracts/process-messages.ts");
+    expect(targetModules).toContain("domain/suggestions/aggregate.ts");
     expect(findCycle()).toBeUndefined();
   });
 });

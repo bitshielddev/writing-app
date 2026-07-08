@@ -3,7 +3,7 @@ import type {
   PersistedPinnedEntry,
   PersistedSuggestionState,
   PersistedWorkspacePin,
-} from "./state";
+} from "../domain/suggestions/state";
 
 export type InboxEntry = PersistedInboxEntry & {
   stale: boolean;
@@ -14,7 +14,7 @@ export type PinnedInboxEntry = PersistedPinnedEntry & {
   withdrawn: boolean;
 };
 export type WorkspacePin = PersistedWorkspacePin;
-export type { WorkspacePinRect } from "./state";
+export type { WorkspacePinRect } from "../domain/suggestions/state";
 
 export function presentInboxEntry(
   entry: PersistedInboxEntry,
