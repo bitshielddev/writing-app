@@ -7,14 +7,14 @@ This directory describes the application as it works now. It is intended to get 
 ScribeAI is an Electron writing workspace with a React renderer. The current implementation combines:
 
 - a BlockNote rich-text editor;
-- persistent live and development-injected writing-partner feeds;
+- persistent writing-partner suggestions produced by the Pi agent;
 - an inbox for reading, dismissing, pinning, and previewing suggestions;
 - desktop workspace cards for keeping references over the editor;
 - responsive navigation and writing-partner panels;
 - SQLite document, Markdown mirror, source, and suggestion persistence;
 - a durable Pi coding-agent session with writer-controlled autonomous work and launch-scoped activity diagnostics.
 
-Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources, and restores the workspace and Pi session after restart. Development uses the same runtime with Vite renderer HMR and a dedicated mock-suggestion window.
+Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources, and restores the workspace and Pi session after restart. Development uses the same runtime with Vite renderer HMR and DevTools.
 
 ## Fastest route into the codebase
 
@@ -32,7 +32,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 | Area | Current behavior |
 | --- | --- |
 | Editor | Electron hydrates and autosaves the current BlockNote document. |
-| Writing partner | The agent starts stopped on every app launch. A persistent control starts or immediately stops autonomous work. Electron receives committed suggestions from the Pi agent or its development-only mock controller. |
+| Writing partner | The agent starts stopped on every app launch. A persistent control starts or immediately stops autonomous work. Electron receives committed suggestions from the Pi agent. |
 | Text suggestions | Snippets, facts, and terms can become an editable document preview, then be accepted or cancelled. |
 | Structural suggestions | Outlines and layouts render nested cards; mind maps render through Mermaid. They are references, not insertable previews. |
 | Pins | A suggestion can be frozen into the Pins section. On desktop it can then be placed, moved, resized, stacked, and returned. |
@@ -52,8 +52,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 │   ├── main.tsx                  React renderer entry point
 │   ├── index.css                 Tailwind theme, layout rules, and editor overrides
 │   ├── components/               UI components and component tests
-│   ├── dev/mockSuggestions/      Electron-only development controller and payload builder
-│   ├── desktop/                  Renderer-side desktop feed adapter
+│   ├── desktop/                  Renderer-side desktop bridge access
 │   ├── editor/                   BlockNote schema and preview events
 │   ├── suggestions/              Suggestion contracts, inbox state, and workspace layout
 │   ├── shared/                   Cross-process desktop contracts
@@ -67,15 +66,15 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 
 ## Terms used in the code
 
-- **Suggestion feed**: the subscription interface that emits committed suggestion events.
-- **Inbox entry**: a live suggestion tracked by the reducer, including viewed, stale, and withdrawn flags.
+- **Suggestion projection**: the durable, rebuildable inbox/pin/workspace state committed by storage.
+- **Inbox entry**: a live suggestion; stale and withdrawn flags are renderer-only presentation state.
 - **Pinned entry**: a deep-copied, stable suggestion snapshot removed from the live inbox queue.
 - **Workspace pin**: a pinned suggestion moved onto the desktop editor canvas with geometry and stacking state.
 - **Preview**: a temporary, editable custom BlockNote block created from a text suggestion. Only one preview may be active.
 
 ## Important implementation constraints
 
-- [`App.tsx`](../src/App.tsx) is the renderer layout composition root. [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts) connects the Electron bridge, hydration, autosave, feed, previews, agent runtime, and inbox.
-- [`inboxReducer`](../src/suggestions/inbox.ts) is the source of truth for suggestion lifecycle rules. UI components dispatch intent; they should not recreate those rules locally.
-- [`SuggestionFeed`](../src/suggestions/types.ts) is the event-stream boundary. The Electron adapter maps committed desktop events into renderer events.
+- [`App.tsx`](../src/App.tsx) is the renderer layout composition root. [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts) connects the Electron bridge, hydration, autosave, previews, agent runtime, and suggestion controller.
+- [`transitions.ts`](../src/suggestions/transitions.ts) is the source of truth for durable suggestion lifecycle rules in both renderer and storage.
+- [`useSuggestionController`](../src/suggestions/useSuggestionController.ts) owns command serialization, authoritative event reconciliation, selection, and preview presentation state.
 - The app assumes a browser DOM. `window`, `document`, `localStorage`, media queries, `ResizeObserver`, and pointer capture are used directly.

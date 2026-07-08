@@ -7,7 +7,7 @@ const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
 const targetModules = [
   "suggestions/inbox.ts",
   "suggestions/inboxReducer.ts",
-  "suggestions/useSuggestionInbox.ts",
+  "suggestions/useSuggestionController.ts",
   "workspace/useWorkspaceController.ts",
   "workspace/useAgentController.ts",
   "workspace/useDocumentAutosave.ts",

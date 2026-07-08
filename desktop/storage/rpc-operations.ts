@@ -43,7 +43,6 @@ export function createStorageRequestHandler(operations: StorageOperations) {
     "agent.suggestion.create": (params) => operations.createSuggestion(paramsFor<"agent.suggestion.create">(params)),
     "agent.suggestion.update": (params) => operations.updateSuggestion(paramsFor<"agent.suggestion.update">(params)),
     "agent.suggestion.retract": (params) => operations.retractSuggestion(paramsFor<"agent.suggestion.retract">(params)),
-    "development.suggestion.create": (params) => operations.createDevelopmentSuggestion(paramsFor<"development.suggestion.create">(params)),
   } satisfies Record<StorageRpcMethod, Operation>;
 
   return async (method: string, params?: unknown) => {
@@ -55,7 +54,7 @@ export function createStorageRequestHandler(operations: StorageOperations) {
       "hydrate", "events.replay", "events.acknowledge", "workspace.repair",
       "document.save", "suggestions.command", "source.import", "agent.seed",
       "agent.suggestions.list", "agent.suggestion.create", "agent.suggestion.update",
-      "agent.suggestion.retract", "development.suggestion.create",
+      "agent.suggestion.retract",
     ]);
     if (scopedOperations.has(name)) {
       params = { ...operations.catalog().selection,

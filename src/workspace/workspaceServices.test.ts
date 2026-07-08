@@ -14,7 +14,8 @@ import { useSourceController } from "./useSourceController";
 describe("source and agent services", () => {
   it("reconciles source imports by identity and reports import failures", async () => {
     const harness = new DesktopBridgeHarness();
-    const { result } = renderHook(() => useSourceController(harness.bridge));
+    const scope = { projectId: "project-1", documentId: "document-1" };
+    const { result } = renderHook(() => useSourceController(harness.bridge, scope));
     const first = createSourceSnapshot();
     act(() => result.current.initialize([first]));
     act(() => void result.current.importSource());
@@ -38,7 +39,8 @@ describe("source and agent services", () => {
   it("controls runtime, handles failure, upserts activity, and caps history", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const harness = new DesktopBridgeHarness();
-    const { result } = renderHook(() => useAgentController(harness.bridge));
+    const scope = { projectId: "project-1", documentId: "document-1" };
+    const { result } = renderHook(() => useAgentController(harness.bridge, scope));
     act(() => result.current.initialize({ status: "stopped", cycleCount: 0 }, []));
     act(() => result.current.start());
     await act(async () => harness.startAgent.resolve(0, { status: "working", cycleCount: 1 }));

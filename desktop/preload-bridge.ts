@@ -1,7 +1,6 @@
 import {
   DESKTOP_EVENT_CHANNEL,
   DESKTOP_INVOKE_CHANNELS,
-  DEVELOPMENT_SUGGESTION_CHANNEL,
   DesktopEventSchema,
   RendererOperations,
   type OperationName,
@@ -9,10 +8,7 @@ import {
   type OperationResult,
   parseOrContractError,
 } from "../src/shared/contracts.js";
-import type {
-  DesktopBridge,
-  DesktopDevelopmentBridge,
-} from "../src/shared/desktop.js";
+import type { DesktopBridge } from "../src/shared/desktop.js";
 
 export type PreloadIpcRenderer = {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>;
@@ -84,37 +80,16 @@ export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBri
   };
 }
 
-export function createDesktopDevelopmentBridge(
-  ipcRenderer: PreloadIpcRenderer,
-): DesktopDevelopmentBridge {
-  return {
-    createSuggestion: (item) => invoke(
-      ipcRenderer,
-      "development.suggestion.create",
-      DEVELOPMENT_SUGGESTION_CHANNEL,
-      item,
-    ),
-  };
-}
-
 export function exposePreloadBridges({
   contextBridge,
   ipcRenderer,
-  development,
   testing = false,
 }: {
   contextBridge: PreloadContextBridge;
   ipcRenderer: PreloadIpcRenderer;
-  development: boolean;
   testing?: boolean;
 }) {
   contextBridge.exposeInMainWorld("scribe", createDesktopBridge(ipcRenderer));
-  if (development) {
-    contextBridge.exposeInMainWorld(
-      "scribeDevelopment",
-      createDesktopDevelopmentBridge(ipcRenderer),
-    );
-  }
   if (testing) {
     contextBridge.exposeInMainWorld("scribeTest", {
       readiness: () => ipcRenderer.invoke("scribe:test:control", "readiness"),

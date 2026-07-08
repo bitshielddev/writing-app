@@ -9,7 +9,6 @@ import { defineConfig } from "vitest/config";
 
 const nodeTestFiles = [
   "src/components/workspacePins/geometry.test.ts",
-  "src/dev/mockSuggestions/mockSuggestionDraft.test.ts",
   "src/keybindings/sequenceMatcher.test.ts",
   "src/shared/contracts.test.ts",
   "src/suggestions/inbox.test.ts",

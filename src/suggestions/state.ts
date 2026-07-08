@@ -8,8 +8,6 @@ export const SUGGESTION_ENTRY_LIMIT = 30;
 export type PersistedInboxEntry = {
   item: SuggestionItem;
   viewed: boolean;
-  stale: boolean;
-  withdrawn: boolean;
 };
 
 export type PersistedPinnedEntry = PersistedInboxEntry & {

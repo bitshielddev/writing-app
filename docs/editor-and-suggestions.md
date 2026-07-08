@@ -1,6 +1,6 @@
 # Editor and suggestion system
 
-This is the core interaction model: the Electron feed emits committed events, the inbox reducer turns those events and user actions into state, and text suggestions can temporarily enter the document as editable previews.
+This is the core interaction model: Electron emits committed projection events, the suggestion controller reconciles them with optimistic writer commands, and text suggestions can temporarily enter the document as editable previews.
 
 ## Domain model
 
@@ -27,45 +27,36 @@ Every suggestion also carries:
 
 An update uses `id` to replace an existing live item. An addition uses `dedupeKey` to decide whether the session has already seen equivalent content. These fields are related but not interchangeable.
 
-## Feed contract
+## Desktop event contract
 
-`SuggestionFeed` is subscription-only:
-
-```ts
-interface SuggestionFeed {
-  subscribe(listener: (event: SuggestionEvent) => void): () => void;
-}
-```
-
-The event channel supports:
+Committed `suggestion.event` payloads carry the event metadata, command ID, projection revision, and complete authoritative projection. Event metadata supports:
 
 | Event | Meaning |
 | --- | --- |
 | `suggestion.added` | Introduce a suggestion if its `dedupeKey` has not been seen. |
 | `suggestion.updated` | Replace a live suggestion with the same `id`. |
-| `suggestion.retracted` | Remove a live suggestion, unless user state protects it. |
+| `suggestion.retracted` | Remove a live suggestion from the durable projection. |
 
-The renderer uses one desktop subscription in `useWorkspaceController` and forwards committed suggestion events through [`createSuggestionFeedRelay`](../src/desktop/desktopClient.ts) to the inbox. Agent status and errors are handled separately through the canonical `AgentRuntime`. Suggestions are written to the desktop database before an event is forwarded, so reload hydrates the same inbox projection.
-
-During Vite development, a separate Electron controller window supports all six suggestion kinds. It generates identity, dedupe, and timestamp fields, validates recursive structure-node JSON, and invokes a development-only preload bridge. Main validates the payload again and asks storage to commit it through the same suggestion path used by the Pi agent.
+The renderer uses one desktop subscription in `useWorkspaceController` and forwards committed suggestion events to [`useSuggestionController`](../src/suggestions/useSuggestionController.ts). The controller compares revisions and command IDs so either the durable event or the command response can acknowledge a writer action first. Suggestions are written before an event is forwarded, so reload hydrates the same projection.
 
 ## Inbox state machine
 
-[`inboxReducer`](../src/suggestions/inbox.ts) owns:
+[`useSuggestionController`](../src/suggestions/useSuggestionController.ts) owns:
 
 ```text
 entries             live inbox suggestions
 pinnedEntries       frozen references in the Pins section
 workspacePins       frozen references placed over the editor
 seenKeys            dedupe keys accepted during this page session
-selectedId          item shown in detail view
-activePreviewId     the one suggestion currently previewed in BlockNote
+selected detail     renderer-only item shown in detail view
+active preview      renderer-only preview snapshot and stale/withdrawn status
 nextZIndex          monotonic stacking counter for workspace cards
+active/pending commands serialized optimistic writer operations
 ```
 
 Persisted entry/pin types, empty-state defaults, the 30-entry limit, and eviction order live in [`state.ts`](../src/suggestions/state.ts) and are shared with desktop storage.
 
-### Feed-event behavior
+### Event behavior
 
 | Situation | Reducer behavior |
 | --- | --- |
@@ -75,7 +66,7 @@ Persisted entry/pin types, empty-state defaults, the 30-entry limit, and evictio
 | Update the active preview's live item | Replace the inbox item and mark it stale; the editor preview is untouched. |
 | Update a pinned or workspace item | No change to that frozen copy. |
 | Retract a normal live item | Remove it. |
-| Retract a selected or previewed live item | Keep it and mark it withdrawn and stale. |
+| Retract a selected or previewed live item | Remove it durably, but keep a transient snapshot marked withdrawn and stale. |
 | Retract a pinned or workspace item | Ignore the retraction. |
 | Agent status | Set status and clear error. |
 | Agent error | Store the error and return status to idle. |
@@ -84,9 +75,9 @@ Persisted entry/pin types, empty-state defaults, the 30-entry limit, and evictio
 
 The live queue is limited to 30. Pins and workspace cards do not count. If eviction is necessary:
 
-1. the selected item and active preview are protected;
-2. viewed items are evicted before unread items;
-3. within that group, the oldest `createdAt` value is evicted first.
+1. viewed items are evicted before unread items;
+2. within that group, the oldest `createdAt` value is evicted first;
+3. a selected or previewed item evicted from the projection remains available through its transient renderer snapshot.
 
 The UI sorts the remaining live entries differently for display: unread first, then newest first. Pinned entries display most recently pinned first.
 
@@ -101,18 +92,18 @@ The UI sorts the remaining live entries differently for display: unread first, t
 - Return to Pins removes the workspace card and creates a viewed pinned entry.
 - Raising a card assigns a new monotonic z-index only if it is not already highest.
 
-The deep copy currently uses JSON serialization. Suggestion data must therefore remain JSON-safe unless `copySuggestion` is replaced with a different immutable-copy strategy.
+Pinned suggestions are cloned through `structuredClone`. Suggestion data is also process-validated JSON and must remain serializable.
 
 ## Editable preview lifecycle
 
-Only `snippet`, `fact`, and `term` suggestions expose “Preview in document.” The orchestration is split between `App`, the custom BlockNote block, and the inbox reducer.
+Only `snippet`, `fact`, and `term` suggestions expose “Preview in document.” The orchestration is split between `App`, the custom BlockNote block, and the suggestion controller.
 
 ```mermaid
 sequenceDiagram
     participant User
     participant Dock as SuggestionDock
     participant App
-    participant Inbox as inboxReducer
+    participant Inbox as useSuggestionController
     participant Editor as BlockNote preview block
     participant Bridge as previewEvents
 

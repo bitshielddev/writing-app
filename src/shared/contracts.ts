@@ -64,8 +64,6 @@ const PersistedInboxEntrySchema = Type.Object(
   {
     item: SuggestionItemSchema,
     viewed: Type.Boolean(),
-    stale: Type.Boolean(),
-    withdrawn: Type.Boolean(),
   },
   strict,
 );
@@ -73,8 +71,6 @@ const PersistedPinnedEntrySchema = Type.Object(
   {
     item: SuggestionItemSchema,
     viewed: Type.Boolean(),
-    stale: Type.Boolean(),
-    withdrawn: Type.Boolean(),
     pinnedAt: timestamp,
   },
   strict,
@@ -114,7 +110,7 @@ export const SuggestionCommandSchema = Type.Union([
   Type.Object({ type: Type.Literal("preview.resolve"), suggestionId: identifier, outcome: Type.Union([Type.Literal("accepted"), Type.Literal("cancelled")]) }, strict),
 ]);
 export const SuggestionActorSchema = Type.Object({
-  type: Type.Union([Type.Literal("writer"), Type.Literal("agent"), Type.Literal("development"), Type.Literal("system")]),
+  type: Type.Union([Type.Literal("writer"), Type.Literal("agent"), Type.Literal("system")]),
   id: Type.Optional(identifier),
 }, strict);
 export const SuggestionIntentSchema = Type.Union([
@@ -390,7 +386,6 @@ export const RendererOperations = {
   "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
   "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
   "source.import": operation(documentScope, Type.Union([SourceSnapshotSchema, Type.Undefined()])),
-  "development.suggestion.create": operation(SuggestionItemSchema, accepted),
   "process.retry": operation(Type.Object({ process: Type.Union([Type.Literal("storage"), Type.Literal("agent")]) }, strict), ProcessHealthSnapshotSchema),
 } as const;
 
@@ -426,7 +421,6 @@ export const StorageOperations = {
   "agent.suggestion.create": operation(suggestionMutation, accepted),
   "agent.suggestion.update": operation(suggestionMutation, accepted),
   "agent.suggestion.retract": operation(Type.Object({ ...documentScope.properties, id: identifier, expectedDocumentRevision: revision }, strict), accepted),
-  "development.suggestion.create": operation(Type.Object({ ...documentScope.properties, item: SuggestionItemSchema }, strict), accepted),
 } as const;
 
 const agentStartParams = Type.Object(
@@ -476,7 +470,6 @@ export const DESKTOP_INVOKE_CHANNELS = {
   retryProcess: "scribe:process.retry",
 } as const;
 export const DESKTOP_EVENT_CHANNEL = "scribe:event" as const;
-export const DEVELOPMENT_SUGGESTION_CHANNEL = "scribe:development.suggestion.create" as const;
 export const RENDERER_OPERATION_CHANNELS = {
   "events.subscribe": DESKTOP_INVOKE_CHANNELS.subscribeEvents,
   "workspace.catalog": DESKTOP_INVOKE_CHANNELS.workspaceCatalog,
@@ -496,7 +489,6 @@ export const RENDERER_OPERATION_CHANNELS = {
   "document.save": DESKTOP_INVOKE_CHANNELS.saveDocument,
   "suggestions.command": DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand,
   "source.import": DESKTOP_INVOKE_CHANNELS.importSource,
-  "development.suggestion.create": DEVELOPMENT_SUGGESTION_CHANNEL,
   "process.retry": DESKTOP_INVOKE_CHANNELS.retryProcess,
 } as const satisfies Record<OperationName<typeof RendererOperations>, string>;
 export const STORAGE_RPC_METHODS = Object.keys(StorageOperations) as OperationName<typeof StorageOperations>[];

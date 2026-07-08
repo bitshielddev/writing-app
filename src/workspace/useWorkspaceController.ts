@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { createSuggestionFeedRelay } from "../desktop/desktopClient";
 import type { WritingEditor } from "../editor/schema";
 import type { DesktopBridge, DesktopEvent, ProcessHealthSnapshot, WorkspaceCatalog, WorkspaceSnapshot } from "../shared/desktop";
-import { useSuggestionInbox } from "../suggestions/inbox";
+import { useSuggestionController } from "../suggestions/inbox";
 import { useSuggestionKeyboardNavigation } from "../suggestions/keyboardNavigation";
-import { useSuggestionPersistence } from "../suggestions/useSuggestionPersistence";
 import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
 import {
   supportsWorkspacePlacement,
@@ -61,14 +59,7 @@ export function useWorkspaceController(
     onEvent: applyDesktopEvent,
   });
 
-  const suggestionFeed = useMemo(() => createSuggestionFeedRelay(), []);
-  const suggestionPersistence = useSuggestionPersistence(desktop);
-  const inboxOptions = useMemo(
-    () => ({ onCommand: suggestionPersistence.dispatchCommand,
-      subscribeToAuthoritativeState: suggestionPersistence.subscribe }),
-    [suggestionPersistence.dispatchCommand, suggestionPersistence.subscribe],
-  );
-  const inbox = useSuggestionInbox(suggestionFeed.feed, inboxOptions);
+  const inbox = useSuggestionController(desktop);
   const document = useDocumentAutosave(
     desktop,
     editor,
@@ -87,8 +78,7 @@ export function useWorkspaceController(
   const initializeDocument = document.initialize;
   const initializeSources = source.initialize;
   const initializeAgent = agent.initialize;
-  const seedSuggestionState = suggestionPersistence.seedHydratedState;
-  const hydrateInbox = inbox.hydrate;
+  const seedSuggestionState = inbox.seedHydratedState;
   const initializePreview = preview.initialize;
   useEffect(() => {
     initializeRef.current = (snapshot) => {
@@ -96,12 +86,10 @@ export function useWorkspaceController(
       initializeSources(snapshot.sources);
       initializeAgent(snapshot.agent, snapshot.activity);
       seedSuggestionState(snapshot.suggestions, snapshot.suggestionRevision, snapshot.project.id, snapshot.document.id);
-      hydrateInbox(snapshot.suggestions);
       initializePreview();
       if (snapshot.health) setHealth(snapshot.health);
     };
   }, [
-    hydrateInbox,
     initializeAgent,
     initializeDocument,
     initializePreview,
@@ -112,7 +100,9 @@ export function useWorkspaceController(
   const onDocumentEvent = document.onDesktopEvent;
   const onSourceEvent = source.onDesktopEvent;
   const onAgentEvent = agent.onDesktopEvent;
-  const onSuggestionEvent = suggestionPersistence.onDesktopEvent;
+  const onSuggestionEvent = inbox.onDesktopEvent;
+  const flushSuggestions = inbox.flush;
+  const discardSuggestions = inbox.discard;
 
   useEffect(() => {
     eventRef.current = (event) => {
@@ -129,8 +119,8 @@ export function useWorkspaceController(
     setHealth(await desktop.retryProcess({ process }));
   }, [desktop]);
   const flushWorkspace = useCallback(async () => {
-    await Promise.allSettled([document.flushForSwitch(), suggestionPersistence.flush()]);
-  }, [document, suggestionPersistence]);
+    await Promise.allSettled([document.flushForSwitch(), flushSuggestions()]);
+  }, [document, flushSuggestions]);
 
   const [partnerView, setPartnerView] = useState<"suggestions" | "activity">(
     "suggestions",
@@ -162,7 +152,7 @@ export function useWorkspaceController(
     setFailedSwitch(undefined);
     try {
       await document.flushForSwitch();
-      await suggestionPersistence.flush();
+      await flushSuggestions();
       if (agent.runtime.status === "working" || agent.runtime.status === "waiting") await agent.stopAndWait();
       initializePreview();
       const next = await desktop.selectDocument({ projectId, documentId });
@@ -174,7 +164,7 @@ export function useWorkspaceController(
     } finally {
       setSwitchPending(false);
     }
-  }, [agent, desktop, document, initializePreview, scope, suggestionPersistence, switchPending]);
+  }, [agent, desktop, document, flushSuggestions, initializePreview, scope, switchPending]);
 
   const retrySwitch = useCallback(() => {
     if (failedSwitch) void selectDocument(failedSwitch.projectId, failedSwitch.documentId);
@@ -185,7 +175,7 @@ export function useWorkspaceController(
     setSwitchPending(true);
     try {
       document.discard();
-      suggestionPersistence.discard();
+      discardSuggestions();
       initializePreview();
       if (agent.runtime.status === "working" || agent.runtime.status === "waiting") await agent.stopAndWait();
       const next = await desktop.selectDocument(failedSwitch);
@@ -196,14 +186,14 @@ export function useWorkspaceController(
     } catch (cause) {
       setSwitchError(cause instanceof Error ? cause.message : "The document could not be switched");
     } finally { setSwitchPending(false); }
-  }, [agent, desktop, document, failedSwitch, initializePreview, suggestionPersistence]);
+  }, [agent, desktop, discardSuggestions, document, failedSwitch, initializePreview]);
 
   const createDocument = useCallback(async () => {
     if (!scope || switchPending) return;
     setSwitchPending(true);
     try {
       await document.flushForSwitch();
-      await suggestionPersistence.flush();
+      await flushSuggestions();
       if (agent.runtime.status === "working" || agent.runtime.status === "waiting") await agent.stopAndWait();
       initializePreview();
       const next = await desktop.createDocument({ projectId: scope.projectId, title: "Untitled Draft" });
@@ -212,7 +202,7 @@ export function useWorkspaceController(
     } catch (cause) {
       setSwitchError(cause instanceof Error ? cause.message : "The document could not be created");
     } finally { setSwitchPending(false); }
-  }, [agent, desktop, document, initializePreview, scope, suggestionPersistence, switchPending]);
+  }, [agent, desktop, document, flushSuggestions, initializePreview, scope, switchPending]);
 
   const createProject = useCallback(async () => {
     const name = window.prompt("Project name", "New project")?.trim();
@@ -220,14 +210,14 @@ export function useWorkspaceController(
     setSwitchPending(true);
     try {
       await document.flushForSwitch();
-      await suggestionPersistence.flush();
+      await flushSuggestions();
       if (agent.runtime.status === "working" || agent.runtime.status === "waiting") await agent.stopAndWait();
       initializePreview();
       const next = await desktop.createProject({ name });
       setCatalog(next); setScope(next.selection);
     } catch (cause) { setSwitchError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setSwitchPending(false); }
-  }, [agent, desktop, document, initializePreview, suggestionPersistence, switchPending]);
+  }, [agent, desktop, document, flushSuggestions, initializePreview, switchPending]);
 
   const renameProject = useCallback(async (projectId: string, currentName: string) => {
     const name = window.prompt("Rename project", currentName)?.trim();
@@ -280,9 +270,9 @@ export function useWorkspaceController(
     activity: agent.activity,
     agentControlPending: agent.pending,
     agentError: agent.error ?? agent.runtime.error,
-    suggestionPersistenceStatus: suggestionPersistence.status,
-    suggestionPersistenceError: suggestionPersistence.failureMessage,
-    retrySuggestionSave: suggestionPersistence.retry,
+    suggestionPersistenceStatus: inbox.status,
+    suggestionPersistenceError: inbox.failureMessage,
+    retrySuggestionSave: inbox.retry,
     partnerView,
     setPartnerView,
     suggestionNavigator,

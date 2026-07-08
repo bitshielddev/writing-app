@@ -15,8 +15,16 @@ function processHarness(ready: Promise<void>, calls: string[], name: string) {
     ready,
     call: vi.fn(async (method: string) => {
       calls.push(`${name}.call:${method}`);
+      if (method === "workspace.catalog") {
+        return { selection: { projectId: "project", documentId: "document" } };
+      }
+      if (method === "workspace.repair") {
+        return { workspaceRoot: "/w", draftPath: "/w/draft.md", sourcesDirectory: "/w/sources",
+          piDirectory: "/w/.pi", repaired: false };
+      }
       if (method === "agent.seed") {
-        return { projectRevision: 7, documentRevision: 3 };
+        return { streamId: "document:document", coveredThroughSequence: 0,
+          projectRevision: 7, documentRevision: 3 };
       }
       return undefined;
     }),
@@ -53,8 +61,11 @@ describe("desktop startup", () => {
     storageReady.resolve();
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
     expect(calls).toEqual([
       "spawn.storage",
+      "storage.call:workspace.catalog",
       "storage.call:workspace.repair",
       "spawn.agent",
     ]);
@@ -63,6 +74,7 @@ describe("desktop startup", () => {
 
     expect(calls).toEqual([
       "spawn.storage",
+      "storage.call:workspace.catalog",
       "storage.call:workspace.repair",
       "spawn.agent",
       "register.ipc",
@@ -74,7 +86,7 @@ describe("desktop startup", () => {
     expect(agent.post).toHaveBeenCalledWith({
       kind: "project.changed",
       protocolVersion: 1,
-      streamId: "document:default-document",
+      streamId: "document:document",
       sequence: 0,
       projectRevision: 7,
       documentRevision: 3,

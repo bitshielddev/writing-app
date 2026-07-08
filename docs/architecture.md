@@ -4,7 +4,7 @@
 
 Projects and documents use immutable application-generated UUIDs. Mutable names and titles are display labels only. Every persistence and agent operation carries `{ projectId, documentId }`; repositories verify that the document belongs to the project before reading or writing.
 
-Document files live at `projects/<project-id>/documents/<document-id>/`, including `draft.md`, `sources/`, and `.pi/sessions/`. SQLite schema version 7 scopes sources, suggestion projections, command receipts, immutable suggestion history, checkpoints, event streams, and consumer cursors to the document. The selected identities are persisted in the singleton workspace settings row and validated on startup. During alpha, older database versions are intentionally not migrated; delete the local database to recreate the current schema.
+Document files live at `projects/<project-id>/documents/<document-id>/`, including `draft.md`, `sources/`, and `.pi/sessions/`. SQLite schema version 1 scopes sources, suggestion projections, command receipts, immutable suggestion history, checkpoints, event streams, and consumer cursors to the document. The selected identities are persisted in the singleton workspace settings row and validated on startup. During alpha, incompatible database versions are intentionally not migrated; delete the local database to recreate the current schema.
 
 The renderer treats a selected document as a keyed session. A switch flushes document and suggestion queues, stops the old agent, removes preview state, selects and hydrates the target, and only then enables the target state. Async controllers compare their captured session identity before applying completions. The main process replaces the document-specific Pi process on selection so its working directory and session history cannot cross document boundaries.
 
@@ -18,8 +18,7 @@ flowchart LR
     Shell[App composition root]
     WorkspaceController[Workspace controller]
     Editor[BlockNote editor]
-    Feed[Suggestion feed adapter]
-    Inbox[Suggestion inbox reducer]
+    Suggestions[Suggestion controller]
     Dock[Writing partner UI]
     Pins[Workspace cards]
     Storage[(localStorage widths)]
@@ -27,29 +26,24 @@ flowchart LR
     Main[Electron main]
     Database[SQLite storage process]
     Agent[Pi agent process]
-    Controller[Development controller window]
-    DevBridge[Development-only preload bridge]
 
     User --> Shell
     Shell --> Editor
     Shell --> WorkspaceController
-    WorkspaceController --> Feed
-    Feed -->|SuggestionEvent| Inbox
-    Inbox --> Dock
-    Inbox --> Pins
+    WorkspaceController --> Suggestions
+    Suggestions --> Dock
+    Suggestions --> Pins
     Dock -->|select, pin, dismiss, preview| Shell
-    Editor -->|preview accepted/cancelled| Inbox
+    Editor -->|preview accepted/cancelled| Suggestions
     Shell <--> Storage
     Shell <--> Bridge
     Bridge <--> Main
     Main <--> Database
     Main <--> Agent
     Agent <--> Database
-    Controller --> DevBridge
-    DevBridge --> Main
 ```
 
-The `SuggestionFeed` remains transport-neutral, while its only application adapter maps committed Electron events. Desktop queries and commands use the typed `DesktopBridge` contract. Development injection is a separately gated bridge and enters the same persisted storage/event path.
+Desktop queries, commands, and committed events use the typed `DesktopBridge` contract. The suggestion controller derives optimistic projections through the same pure transition policy used by storage, then reconciles authoritative revisions and command IDs from storage events.
 
 ## Composition root
 
@@ -60,16 +54,16 @@ The `SuggestionFeed` remains transport-neutral, while its only application adapt
 3. `useWorkspaceLayout` and `useWorkspaceKeybindings` connect controller actions to the responsive layout.
 4. `App` composes the editor, sidebars, dock, drawers, and keyboard surfaces.
 
-The workspace controller memoizes an in-memory suggestion feed relay and owns one desktop event subscription. The subscription routes suggestion events into the inbox and applies other desktop events directly.
+The workspace controller owns one desktop event subscription. It routes suggestion events into the suggestion controller and applies other desktop events to their feature controllers.
 
 ## State ownership
 
 | State | Owner | Lifetime / persistence |
 | --- | --- | --- |
 | Editor blocks and selection | BlockNote editor created in `App` | Selection is in-memory; accepted blocks autosave in Electron |
-| Feed subscribers | `createSuggestionFeedRelay` closure | Renderer lifetime |
-| Inbox, pins, preview id | `useSuggestionInbox` / `inboxReducer` | Visible suggestion projection persists in Electron; preview identity stays ephemeral |
-| Workspace pin geometry and z-order | Inbox reducer | Persists in Electron |
+| Inbox, pins, command queue | `useSuggestionController` | Projection persists in Electron; optimistic state lives for the renderer session |
+| Selected detail, preview identity, stale/withdrawn flags | `useSuggestionController` | Renderer-only and reset on hydration/document switch |
+| Workspace pin geometry and z-order | Suggestion transition policy | Persists in Electron |
 | Hydration, autosave queue, sources, last text cursor | `useWorkspaceController` | Current page; durable values cross the desktop bridge |
 | Workspace panels, drawers, and column widths | `useWorkspaceLayout` | Panel state is in-memory; widths use `localStorage` |
 | Keyboard sequence and suggestion target | Keybinding and suggestion navigation hooks | Current page only |
@@ -104,18 +98,15 @@ The command strip and shortcut dialog read the same command catalog and default 
 
 ### `src/suggestions`
 
-- [`types.ts`](../src/suggestions/types.ts) defines suggestion data and the feed interface.
+- [`types.ts`](../src/suggestions/types.ts) defines suggestion data and agent event variants.
 - [`state.ts`](../src/suggestions/state.ts) defines the persisted projection, empty state, 30-entry limit, and shared eviction policy used by renderer and storage.
 - [`suggestion-persistence.ts`](../desktop/domain/suggestion-persistence.ts) is the pure suggestion aggregate and strict projection reducer. Storage records versioned intent, appends immutable facts, advances the projection, and stores the receipt in one transaction. Rebuild and repair use the same reducer; no application service writes the projection directly.
-- [`validation.ts`](../src/suggestions/validation.ts) validates suggestion payloads at runtime before development IPC reaches storage.
-- [`inbox.ts`](../src/suggestions/inbox.ts) implements all suggestion, pin, preview, and workspace transitions.
+- [`transitions.ts`](../src/suggestions/transitions.ts) implements the durable command and agent-event policy shared by renderer and storage.
+- [`useSuggestionController.ts`](../src/suggestions/useSuggestionController.ts) owns optimistic commands, authoritative reconciliation, and transient selection/preview presentation.
+- [`inbox.ts`](../src/suggestions/inbox.ts) exposes renderer-facing suggestion types and selectors.
 - [`workspacePinLayout.ts`](../src/suggestions/workspacePinLayout.ts) supplies type-specific initial card sizes.
 
-### `src/dev/mockSuggestions`
-
-This temporary directory owns the Electron-only controller view and payload builder. Main and preload expose its injection bridge only during Vite development; storage persists accepted mock suggestions exactly like agent-created suggestions.
-
-The reducer itself is a pure function and is the most important unit-test boundary. The persisted state policy is React-independent so the storage process can apply the same queue rules.
+The durable transition policy is pure and React-independent so storage and optimistic rendering cannot drift. Stale and withdrawn flags are presentation-only because they protect transient detail/preview state rather than durable projection state.
 
 ### `desktop` and `src/desktop`
 
@@ -124,7 +115,7 @@ The reducer itself is a pure function and is the most important unit-test bounda
 - `desktop/agent.ts` creates the durable Pi coding-agent session and drives user-enabled autonomous cycles. Revisions continue to coalesce while the agent is stopped.
 - `desktop/scribe-extension.ts` defines suggestion/yield tools and persists extension loop state.
 - `desktop/preload.ts` exposes the typed desktop API.
-- `src/desktop/desktopClient.ts` maps desktop events into `SuggestionFeed`.
+- `src/desktop/desktopClient.ts` provides required access to the preload bridge.
 - `src/shared/desktop.ts` is the cross-process contract.
 
 ### `src/components`
@@ -153,17 +144,14 @@ sequenceDiagram
     participant Controller as useWorkspaceController
     participant Editor as BlockNote
     participant Bridge as Electron bridge
-    participant Feed as SuggestionFeed
-    participant Inbox as useSuggestionInbox
+    participant Suggestions as useSuggestionController
 
     Main->>Bridge: require preload bridge
     Main->>App: render inside StrictMode
     App->>Editor: create schema-backed editor
     App->>Controller: connect desktop and editor
-    Controller->>Feed: create stable desktop event feed
-    Inbox->>Feed: subscribe
-    Bridge-->>Feed: committed suggestion event
-    Feed-->>Inbox: suggestion.added
+    Bridge-->>Controller: committed suggestion event
+    Controller->>Suggestions: reconcile state/revision/command ID
 ```
 
 ## Data direction and dependency rules
@@ -201,8 +189,8 @@ components  ← props/callbacks → workspace controller / App composition
 Practical rules:
 
 - Domain contracts belong in `suggestions/types.ts`, not in UI components.
-- Suggestion lifecycle changes belong in the reducer and should have reducer tests.
-- Transport or model SDK code should sit behind `SuggestionFeed`.
+- Durable suggestion lifecycle changes belong in `transitions.ts` and should have transition tests.
+- Transport or model SDK code belongs in the agent process behind storage operations.
 - Cross-feature renderer orchestration belongs in `useWorkspaceController`; `App.tsx` remains responsible for layout composition.
 - CSS layout variables are set by `App` but interpreted by `index.css`.
 

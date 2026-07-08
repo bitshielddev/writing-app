@@ -62,7 +62,9 @@ describe("main process message adapters", () => {
       },
     });
 
-    expect(storage.call).toHaveBeenCalledWith("agent.seed");
+    expect(storage.call).toHaveBeenCalledWith("agent.seed", {
+      projectId: "project-1", documentId: "document-1",
+    });
     expect(agent.post).toHaveBeenCalledWith({
       kind: "project.changed",
       protocolVersion: 1,

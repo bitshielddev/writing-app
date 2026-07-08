@@ -109,17 +109,17 @@
           </header>
 
           <article class="prose"><p>This guide identifies the existing seams for likely next steps in the Electron runtime.</p>
-<h2 id="evolve-the-writing-partner-transport">Evolve the writing-partner transport<a class="heading-anchor" href="#evolve-the-writing-partner-transport" aria-label="Link to Evolve the writing-partner transport">#</a></h2><p>Keep transport details behind the existing <a href="../../src/suggestions/types.ts"><code>SuggestionFeed</code></a> contract. The Electron adapter receives committed events from the storage and Pi processes; the development controller injects through that same persisted path.</p>
+<h2 id="evolve-the-writing-partner-transport">Evolve the writing-partner transport<a class="heading-anchor" href="#evolve-the-writing-partner-transport" aria-label="Link to Evolve the writing-partner transport">#</a></h2><p>Keep transport details behind the agent and storage process boundaries. The renderer receives only committed <code>suggestion.event</code> payloads through <code>DesktopBridge</code>; <a href="../../src/suggestions/useSuggestionController.ts"><code>useSuggestionController</code></a> reconciles their authoritative projections.</p>
 <p>A production adapter must define:</p>
 <ul>
-<li>how it starts and stops when subscribers come and go;</li>
-<li>how server messages map to every <code>SuggestionEvent</code> variant;</li>
+<li>how it starts and stops with the agent lifecycle;</li>
+<li>how server messages become validated agent suggestion operations;</li>
 <li>stable <code>id</code> and <code>dedupeKey</code> rules;</li>
 <li>reconnection and replay semantics;</li>
 <li>ordering of suggestion events;</li>
-<li>cleanup under React <code>StrictMode</code>.</li>
+<li>command/event ordering and idempotent replay.</li>
 </ul>
-<p>Choose or introduce adapters in <a href="../../src/workspace/useWorkspaceController.ts"><code>useWorkspaceController</code></a>. Preserve stable construction with <code>useMemo</code>, or move service creation above React if it is intentionally process-wide. Runtime status and errors remain on <code>AgentRuntime</code>; they are not suggestion-feed events.</p>
+<p>Choose or introduce adapters in the agent process and keep <a href="../../src/workspace/useWorkspaceController.ts"><code>useWorkspaceController</code></a> on the typed desktop event boundary. Runtime status and errors remain on <code>AgentRuntime</code>; they are not suggestion events.</p>
 <p>Do not call an HTTP or model SDK directly from <code>SuggestionDock</code>. That would couple view lifecycle to transport lifecycle, make replay/dedupe inconsistent, and bypass reducer tests.</p>
 <h3 id="introduce-context-for-a-real-service">Introduce context for a real service<a class="heading-anchor" href="#introduce-context-for-a-real-service" aria-label="Link to Introduce context for a real service">#</a></h3><p>The current application does not publish editor or artifact context to the feed. Before introducing a network payload, decide and document:</p>
 <ul>
@@ -145,7 +145,7 @@
 <li>Add the literal to <code>SUGGESTION_KINDS</code> and a new union member in <a href="../../src/suggestions/types.ts"><code>types.ts</code></a>.</li>
 <li>Add it to the relevant canonical kind-family constant and guard when it is text-insertable or structural.</li>
 <li>Add badge label/icon/tone and visual rendering in <a href="../../src/components/SuggestionPresentation.tsx"><code>SuggestionPresentation.tsx</code></a>.</li>
-<li>Reuse the canonical guards in the workspace controller, detail view, workspace pins, validation, mock tooling, and agent tooling; do not add local repeated kind checks.</li>
+<li>Reuse the canonical guards in the workspace controller, detail view, workspace pins, validation, and agent tooling; do not add local repeated kind checks.</li>
 <li>Update focused dock views and workspace presentation only when the new family needs distinct UI.</li>
 <li>Add an initial size in <a href="../../src/suggestions/workspacePinLayout.ts"><code>workspacePinLayout.ts</code></a> if the default is unsuitable.</li>
 <li>Ensure external data validation rejects malformed payloads before they reach the reducer.</li>

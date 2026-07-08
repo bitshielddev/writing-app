@@ -30,7 +30,7 @@ function entry(index: number, viewed = false): PersistedInboxEntry {
     sourceLabels: [],
     createdAt: index,
   };
-  return { item, viewed, stale: false, withdrawn: false };
+  return { item, viewed };
 }
 
 describe("shared suggestion state policy", () => {

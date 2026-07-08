@@ -91,6 +91,10 @@ export function createWorkspaceSnapshot(
     suggestionRevision: 0,
     agent: { status: "stopped", cycleCount: 2 },
     activity: [],
+    health: {
+      storage: { state: "healthy", since: 1 },
+      agent: { state: "healthy", since: 1 },
+    },
     ...overrides,
   };
 }

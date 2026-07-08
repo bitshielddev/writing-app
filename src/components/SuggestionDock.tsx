@@ -3,7 +3,7 @@ import { type RefObject, useEffect, useRef } from "react";
 import type { AgentActivity, AgentRuntime } from "../shared/desktop";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
 import type { SuggestionItem } from "../suggestions/types";
-import type { SuggestionPersistenceStatus } from "../suggestions/useSuggestionPersistence";
+import type { SuggestionControllerStatus } from "../suggestions/useSuggestionController";
 import { SuggestionDockActivity } from "./SuggestionDockActivity";
 import { SuggestionDockDetail } from "./SuggestionDockDetail";
 import { SuggestionDockQueue } from "./SuggestionDockQueue";
@@ -15,7 +15,7 @@ type SuggestionDockProps = {
   activePreviewId?: string;
   unreadCount: number;
   error?: string;
-  persistenceStatus: SuggestionPersistenceStatus;
+  persistenceStatus: SuggestionControllerStatus;
   persistenceError?: string;
   activity?: AgentActivity[];
   runtime: AgentRuntime;

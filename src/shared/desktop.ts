@@ -1,6 +1,5 @@
 import type { Static } from "typebox";
 
-import type { SuggestionItem } from "../suggestions/types";
 import type {
   AgentActivityInputSchema,
   AgentActivityKindSchema,
@@ -64,8 +63,4 @@ export type DesktopBridge = {
   importSource(input: OperationParams<typeof RendererOperations, "source.import">): Promise<OperationResult<typeof RendererOperations, "source.import">>;
   retryProcess?(input: OperationParams<typeof RendererOperations, "process.retry">): Promise<OperationResult<typeof RendererOperations, "process.retry">>;
   subscribe(listener: (event: DesktopTransportEvent) => void): () => void;
-};
-
-export type DesktopDevelopmentBridge = {
-  createSuggestion(item: SuggestionItem): Promise<{ accepted: boolean }>;
 };

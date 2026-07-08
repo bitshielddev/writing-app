@@ -79,11 +79,11 @@ describe("database lifecycle", () => {
     db.close();
   });
 
-  it("rejects a pre-alpha schema without modifying it", async () => {
+  it("rejects an older test schema as newer than the v1 baseline", async () => {
     const path = await createFixture();
     const before = await readFile(path);
     expect(() => openApplicationDatabase(path)).toThrowError(
-      expect.objectContaining<Partial<DatabaseStartupError>>({ code: "DATABASE_CORRUPT" }),
+      expect.objectContaining<Partial<DatabaseStartupError>>({ code: "DATABASE_TOO_NEW" }),
     );
     expect(await readFile(path)).toEqual(before);
   });

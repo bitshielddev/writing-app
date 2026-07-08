@@ -29,11 +29,10 @@ The suite currently contains unit and component coverage across renderer, storag
 
 | File | What it protects |
 | --- | --- |
-| [`suggestions/inbox.test.ts`](../src/suggestions/inbox.test.ts) | Dedupe, 30-item eviction, stale/withdrawn previews, frozen pins, workspace transitions, preview resolution, and z-order. |
+| [`suggestions/inbox.test.ts`](../src/suggestions/inbox.test.ts) | Presentation sorting and transient stale/withdrawn decoration. |
+| [`suggestions/useSuggestionController.test.ts`](../src/suggestions/useSuggestionController.test.ts) | Optimistic commands, serialization, event/RPC ordering, and preview update/retraction state. |
 | [`suggestions/state.test.ts`](../src/suggestions/state.test.ts) | Shared empty state, protected queue eviction, and canonical kind guards. |
 | [`workspace/useWorkspaceController.test.ts`](../src/workspace/useWorkspaceController.test.ts) | Hydration, serialized autosave, desktop events, control errors, and preview resolution. |
-| [`dev/mockSuggestions/mockSuggestionDraft.test.ts`](../src/dev/mockSuggestions/mockSuggestionDraft.test.ts) | Common metadata, every kind-specific payload, recursive node JSON, and validation failures. |
-| [`dev/mockSuggestions/MockSuggestionController.test.tsx`](../src/dev/mockSuggestions/MockSuggestionController.test.tsx) | Dynamic fields, persisted development submission, rejection handling, and pending-state protection. |
 | [`components/SuggestionDock.test.tsx`](../src/components/SuggestionDock.test.tsx) | Absence of legacy steering controls, unified stream, text preview action, pin presentation, and workspace placement callback. |
 | [`components/WorkspacePins.test.tsx`](../src/components/WorkspacePins.test.tsx) | Card content, return action, keyboard geometry, and pointer drag commit. |
 | [`components/DocumentHeader.test.tsx`](../src/components/DocumentHeader.test.tsx) | Desktop panel semantics, hidden-partner unread count, and independent mobile controls. |
@@ -45,13 +44,9 @@ The suite currently contains unit and component coverage across renderer, storag
 | [`desktop/infrastructure/agent/pi-activity.test.ts`](../desktop/infrastructure/agent/pi-activity.test.ts) | Lifecycle, message/reasoning/error, and tool activity conversion. |
 | [`desktop/scribe-extension.test.ts`](../desktop/scribe-extension.test.ts) | Active revisions, storage failures, wake behavior, and suggestion mutation results. |
 
-### Why reducer tests matter most
+### Why transition and controller tests matter most
 
-The inbox reducer contains the application's lifecycle invariants and is pure. Any change to dedupe, updates, retractions, selection, previewing, pins, workspace geometry, queue limits, or unread behavior should begin with a reducer case. Component tests should then verify that the correct intent is exposed to users.
-
-### Development injection tests
-
-The controller test injects a callback rather than Electron IPC. Storage tests protect durable development suggestion behavior; manually confirm the development-only preload and main-process gates in Electron.
+`transitions.ts` contains durable lifecycle invariants shared by optimistic rendering and storage. `useSuggestionController` owns serialization and renderer-only selection/preview state. Changes to either boundary should begin with focused tests there; component tests should then verify the exposed user intent.
 
 ### Geometry tests
 
@@ -83,8 +78,8 @@ Changes in these areas require targeted tests where practical and the manual che
 
 ### Suggestion lifecycle
 
-- The inbox remains empty until a controller event is sent.
-- Each of the six controller kinds appears with its entered content and visual treatment.
+- The inbox remains empty until the agent publishes a suggestion.
+- Representative agent-produced kinds appear with their content and visual treatment.
 - The workspace exposes no Generate Ideas, steering, or retry controls.
 - Selecting marks an item read; Back returns to the correct queue.
 - Pin and unpin preserve a frozen copy and correct ordering.
@@ -97,7 +92,7 @@ Changes in these areas require targeted tests where practical and the manual che
 - The preview is editable; empty content disables Accept.
 - Cancel removes the block and keeps a normal source suggestion.
 - Accept converts it to a normal paragraph and removes the suggestion.
-- Feed update/retraction does not overwrite an existing preview.
+- Agent update/retraction does not overwrite an existing preview.
 
 ### Desktop layout (`>=80rem`)
 
@@ -128,8 +123,7 @@ Changes in these areas require targeted tests where practical and the manual che
 
 - Run `npm run dev` and confirm Electron launches without manually opening the Vite URL.
 - Change renderer code and confirm HMR; change main/storage/agent code and confirm Electron restarts; change preload and confirm the renderer reloads.
-- Open **Development → Mock suggestions** twice and confirm one controller window is focused rather than duplicated.
-- Inject a suggestion, reload, and confirm it remains persisted. Confirm a production launch has no development menu or bridge.
+- Publish a suggestion through Pi, reload, and confirm it remains persisted.
 - Launch the built application and confirm the renderer mounts without failed local script or stylesheet requests.
 - Edit and restart to verify document hydration and the 650 ms autosave path.
 - Import `.md` and `.markdown`, including duplicate names; reject invalid UTF-8 and other extensions.
@@ -146,8 +140,8 @@ Changes in these areas require targeted tests where practical and the manual che
 
 Match the test boundary to the behavior:
 
-- pure state transition: add to `inbox.test.ts`;
-- feed adapter lifecycle: test through `SuggestionFeed` events with fake time or a controlled transport;
+- pure durable transition: add to `transitions.test.ts`;
+- command/event reconciliation or transient preview state: add to `useSuggestionController.test.ts`;
 - component semantics/callback: render the component with explicit props and query by accessible role/name;
 - full editor integration: use a browser-level test rather than relying on jsdom layout and `contenteditable` emulation.
 

@@ -310,13 +310,8 @@ export class StorageOperations {
       workspace: state.workspacePins.map((entry) => entry.item) };
   }
 
-  async createSuggestion(input: Params<"agent.suggestion.create">, actor: SuggestionActor = { type: "agent" }) {
-    return this.mutateSuggestion(input, { type: "publish", item: input.item }, actor);
-  }
-  createDevelopmentSuggestion(input: Params<"development.suggestion.create">) {
-    return this.createSuggestion({ ...input,
-      expectedDocumentRevision: this.deps.documents.get(input.projectId, input.documentId).revision },
-    { type: "development" });
+  async createSuggestion(input: Params<"agent.suggestion.create">) {
+    return this.mutateSuggestion(input, { type: "publish", item: input.item }, { type: "agent" });
   }
   async updateSuggestion(input: Params<"agent.suggestion.update">) {
     return this.mutateSuggestion(input, { type: "update", item: input.item }, { type: "agent" });

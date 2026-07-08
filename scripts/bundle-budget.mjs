@@ -108,11 +108,6 @@ export function budgetViolations(stats, budget) {
 
 export function productionViolations(stats) {
   const initialFiles = new Set(stats.initialFiles);
-  const developmentModules = stats.metadata.chunks.flatMap((chunk) =>
-    chunk.modules
-      .filter((module) => /(?:^|\/)src\/dev\//.test(module.id))
-      .map((module) => module.id),
-  );
   const initialMermaidModules = stats.metadata.chunks
     .filter((chunk) => initialFiles.has(chunk.file))
     .flatMap((chunk) =>
@@ -120,19 +115,10 @@ export function productionViolations(stats) {
         .filter((module) => /\/node_modules\/mermaid\//.test(module.id))
         .map((module) => module.id),
     );
-  const developmentWindowPresent =
-    stats.desktopMain !== undefined &&
-    /mock-suggestions|ScribeAI Mock Suggestions/.test(stats.desktopMain);
   return [
-    ...developmentModules.map((module) =>
-      `Development module present in production: ${module}`,
-    ),
     ...initialMermaidModules.map((module) =>
       `Mermaid module present in initial graph: ${module}`,
     ),
-    ...(developmentWindowPresent
-      ? ["Development mock window present in production desktop bundle"]
-      : []),
   ];
 }
 

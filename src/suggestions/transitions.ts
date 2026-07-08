@@ -53,14 +53,14 @@ export function applySuggestionCommand(
       const entry = state.entries.find((candidate) => candidate.item.id === id);
       if (!entry) return { status: "rejected", state: current, reason: "Suggestion is not in the inbox" };
       state.entries = state.entries.filter((candidate) => candidate.item.id !== id);
-      state.pinnedEntries.push({ ...entry, item: structuredClone(entry.item), stale: false, withdrawn: false, pinnedAt: command.pinnedAt });
+      state.pinnedEntries.push({ ...entry, item: structuredClone(entry.item), pinnedAt: command.pinnedAt });
       return { status: "changed", state };
     }
     case "unpin": {
       const entry = state.pinnedEntries.find((candidate) => candidate.item.id === id);
       if (!entry) return { status: "rejected", state: current, reason: "Suggestion is not pinned" };
       state.pinnedEntries = state.pinnedEntries.filter((candidate) => candidate.item.id !== id);
-      state.entries = trimSuggestionEntries([...state.entries, { item: entry.item, viewed: entry.viewed, stale: false, withdrawn: false }]);
+      state.entries = trimSuggestionEntries([...state.entries, { item: entry.item, viewed: entry.viewed }]);
       return { status: "changed", state };
     }
     case "workspace.place": {
@@ -75,7 +75,7 @@ export function applySuggestionCommand(
       const pin = state.workspacePins.find((candidate) => candidate.item.id === id);
       if (!pin) return { status: "rejected", state: current, reason: "Suggestion is not on the workspace" };
       state.workspacePins = state.workspacePins.filter((candidate) => candidate.item.id !== id);
-      state.pinnedEntries.push({ item: pin.item, viewed: true, stale: false, withdrawn: false, pinnedAt: pin.pinnedAt });
+      state.pinnedEntries.push({ item: pin.item, viewed: true, pinnedAt: pin.pinnedAt });
       return { status: "changed", state };
     }
     case "workspace.geometry": {
@@ -96,8 +96,7 @@ export function applySuggestionCommand(
     case "preview.resolve": {
       const entry = locate(state, id);
       if (!entry) return { status: "rejected", state: current, reason: "Suggestion not found" };
-      const withdrawn = "withdrawn" in entry && entry.withdrawn;
-      if (command.outcome === "cancelled" && !withdrawn) return { status: "unchanged", state: current };
+      if (command.outcome === "cancelled") return { status: "unchanged", state: current };
       state.entries = state.entries.filter((candidate) => candidate.item.id !== id);
       state.pinnedEntries = state.pinnedEntries.filter((candidate) => candidate.item.id !== id);
       return { status: "changed", state };
@@ -116,7 +115,7 @@ export function applySuggestionAgentEvent(
     case "suggestion.added":
       if (state.seenKeys[event.item.dedupeKey]) return { status: "rejected", state: current, reason: "Duplicate suggestion" };
       state.seenKeys[event.item.dedupeKey] = true;
-      state.entries = trimSuggestionEntries([...state.entries, { item: event.item, viewed: false, stale: false, withdrawn: false }]);
+      state.entries = trimSuggestionEntries([...state.entries, { item: event.item, viewed: false }]);
       return { status: "changed", state };
     case "suggestion.updated": {
       const entry = state.entries.find((candidate) => candidate.item.id === event.item.id);

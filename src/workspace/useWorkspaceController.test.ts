@@ -43,6 +43,10 @@ function snapshot(): WorkspaceSnapshot {
     ],
     suggestions: createEmptySuggestionState(),
     suggestionRevision: 0,
+    health: {
+      storage: { state: "healthy", since: 1 },
+      agent: { state: "healthy", since: 1 },
+    },
     agent: { status: "waiting", cycleCount: 2 },
     activity: [],
   };
@@ -115,7 +119,6 @@ describe("workspace controller", () => {
   });
 
   it("serializes autosaves and advances the expected revision", async () => {
-    vi.useFakeTimers();
     const harness = createHarness();
     let resolveFirst!: (document: DocumentSnapshot) => void;
     const firstSave = new Promise<DocumentSnapshot>((resolve) => {
@@ -127,7 +130,8 @@ describe("workspace controller", () => {
     const { result } = renderHook(() =>
       useWorkspaceController(harness.bridge, harness.editor),
     );
-    await act(async () => Promise.resolve());
+    await waitFor(() => expect(result.current.workspacePhase).toBe("ready"));
+    vi.useFakeTimers();
 
     act(() => result.current.handleEditorChange());
     await act(async () => {
@@ -222,6 +226,13 @@ describe("workspace controller", () => {
       useWorkspaceController(harness.bridge, harness.editor),
     );
     await waitFor(() => expect(result.current.runtime.status).toBe("waiting"));
+    const item = { id: "suggestion", dedupeKey: "suggestion", kind: "snippet" as const,
+      title: "Suggestion", summary: "Summary", body: "Body", insertText: "Text",
+      sourceLabels: [], createdAt: 1 };
+    act(() => harness.emit({ type: "suggestion.event", suggestionRevision: 1,
+      state: { ...createEmptySuggestionState(), entries: [{ item, viewed: true }],
+        seenKeys: { suggestion: true } },
+      event: { type: "suggestion.added", item } }));
     act(() => result.current.inbox.previewStarted("suggestion"));
     expect(result.current.inbox.activePreviewId).toBe("suggestion");
 

@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  DESKTOP_INVOKE_CHANNELS,
-  DEVELOPMENT_SUGGESTION_CHANNEL,
-} from "../src/shared/contracts";
+import { DESKTOP_INVOKE_CHANNELS } from "../src/shared/contracts";
 import {
   createDocumentSnapshot,
   createSourceSnapshot,
@@ -17,10 +14,7 @@ import {
   type RpcCaller,
 } from "./ipc-routing";
 
-function createHarness(
-  development = true,
-  eventConsumers?: RendererEventConsumers,
-) {
+function createHarness(eventConsumers?: RendererEventConsumers) {
   const handlers = new Map<
     string,
     (event: MainInvokeEvent, ...args: unknown[]) => unknown
@@ -60,7 +54,6 @@ function createHarness(
     if (method === "suggestions.command") return { commandId: "command", status: "unchanged", suggestionRevision: 0,
       state: { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 } };
     if (method === "source.import") return createSourceSnapshot();
-    if (method === "development.suggestion.create") return { accepted: true };
     return `storage:${method}`;
   });
   let runtime = { status: "working" as const, cycleCount: 2 };
@@ -73,7 +66,6 @@ function createHarness(
     dialog,
     storage: storage as unknown as RpcCaller,
     agent: agent as unknown as RpcCaller,
-    development,
     getRuntime: () => runtime,
     setRuntime: (next) => {
       runtime = next as typeof runtime;
@@ -108,35 +100,35 @@ describe("main IPC routing", () => {
 
   it("registers every production route and forwards exact methods and arguments", async () => {
     const harness = createHarness();
+    const scope = { projectId: "project-1", documentId: "document-1" };
     expect([...harness.handlers.keys()]).toEqual([
       ...Object.values(DESKTOP_INVOKE_CHANNELS),
-      DEVELOPMENT_SUGGESTION_CHANNEL,
     ]);
 
-    const hydrated = await harness.invoke(DESKTOP_INVOKE_CHANNELS.hydrate);
+    const hydrated = await harness.invoke(DESKTOP_INVOKE_CHANNELS.hydrate, scope);
     expect(hydrated).toMatchObject({
       project: harness.snapshot.project,
       agent: { status: "working", cycleCount: 2 },
       activity: [{ id: "activity" }],
     });
 
-    await harness.invoke(DESKTOP_INVOKE_CHANNELS.startAgent);
-    await harness.invoke(DESKTOP_INVOKE_CHANNELS.stopAgent);
-    const saveInput = { documentId: "document", blocks: [], markdown: "", expectedRevision: 0 };
+    await harness.invoke(DESKTOP_INVOKE_CHANNELS.startAgent, scope);
+    await harness.invoke(DESKTOP_INVOKE_CHANNELS.stopAgent, scope);
+    const saveInput = { ...scope, blocks: [], markdown: "", expectedRevision: 0 };
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.saveDocument, saveInput);
-    const command = { commandId: "command", documentId: "document", expectedSuggestionRevision: 0,
+    const command = { commandId: "command", ...scope, expectedSuggestionRevision: 0,
       command: { type: "dismiss", suggestionId: "suggestion" } };
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, command);
-    await harness.invoke(DESKTOP_INVOKE_CHANNELS.importSource);
+    await harness.invoke(DESKTOP_INVOKE_CHANNELS.importSource, scope);
 
     expect(harness.agent.call.mock.calls).toEqual([
-      ["agent.start", { projectRevision: 12, documentRevision: 4 }],
-      ["agent.stop"],
+      ["agent.start", { ...scope, projectRevision: 12, documentRevision: 4 }],
+      ["agent.stop", scope],
     ]);
     expect(harness.storage.call).toHaveBeenCalledWith("document.save", saveInput);
     expect(harness.storage.call).toHaveBeenCalledWith("suggestions.command", command);
     expect(harness.storage.call).toHaveBeenCalledWith("source.import", {
-      path: "/source.md",
+      ...scope, path: "/source.md",
     });
   });
 
@@ -144,7 +136,7 @@ describe("main IPC routing", () => {
     const harness = createHarness();
     harness.dialog.show.mockResolvedValueOnce({ canceled: true, filePaths: [] });
     await expect(
-      harness.invoke(DESKTOP_INVOKE_CHANNELS.importSource),
+      harness.invoke(DESKTOP_INVOKE_CHANNELS.importSource, { projectId: "project-1", documentId: "document-1" }),
     ).resolves.toBeUndefined();
     expect(harness.storage.call).not.toHaveBeenCalledWith(
       "source.import",
@@ -160,8 +152,10 @@ describe("main IPC routing", () => {
       beginHydration: vi.fn(),
       completeHydration: vi.fn(() => true),
     };
-    const harness = createHarness(true, eventConsumers);
+    const harness = createHarness(eventConsumers);
     const acknowledgement = {
+      projectId: "project-1",
+      documentId: "document-1",
       streamId: "document:default-document",
       sequence: 0,
     };
@@ -184,31 +178,5 @@ describe("main IPC routing", () => {
       consumerId: "consumer-1",
       ...acknowledgement,
     });
-  });
-
-  it("validates development suggestions and omits the route in production", async () => {
-    const harness = createHarness();
-    await expect(
-      harness.invoke(DEVELOPMENT_SUGGESTION_CHANNEL, { invalid: true }),
-    ).rejects.toThrow("Invalid data at main-ipc.development.suggestion.create.params");
-    const item = {
-      id: "suggestion",
-      dedupeKey: "suggestion",
-      kind: "snippet",
-      title: "Title",
-      summary: "Summary",
-      body: "Body",
-      insertText: "Text",
-      sourceLabels: [],
-      createdAt: 1,
-    };
-    await harness.invoke(DEVELOPMENT_SUGGESTION_CHANNEL, item);
-    expect(harness.storage.call).toHaveBeenCalledWith(
-      "development.suggestion.create",
-      { item },
-    );
-
-    const production = createHarness(false);
-    expect(production.handlers.has(DEVELOPMENT_SUGGESTION_CHANNEL)).toBe(false);
   });
 });

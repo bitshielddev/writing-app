@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprehension Review: Suggestion controller consolidation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #191923;
+      --muted: #626070;
+      --soft: #f7f6ff;
+      --panel: #ffffff;
+      --line: #dedbea;
+      --accent: #5f4fd6;
+      --accent-soft: #ebe8ff;
+      --warn: #8a4b00;
+      --warn-bg: #fff6df;
+      --code: #17151f;
+      --code-bg: #f2f0fa;
+      --good: #116149;
+      --bad: #933232;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #fbfaff 0, #f3f1fb 55%, #ffffff 100%);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    header.hero {
+      padding: 56px 24px 28px;
+      border-bottom: 1px solid var(--line);
+      background: radial-gradient(circle at top left, #ebe8ff, transparent 38%), #fbfaff;
+    }
+    main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
+    .hero-inner { max-width: 1120px; margin: 0 auto; }
+    .eyebrow { margin: 0 0 10px; color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 880px; font-size: clamp(34px, 5vw, 58px); line-height: 1.02; letter-spacing: -0.045em; }
+    h2 { margin: 48px 0 14px; font-size: clamp(24px, 3vw, 34px); line-height: 1.12; letter-spacing: -0.025em; }
+    h3 { margin: 28px 0 10px; font-size: 19px; line-height: 1.25; }
+    p { max-width: 760px; }
+    a { color: var(--accent); }
+    .lede { max-width: 850px; margin: 18px 0 0; color: #3f3d4d; font-size: 18px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+    .pill { border: 1px solid var(--line); background: white; border-radius: 999px; padding: 7px 11px; font-size: 13px; color: var(--muted); }
+    .grid { display: grid; gap: 18px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (max-width: 820px) { .grid.two, .grid.three { grid-template-columns: 1fr; } }
+    .card, .callout, .map, details.quiz-answer {
+      background: rgba(255,255,255,.82);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 12px 32px rgba(35, 28, 75, .06);
+    }
+    .card h3 { margin-top: 0; }
+    .card p:last-child, .callout p:last-child { margin-bottom: 0; }
+    .callout { border-left: 5px solid var(--accent); }
+    .callout.warn { border-left-color: #d48700; background: var(--warn-bg); color: #3f2b07; }
+    .callout.good { border-left-color: #1c9c72; }
+    .small { font-size: 14px; color: var(--muted); }
+    .file-list { columns: 2; max-width: 900px; padding-left: 20px; }
+    @media (max-width: 700px) { .file-list { columns: 1; } }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { background: var(--code-bg); padding: 2px 5px; border-radius: 6px; }
+    pre {
+      margin: 14px 0 0;
+      padding: 16px;
+      border-radius: 14px;
+      overflow-x: auto;
+      background: #17151f;
+      color: #f4f1ff;
+      font-size: 13px;
+      line-height: 1.45;
+      border: 1px solid #2c283a;
+    }
+    pre .mark { background: rgba(128, 108, 255, .28); color: #ffffff; padding: 0 2px; border-radius: 4px; }
+    pre .del { color: #ffb0b0; }
+    pre .add { color: #b8f5d6; }
+    .caption { margin: 7px 0 0; font-size: 13px; color: var(--muted); }
+    .lane {
+      display: grid;
+      grid-template-columns: 1fr 36px 1fr 36px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin: 18px 0 8px;
+      max-width: 920px;
+    }
+    .node { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 13px; min-height: 72px; }
+    .arrow { text-align: center; color: var(--accent); font-weight: 900; }
+    @media (max-width: 860px) {
+      .lane { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); }
+    }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; background: white; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { background: #f4f2fd; font-size: 13px; color: #454255; }
+    tr:last-child td { border-bottom: 0; }
+    .checkpoint { margin: 28px 0; padding: 16px 18px; background: #f4f2fd; border: 1px dashed #bbb4ed; border-radius: 16px; max-width: 820px; }
+    .quiz { counter-reset: question; }
+    .question { counter-increment: question; margin: 18px 0; }
+    .question h3::before { content: counter(question) ". "; color: var(--accent); }
+    details.quiz-answer { margin-top: 10px; padding: 12px 14px; }
+    details.quiz-answer summary { cursor: pointer; font-weight: 800; color: var(--accent); }
+    footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">Comprehension review</p>
+    <h1>The suggestion path is now one controller, and the mock injection path is gone</h1>
+    <p class="lede">This staged change removes the development-only mock suggestion UI and folds suggestion persistence, optimistic rendering, selection, preview state, and event reconciliation into <code>useSuggestionController</code>. It also narrows the persisted suggestion schema so stale/withdrawn flags stay in the renderer.</p>
+    <div class="meta">
+      <span class="pill">70 files touched</span>
+      <span class="pill">854 insertions / 2227 deletions</span>
+      <span class="pill">Main history context: document scoping, suggestion history, process resilience</span>
+    </div>
+  </div>
+</header>
+<main>
+  <section class="callout">
+    <h2 style="margin-top:0">Read this as a boundary change</h2>
+    <p>The main behavior change is not a new suggestion kind or UI button. The important change is where suggestion state lives while the user is interacting with it. Previously, a feed adapter, an inbox reducer, and a persistence hook cooperated. Now the renderer has one suggestion controller that owns the live projection and talks directly to the desktop command API.</p>
+    <p>The removal of the mock suggestion window matters because it deletes a second suggestion entry point: no <code>scribeDevelopment</code> preload bridge, no <code>development.suggestion.create</code> operation, no <code>development</code> actor, and no <code>/mock-suggestions</code> renderer route remain in this diff.</p>
+  </section>
+
+  <section>
+    <h2>The three behavior areas to keep in your head</h2>
+    <div class="grid three">
+      <article class="card">
+        <h3>Renderer suggestion orchestration</h3>
+        <p><code>src/suggestions/useSuggestionController.ts</code> replaces <code>useSuggestionInbox</code> plus <code>useSuggestionPersistence</code>. It holds the authoritative state, optimistic queue, transient detail/preview entries, retry/flush/discard controls, and desktop-event reconciliation.</p>
+      </article>
+      <article class="card">
+        <h3>Process and contract surface</h3>
+        <p>The development suggestion operation is removed from shared contracts, preload, main IPC, storage operations, and the development menu. Persisted inbox and pinned entries no longer accept <code>stale</code> or <code>withdrawn</code> fields.</p>
+      </article>
+      <article class="card">
+        <h3>Docs, tests, and budgets</h3>
+        <p>Tests move away from reducer and mock-controller coverage toward controller reconciliation tests. Documentation now describes committed desktop events and the controller. Bundle checks stop looking for deleted mock-development code.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Before and after: two renderer state machines became one</h2>
+    <p>Before this diff, <code>useWorkspaceController</code> built a relay, a persistence hook, and an inbox hook. The inbox handled local UI transitions while the persistence hook sent commands and published optimistic projections back to the inbox.</p>
+    <pre><code>// Before, from HEAD: src/workspace/useWorkspaceController.ts
+const suggestionFeed = useMemo(() =&gt; createSuggestionFeedRelay(), []);
+const suggestionPersistence = useSuggestionPersistence(desktop);
+const inboxOptions = useMemo(
+  () =&gt; ({ onCommand: suggestionPersistence.dispatchCommand,
+    subscribeToAuthoritativeState: suggestionPersistence.subscribe }),
+  [suggestionPersistence.dispatchCommand, suggestionPersistence.subscribe],
+);
+const inbox = useSuggestionInbox(suggestionFeed.feed, inboxOptions);</code></pre>
+    <p>The new version removes the relay and subscription bridge. The workspace controller now creates the suggestion controller directly and routes desktop events into it.</p>
+    <pre><code>// Now: src/workspace/useWorkspaceController.ts
+<span class="mark">const inbox = useSuggestionController(desktop);</span>
+
+// Hydration seeds the controller with state, revision, and scope.
+seedSuggestionState(
+  snapshot.suggestions,
+  snapshot.suggestionRevision,
+  snapshot.project.id,
+  snapshot.document.id,
+);
+
+// Desktop suggestion events go directly to the controller.
+if (event.type === "suggestion.event") onSuggestionEvent(event);</code></pre>
+    <p class="caption">The public shape that components use is still named <code>inbox</code> in <code>useWorkspaceController</code>, but its implementation changed from reducer plus feed to a desktop-aware controller.</p>
+
+    <div class="lane" aria-label="New suggestion command flow">
+      <div class="node"><strong>User action</strong><br><span class="small">select, pin, dismiss, preview, move card</span></div>
+      <div class="arrow">=&gt;</div>
+      <div class="node"><strong>useSuggestionController</strong><br><span class="small">optimistic projection and serialized command queue</span></div>
+      <div class="arrow">=&gt;</div>
+      <div class="node"><strong>Desktop storage</strong><br><span class="small">authoritative revision, receipt, durable event</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Follow one writer command through the new controller</h2>
+    <p>The controller keeps two versions of suggestion state: an authoritative projection from storage, and a displayed projection computed by applying active and pending commands. The code that builds that displayed projection is small, but it is the key invariant.</p>
+    <pre><code>// src/suggestions/useSuggestionController.ts
+function optimisticProjection(
+  authoritative: PersistedSuggestionState,
+  active: Candidate | undefined,
+  pending: Candidate[],
+) {
+  let projection = structuredClone(authoritative);
+  for (const candidate of [...(active ? [active] : []), ...pending]) {
+    const transition = applySuggestionCommand(projection, candidate.command);
+    <span class="mark">if (transition.status !== "rejected") projection = transition.state;</span>
+  }
+  return projection;
+}</code></pre>
+    <p>This means optimistic rendering and storage use the same durable command policy from <code>transitions.ts</code>. Rejected optimistic commands are ignored for the projection instead of being forced into UI state.</p>
+
+    <h3>The queue is serialized against acknowledged revisions</h3>
+    <pre><code>// src/suggestions/useSuggestionController.ts
+const candidate = pending.current.shift()!;
+active.current = candidate;
+setStatus({ state: pending.current.length ? "pending" : "saving",
+  acknowledgedVersion: revision.current });
+publishProjection();
+void desktop.executeSuggestionCommand({
+  commandId: candidate.commandId,
+  projectId: projectId.current,
+  documentId: documentId.current,
+  <span class="mark">expectedSuggestionRevision: revision.current,</span>
+  command: candidate.command,
+}).then((result) =&gt; {
+  if (!mounted.current || active.current?.commandId !== candidate.commandId) return;
+  active.current = undefined;
+  if (result.suggestionRevision &gt;= revision.current) {
+    authoritative.current = structuredClone(result.state);
+    revision.current = result.suggestionRevision;
+  }
+  ...
+});</code></pre>
+    <p>The <code>expectedSuggestionRevision</code> line is what prevents a command from being applied against a stale projection without storage noticing. The controller sends one command at a time; after the first response advances <code>revision.current</code>, the next command uses the newer revision.</p>
+
+    <div class="callout good">
+      <h3>Test evidence</h3>
+      <p><code>src/suggestions/useSuggestionController.test.ts</code> now asserts this exact behavior: selecting an item marks it viewed optimistically, pinning is shown optimistically while the first command is still unresolved, and the second command is not sent until the first response returns revision <code>1</code>.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>When storage speaks before the RPC response</h2>
+    <p>Durable events and direct command responses can arrive in either order. The old persistence hook only updated authoritative state on events and responses separately. The new controller explicitly recognizes the command ID on a <code>suggestion.event</code> and can clear the active command from the event path.</p>
+    <pre><code>// src/suggestions/useSuggestionController.ts
+const onDesktopEvent = useCallback((event: DesktopEvent) =&gt; {
+  if (event.type !== "suggestion.event" ||
+      event.suggestionRevision &lt;= revision.current) return;
+  updateTransientFromEvent(event.event);
+  authoritative.current = structuredClone(event.state);
+  revision.current = event.suggestionRevision;
+  <span class="mark">if (event.commandId &amp;&amp; active.current?.commandId === event.commandId) {</span>
+    active.current = undefined;
+    failed.current = undefined;
+    setFailureMessage(undefined);
+  }
+  publishProjection();
+  if (pending.current.length &amp;&amp; !active.current) drain();
+  else if (!active.current) setStatus({ state: "idle", acknowledgedVersion: revision.current });
+}, [drain, publishProjection, updateTransientFromEvent]);</code></pre>
+    <p>This protects an important race: if storage emits the durable event first, the controller should not apply the command twice when the RPC resolves later. The new test named <code>acknowledges a matching durable event once regardless of RPC ordering</code> covers that path.</p>
+  </section>
+
+  <section>
+    <h2>Stale and withdrawn are now presentation flags, not persisted state</h2>
+    <p>The contract schema used to allow <code>stale</code> and <code>withdrawn</code> on persisted inbox and pinned entries. This diff removes those fields from <code>PersistedInboxEntrySchema</code> and <code>PersistedPinnedEntrySchema</code>.</p>
+    <pre><code>// src/shared/contracts.ts
+const PersistedInboxEntrySchema = Type.Object(
+  {
+    item: SuggestionItemSchema,
+    viewed: Type.Boolean(),
+<span class="del">-   stale: Type.Boolean(),</span>
+<span class="del">-   withdrawn: Type.Boolean(),</span>
+  },
+  strict,
+);</code></pre>
+    <p>The renderer still shows stale or withdrawn state when an opened detail or active preview is updated or retracted. That state now lives in a <code>TransientEntry</code> inside <code>useSuggestionController</code>, then gets added by presentation selectors.</p>
+    <pre><code>// src/suggestions/useSuggestionController.ts
+type TransientEntry = {
+  id: string;
+  entry: InboxEntry;
+  stale: boolean;
+  withdrawn: boolean;
+};
+
+const updateTransientFromEvent = useCallback((event) =&gt; {
+  if (event.type !== "suggestion.updated" &amp;&amp;
+      event.type !== "suggestion.retracted") return;
+  ...
+  if (event.type === "suggestion.retracted") {
+    return { ...current, stale: true, withdrawn: true,
+      entry: { ...current.entry, stale: true, withdrawn: true } };
+  }
+  return { ...current, stale: true,
+    entry: { ...current.entry, item: event.item, stale: true } };
+}, []);</code></pre>
+    <p>The trimmed <code>inboxReducer.ts</code> is no longer a lifecycle reducer. It now exports presentation helpers: sort live entries, sort pins, decorate one active preview, and count unread items.</p>
+    <pre><code>// src/suggestions/inboxReducer.ts
+export function presentInboxEntry(
+  entry: PersistedInboxEntry,
+  flags: Partial&lt;Pick&lt;InboxEntry, "stale" | "withdrawn"&gt;&gt; = {},
+): InboxEntry {
+  return { ...entry,
+    stale: flags.stale ?? false,
+    withdrawn: flags.withdrawn ?? false };
+}</code></pre>
+    <div class="checkpoint">
+      <strong>Pause and check:</strong> if a suggestion is retracted while its preview block is active, the durable projection removes it. The controller keeps a transient snapshot so the user can finish resolving the preview without the detail view pointing at missing state.
+    </div>
+  </section>
+
+  <section>
+    <h2>The mock-suggestion entry point was deleted end to end</h2>
+    <p>The deletion is broad enough that future code should not assume there is still a manual renderer-side suggestion injector. The removed files include <code>src/dev/mockSuggestions/MockSuggestionController.tsx</code>, <code>mockSuggestionDraft.ts</code>, their tests, and <code>src/suggestions/validation.ts</code>.</p>
+    <p>The shared contract no longer exposes a development operation or a development actor.</p>
+    <pre><code>// src/shared/contracts.ts
+export const SuggestionActorSchema = Type.Object({
+<span class="del">- type: Type.Union([Type.Literal("writer"), Type.Literal("agent"), Type.Literal("development"), Type.Literal("system")]),</span>
+<span class="add">+ type: Type.Union([Type.Literal("writer"), Type.Literal("agent"), Type.Literal("system")]),</span>
+  id: Type.Optional(identifier),
+}, strict);
+
+// Removed from RendererOperations and StorageOperations:
+<span class="del">- "development.suggestion.create"</span>
+
+// Removed desktop channel:
+<span class="del">- export const DEVELOPMENT_SUGGESTION_CHANNEL = "scribe:development.suggestion.create"</span></code></pre>
+    <p>Preload now exposes only <code>window.scribe</code> unless testing is enabled. There is no <code>window.scribeDevelopment</code> path left in <code>src/vite-env.d.ts</code> or <code>desktop/preload-bridge.ts</code>.</p>
+    <pre><code>// desktop/preload-bridge.ts
+export function exposePreloadBridges({
+  contextBridge,
+  ipcRenderer,
+  testing = false,
+}: {
+  contextBridge: PreloadContextBridge;
+  ipcRenderer: PreloadIpcRenderer;
+  testing?: boolean;
+}) {
+  <span class="mark">contextBridge.exposeInMainWorld("scribe", createDesktopBridge(ipcRenderer));</span>
+  if (testing) {
+    contextBridge.exposeInMainWorld("scribeTest", { ... });
+  }
+}</code></pre>
+    <p>Main process cleanup matches that contract cleanup: no mock window field, no <code>--scribe-development</code> argument, no <code>openMockSuggestionWindow</code>, and no "Mock suggestions" menu item.</p>
+    <pre><code>// desktop/main.ts
+function secureWebPreferences(): WebPreferences {
+  const additionalArguments = [];
+  if (process.env.SCRIBE_E2E === "1") additionalArguments.push("--scribe-e2e");
+  return { preload: join(here, "preload.cjs"), additionalArguments, ... };
+}
+
+// Development menu now keeps DevTools, but no mock suggestion launcher.
+submenu: [
+  { role: "toggleDevTools" },
+]</code></pre>
+    <div class="callout warn">
+      <h3>Evidence limit</h3>
+      <p>The code and docs show that manual mock injection was intentionally removed. The diff does not state the product reason. Do not infer that manual test data is no longer useful; infer only that this particular Electron development bridge is no longer supported.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Storage and schema details that can surprise you later</h2>
+    <div class="grid two">
+      <article class="card">
+        <h3>Database version reset</h3>
+        <pre><code>// desktop/database.ts
+<span class="del">- export const DATABASE_VERSION = 7;</span>
+<span class="add">+ export const DATABASE_VERSION = 1;</span>
+// Alpha databases are disposable. Only the current schema is supported;
+// incompatible files must be removed and recreated instead of migrated in place.</code></pre>
+        <p>The updated test expects the older fixture to fail as <code>DATABASE_TOO_NEW</code> against the v1 baseline. Because this app intentionally does not migrate alpha databases, local profiles with a previous alpha schema may need manual reset.</p>
+      </article>
+      <article class="card">
+        <h3>Storage no longer accepts development suggestions</h3>
+        <pre><code>// desktop/application/storage-operations.ts
+async createSuggestion(input: Params&lt;"agent.suggestion.create"&gt;) {
+  return this.mutateSuggestion(input,
+    { type: "publish", item: input.item },
+    <span class="mark">{ type: "agent" }</span>);
+}
+
+// createDevelopmentSuggestion was removed.</code></pre>
+        <p>The only suggestion publisher left in storage is the agent path. Writer actions still use <code>suggestions.command</code> with actor <code>writer</code>.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>How the tests moved with the architecture</h2>
+    <table>
+      <thead><tr><th>Old coverage removed or reduced</th><th>New or adjusted coverage</th><th>Behavior protected</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>useSuggestionInbox.test.ts</code>, <code>useSuggestionPersistence.test.ts</code>, mock suggestion tests, validation tests were deleted.</td>
+          <td><code>useSuggestionController.test.ts</code> was added.</td>
+          <td>Optimistic commands, serialized revisions, event/RPC ordering, and transient preview state.</td>
+        </tr>
+        <tr>
+          <td><code>inbox.test.ts</code> no longer exercises the whole lifecycle reducer.</td>
+          <td>It now tests selector sorting and presentation-only stale/withdrawn decoration.</td>
+          <td>Persistent state is clean; UI flags are added only for rendering.</td>
+        </tr>
+        <tr>
+          <td>Preload and IPC tests no longer expect the development bridge/channel.</td>
+          <td>They assert the remaining desktop bridge routes and scoped operation arguments.</td>
+          <td>Renderer-to-main API inventory matches the current contract surface.</td>
+        </tr>
+        <tr>
+          <td>Bundle production checks no longer scan for <code>src/dev</code> mock modules or the mock window string.</td>
+          <td>Budget values were updated and Mermaid-in-initial-graph remains enforced.</td>
+          <td>The production guard now focuses on code that can still exist in output.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Maintenance notes for future changes</h2>
+    <div class="grid two">
+      <article class="card">
+        <h3>Keep transition policy shared</h3>
+        <p>If you add a writer command, update <code>DurableSuggestionCommand</code>, <code>applySuggestionCommand</code>, storage facts in <code>desktop/domain/suggestion-persistence.ts</code>, contract schemas, and controller methods together. The controller assumes the optimistic projection and storage policy are the same policy.</p>
+      </article>
+      <article class="card">
+        <h3>Be careful with failed command state</h3>
+        <p><code>retry</code>, <code>flush</code>, and <code>discard</code> now live beside selection and preview state. A change to failure handling can affect document switching because <code>useWorkspaceController</code> waits for <code>flushSuggestions()</code> before selecting or creating a document.</p>
+      </article>
+      <article class="card">
+        <h3>Geometry commands are special</h3>
+        <p><code>enqueue</code> coalesces pending <code>workspace.geometry</code> commands by suggestion ID, and a storage conflict for geometry is retried with a new command ID. Other conflicts move the controller to <code>failed</code>.</p>
+      </article>
+      <article class="card">
+        <h3>Manual suggestion data needs a new route if it returns</h3>
+        <p>The old mock route was removed from contracts, preload, main, renderer, tests, and docs. Reintroducing manual injection would be a cross-boundary feature, not a small UI restore.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Changed files worth opening first</h2>
+    <ul class="file-list">
+      <li><code>src/suggestions/useSuggestionController.ts</code></li>
+      <li><code>src/suggestions/useSuggestionController.test.ts</code></li>
+      <li><code>src/suggestions/inboxReducer.ts</code></li>
+      <li><code>src/suggestions/transitions.ts</code></li>
+      <li><code>src/workspace/useWorkspaceController.ts</code></li>
+      <li><code>src/shared/contracts.ts</code></li>
+      <li><code>desktop/preload-bridge.ts</code></li>
+      <li><code>desktop/ipc-routing.ts</code></li>
+      <li><code>desktop/main.ts</code></li>
+      <li><code>desktop/application/storage-operations.ts</code></li>
+      <li><code>desktop/database.ts</code></li>
+      <li><code>docs/editor-and-suggestions.md</code></li>
+    </ul>
+  </section>
+
+  <section class="quiz">
+    <h2>Comprehension check</h2>
+    <article class="question card">
+      <h3>A user pins a suggestion while a previous mark-viewed command is still active. What should the controller display and when should the pin command be sent?</h3>
+      <p>Answer in terms of optimistic projection and revision sequencing.</p>
+      <details class="quiz-answer"><summary>Answer</summary>
+        <p>The UI can display the pinned state optimistically because <code>optimisticProjection</code> applies the active command plus pending commands to the authoritative state. The pin command should not be sent to storage until the active command resolves or is acknowledged by a matching event. When it is sent, it uses the updated <code>expectedSuggestionRevision</code>.</p>
+      </details>
+    </article>
+
+    <article class="question card">
+      <h3>Why should <code>stale</code> and <code>withdrawn</code> not be written into hydrated suggestion state after this diff?</h3>
+      <details class="quiz-answer"><summary>Answer</summary>
+        <p>The shared contract no longer includes those fields on persisted inbox or pinned entries. They are renderer-only flags attached to transient selected or preview entries. Persisting them would fail strict contract validation and would mix UI recovery state into durable projection state.</p>
+      </details>
+    </article>
+
+    <article class="question card">
+      <h3>What would break if <code>onDesktopEvent</code> did not clear <code>active.current</code> for a matching <code>commandId</code>?</h3>
+      <details class="quiz-answer"><summary>Answer</summary>
+        <p>If the durable event arrives before the RPC response, the controller would still think the command is active. That could block draining pending commands, keep the status in a saving/pending state, or cause later response handling to interact with already-applied state. The new test covers this ordering.</p>
+      </details>
+    </article>
+
+    <article class="question card">
+      <h3>Where would you start if someone asks to bring back manual development suggestions?</h3>
+      <details class="quiz-answer"><summary>Answer</summary>
+        <p>Start at the cross-process contract, not the deleted React form. This diff removed <code>development.suggestion.create</code>, <code>DEVELOPMENT_SUGGESTION_CHANNEL</code>, <code>scribeDevelopment</code>, the main IPC route, the storage operation, the development actor, and the renderer route. A replacement needs an intentional contract and storage path.</p>
+      </details>
+    </article>
+
+    <article class="question card">
+      <h3>Which current risk is tied to <code>DATABASE_VERSION</code> changing from 7 to 1?</h3>
+      <details class="quiz-answer"><summary>Answer</summary>
+        <p>Existing alpha databases with a higher schema version can be treated as too new for the current baseline. The code and docs say incompatible alpha databases are not migrated in place, so local users may need to preserve or delete the old database before continuing.</p>
+      </details>
+    </article>
+  </section>
+
+  <footer>
+    <p>Generated from the staged working-tree diff and recent history through <code>a1493cd</code>, <code>39c6a64</code>, <code>dc491a6</code>, and related commits. Claims above are limited to behavior visible in the changed code, tests, and docs.</p>
+  </footer>
+</main>
+</body>
+</html>

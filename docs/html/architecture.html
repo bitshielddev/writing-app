@@ -98,7 +98,7 @@
       <div class="page-shell">
         <div class="content-column">
           <header class="page-hero page-hero--cyan">
-            <div class="page-hero__meta"><span>Guide 02</span><span>6 min read</span></div>
+            <div class="page-hero__meta"><span>Guide 02</span><span>8 min read</span></div>
             <h1>Architecture</h1>
             <p>Understand browser and Electron boundaries, state ownership, data direction, and module responsibilities.</p>
             <div class="page-hero__footer">
@@ -108,7 +108,10 @@
             <div class="hero-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
           </header>
 
-          <article class="prose"><h2 id="system-boundary">System boundary<a class="heading-anchor" href="#system-boundary" aria-label="Link to System boundary">#</a></h2><p>The React renderer has one application composition: Electron supplies a required preload bridge, main-process orchestration, a SQLite utility process, and a Pi utility process. Vite serves that renderer inside Electron during development and builds it for <code>file://</code> loading in production. There is still no routing library.</p>
+          <article class="prose"><h2 id="project-and-document-scope">Project and document scope<a class="heading-anchor" href="#project-and-document-scope" aria-label="Link to Project and document scope">#</a></h2><p>Projects and documents use immutable application-generated UUIDs. Mutable names and titles are display labels only. Every persistence and agent operation carries <code>{ projectId, documentId }</code>; repositories verify that the document belongs to the project before reading or writing.</p>
+<p>Document files live at <code>projects/&lt;project-id&gt;/documents/&lt;document-id&gt;/</code>, including <code>draft.md</code>, <code>sources/</code>, and <code>.pi/sessions/</code>. SQLite schema version 1 scopes sources, suggestion projections, command receipts, immutable suggestion history, checkpoints, event streams, and consumer cursors to the document. The selected identities are persisted in the singleton workspace settings row and validated on startup. During alpha, incompatible database versions are intentionally not migrated; delete the local database to recreate the current schema.</p>
+<p>The renderer treats a selected document as a keyed session. A switch flushes document and suggestion queues, stops the old agent, removes preview state, selects and hydrates the target, and only then enables the target state. Async controllers compare their captured session identity before applying completions. The main process replaces the document-specific Pi process on selection so its working directory and session history cannot cross document boundaries.</p>
+<h2 id="system-boundary">System boundary<a class="heading-anchor" href="#system-boundary" aria-label="Link to System boundary">#</a></h2><p>The React renderer has one application composition: Electron supplies a required preload bridge, main-process orchestration, a SQLite utility process, and a Pi utility process. Vite serves that renderer inside Electron during development and builds it for <code>file://</code> loading in production. There is still no routing library.</p>
 <figure class="diagram diagram--architecture" aria-labelledby="architecture-map-title">
     <figcaption id="architecture-map-title">
       <span class="diagram__eyebrow">System map</span>
@@ -135,8 +138,7 @@
     Shell[App composition root]
     WorkspaceController[Workspace controller]
     Editor[BlockNote editor]
-    Feed[Suggestion feed adapter]
-    Inbox[Suggestion inbox reducer]
+    Suggestions[Suggestion controller]
     Dock[Writing partner UI]
     Pins[Workspace cards]
     Storage[(localStorage widths)]
@@ -144,27 +146,22 @@
     Main[Electron main]
     Database[SQLite storage process]
     Agent[Pi agent process]
-    Controller[Development controller window]
-    DevBridge[Development-only preload bridge]
 
     User --&gt; Shell
     Shell --&gt; Editor
     Shell --&gt; WorkspaceController
-    WorkspaceController --&gt; Feed
-    Feed --&gt;|SuggestionEvent| Inbox
-    Inbox --&gt; Dock
-    Inbox --&gt; Pins
+    WorkspaceController --&gt; Suggestions
+    Suggestions --&gt; Dock
+    Suggestions --&gt; Pins
     Dock --&gt;|select, pin, dismiss, preview| Shell
-    Editor --&gt;|preview accepted/cancelled| Inbox
+    Editor --&gt;|preview accepted/cancelled| Suggestions
     Shell &lt;--&gt; Storage
     Shell &lt;--&gt; Bridge
     Bridge &lt;--&gt; Main
     Main &lt;--&gt; Database
     Main &lt;--&gt; Agent
-    Agent &lt;--&gt; Database
-    Controller --&gt; DevBridge
-    DevBridge --&gt; Main</code></pre></details>
-  </figure><p>The <code>SuggestionFeed</code> remains transport-neutral, while its only application adapter maps committed Electron events. Desktop queries and commands use the typed <code>DesktopBridge</code> contract. Development injection is a separately gated bridge and enters the same persisted storage/event path.</p>
+    Agent &lt;--&gt; Database</code></pre></details>
+  </figure><p>Desktop queries, commands, and committed events use the typed <code>DesktopBridge</code> contract. The suggestion controller derives optimistic projections through the same pure transition policy used by storage, then reconciles authoritative revisions and command IDs from storage events.</p>
 <h2 id="composition-root">Composition root<a class="heading-anchor" href="#composition-root" aria-label="Link to Composition root">#</a></h2><p><a href="../../src/App.tsx"><code>App.tsx</code></a> is the layout composition root:</p>
 <ol>
 <li><code>useCreateBlockNote</code> creates the editor from <code>writingSchema</code> and seeded content.</li>
@@ -172,7 +169,7 @@
 <li><code>useWorkspaceLayout</code> and <code>useWorkspaceKeybindings</code> connect controller actions to the responsive layout.</li>
 <li><code>App</code> composes the editor, sidebars, dock, drawers, and keyboard surfaces.</li>
 </ol>
-<p>The workspace controller memoizes an in-memory suggestion feed relay and owns one desktop event subscription. The subscription routes suggestion events into the inbox and applies other desktop events directly.</p>
+<p>The workspace controller owns one desktop event subscription. It routes suggestion events into the suggestion controller and applies other desktop events to their feature controllers.</p>
 <h2 id="state-ownership">State ownership<a class="heading-anchor" href="#state-ownership" aria-label="Link to State ownership">#</a></h2><table>
 <thead>
 <tr>
@@ -187,18 +184,18 @@
 <td>Selection is in-memory; accepted blocks autosave in Electron</td>
 </tr>
 <tr>
-<td>Feed subscribers</td>
-<td><code>createSuggestionFeedRelay</code> closure</td>
-<td>Renderer lifetime</td>
+<td>Inbox, pins, command queue</td>
+<td><code>useSuggestionController</code></td>
+<td>Projection persists in Electron; optimistic state lives for the renderer session</td>
 </tr>
 <tr>
-<td>Inbox, pins, preview id</td>
-<td><code>useSuggestionInbox</code> / <code>inboxReducer</code></td>
-<td>Visible suggestion projection persists in Electron; preview identity stays ephemeral</td>
+<td>Selected detail, preview identity, stale/withdrawn flags</td>
+<td><code>useSuggestionController</code></td>
+<td>Renderer-only and reset on hydration/document switch</td>
 </tr>
 <tr>
 <td>Workspace pin geometry and z-order</td>
-<td>Inbox reducer</td>
+<td>Suggestion transition policy</td>
 <td>Persists in Electron</td>
 </tr>
 <tr>
@@ -267,21 +264,22 @@
 </ul>
 <p>The command strip and shortcut dialog read the same command catalog and default keymap used for execution. This prevents discoverability copy from drifting away from the active bindings and leaves a clean keymap-replacement seam for future configurability.</p>
 <h3 id="src-suggestions"><code>src/suggestions</code><a class="heading-anchor" href="#src-suggestions" aria-label="Link to src/suggestions">#</a></h3><ul>
-<li><a href="../../src/suggestions/types.ts"><code>types.ts</code></a> defines suggestion data and the feed interface.</li>
+<li><a href="../../src/suggestions/types.ts"><code>types.ts</code></a> defines suggestion data and agent event variants.</li>
 <li><a href="../../src/suggestions/state.ts"><code>state.ts</code></a> defines the persisted projection, empty state, 30-entry limit, and shared eviction policy used by renderer and storage.</li>
-<li><a href="../../src/suggestions/validation.ts"><code>validation.ts</code></a> validates suggestion payloads at runtime before development IPC reaches storage.</li>
-<li><a href="../../src/suggestions/inbox.ts"><code>inbox.ts</code></a> implements all suggestion, pin, preview, and workspace transitions.</li>
+<li><a href="../../desktop/domain/suggestion-persistence.ts"><code>suggestion-persistence.ts</code></a> is the pure suggestion aggregate and strict projection reducer. Storage records versioned intent, appends immutable facts, advances the projection, and stores the receipt in one transaction. Rebuild and repair use the same reducer; no application service writes the projection directly.</li>
+<li><a href="../../src/suggestions/transitions.ts"><code>transitions.ts</code></a> implements the durable command and agent-event policy shared by renderer and storage.</li>
+<li><a href="../../src/suggestions/useSuggestionController.ts"><code>useSuggestionController.ts</code></a> owns optimistic commands, authoritative reconciliation, and transient selection/preview presentation.</li>
+<li><a href="../../src/suggestions/inbox.ts"><code>inbox.ts</code></a> exposes renderer-facing suggestion types and selectors.</li>
 <li><a href="../../src/suggestions/workspacePinLayout.ts"><code>workspacePinLayout.ts</code></a> supplies type-specific initial card sizes.</li>
 </ul>
-<h3 id="src-dev-mocksuggestions"><code>src/dev/mockSuggestions</code><a class="heading-anchor" href="#src-dev-mocksuggestions" aria-label="Link to src/dev/mockSuggestions">#</a></h3><p>This temporary directory owns the Electron-only controller view and payload builder. Main and preload expose its injection bridge only during Vite development; storage persists accepted mock suggestions exactly like agent-created suggestions.</p>
-<p>The reducer itself is a pure function and is the most important unit-test boundary. The persisted state policy is React-independent so the storage process can apply the same queue rules.</p>
+<p>The durable transition policy is pure and React-independent so storage and optimistic rendering cannot drift. Stale and withdrawn flags are presentation-only because they protect transient detail/preview state rather than durable projection state.</p>
 <h3 id="desktop-and-src-desktop"><code>desktop</code> and <code>src/desktop</code><a class="heading-anchor" href="#desktop-and-src-desktop" aria-label="Link to desktop and src/desktop">#</a></h3><ul>
 <li><code>desktop/main.ts</code> owns Electron lifecycle, renderer IPC, utility processes, revision forwarding, and the activity ring.</li>
 <li><code>desktop/storage.ts</code> owns schema creation, SQLite queries, managed Markdown files, and committed events.</li>
 <li><code>desktop/agent.ts</code> creates the durable Pi coding-agent session and drives user-enabled autonomous cycles. Revisions continue to coalesce while the agent is stopped.</li>
 <li><code>desktop/scribe-extension.ts</code> defines suggestion/yield tools and persists extension loop state.</li>
 <li><code>desktop/preload.ts</code> exposes the typed desktop API.</li>
-<li><code>src/desktop/desktopClient.ts</code> maps desktop events into <code>SuggestionFeed</code>.</li>
+<li><code>src/desktop/desktopClient.ts</code> provides required access to the preload bridge.</li>
 <li><code>src/shared/desktop.ts</code> is the cross-process contract.</li>
 </ul>
 <h3 id="src-components"><code>src/components</code><a class="heading-anchor" href="#src-components" aria-label="Link to src/components">#</a></h3><ul>
@@ -309,18 +307,40 @@
     participant Controller as useWorkspaceController
     participant Editor as BlockNote
     participant Bridge as Electron bridge
-    participant Feed as SuggestionFeed
-    participant Inbox as useSuggestionInbox
+    participant Suggestions as useSuggestionController
 
     Main-&gt;&gt;Bridge: require preload bridge
     Main-&gt;&gt;App: render inside StrictMode
     App-&gt;&gt;Editor: create schema-backed editor
     App-&gt;&gt;Controller: connect desktop and editor
-    Controller-&gt;&gt;Feed: create stable desktop event feed
-    Inbox-&gt;&gt;Feed: subscribe
-    Bridge--&gt;&gt;Feed: committed suggestion event
-    Feed--&gt;&gt;Inbox: suggestion.added</code></pre></details>
-  </figure><h2 id="data-direction-and-dependency-rules">Data direction and dependency rules<a class="heading-anchor" href="#data-direction-and-dependency-rules" aria-label="Link to Data direction and dependency rules">#</a></h2><p>The intended dependency direction is:</p>
+    Bridge--&gt;&gt;Controller: committed suggestion event
+    Controller-&gt;&gt;Suggestions: reconcile state/revision/command ID</code></pre></details>
+  </figure><h2 id="data-direction-and-dependency-rules">Data direction and dependency rules<a class="heading-anchor" href="#data-direction-and-dependency-rules" aria-label="Link to Data direction and dependency rules">#</a></h2><p>Desktop code follows the same inward dependency rule across its three runtimes:</p>
+<figure class="diagram diagram--states" aria-labelledby="pin-lifecycle-title">
+    <figcaption id="pin-lifecycle-title"><span class="diagram__eyebrow">State model</span><strong>A suggestion moves between three explicit homes</strong></figcaption>
+    <div class="state-flow">
+      <div class="state-node"><small>Live</small><strong>Inbox</strong><span>Agent-owned stream</span></div>
+      <div class="state-actions"><span>Pin →</span><span>← Unpin</span></div>
+      <div class="state-node state-node--active"><small>Frozen</small><strong>Pins</strong><span>User-owned snapshot</span></div>
+      <div class="state-actions"><span>Place →</span><span>← Return</span></div>
+      <div class="state-node"><small>Desktop</small><strong>Workspace</strong><span>Positioned reference</span></div>
+    </div>
+    <p class="state-exit"><span aria-hidden="true">×</span> Inbox and Pins can exit through dismiss or an accepted preview; normal live items can also be retracted.</p>
+    <details class="diagram-source"><summary>View Mermaid source</summary><pre><code>flowchart TD
+    I[&quot;Infrastructure: Electron, SQLite, files, Pi, RPC&quot;] --&gt; A[&quot;Application operations and ports&quot;]
+    A --&gt; D[&quot;Pure domain policies&quot;]
+    A --&gt; C[&quot;Shared process contracts and value types&quot;]
+    D --&gt; C</code></pre></details>
+  </figure><p>The boundaries are concrete rather than mirrored framework folders:</p>
+<ul>
+<li>Put a new revision, cursor, or agent-loop rule in <code>desktop/domain</code> and test it without Electron, SQLite, files, or Pi.</li>
+<li>Put a use case and the minimal ports it consumes in <code>desktop/application</code>. Document saves and suggestion persistence are coordinated by <code>storage-operations.ts</code>; repository, transaction, file, event, clock, and identity ports live beside it.</li>
+<li>Put a repository query or durable-format mapping in <code>desktop/storage</code>, which implements the application ports with SQLite.</li>
+<li>Put window, dialog, IPC, preload, and utility-process code in the desktop runtime entry points and routing modules.</li>
+<li>Put Pi SDK conversion and session implementations in <code>desktop/infrastructure/agent</code>; application-facing lifecycle code consumes <code>AgentSessionPort</code>.</li>
+</ul>
+<p><code>scripts/desktop-boundaries.test.mjs</code> enforces that domain and application modules cannot import Electron, Node infrastructure, Pi, storage adapters, or infrastructure adapters. Runtime entry points are composition roots: they construct each required adapter and contain no product policy.</p>
+<p>The intended dependency direction is:</p>
 <div class="code-block" data-language="text"><div class="code-block__bar"><span>text</span><button type="button" class="copy-code" aria-label="Copy code"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy</span></button></div><pre><code class="language-text">types/contracts
     ↑
 editor utilities     suggestion implementations
@@ -328,8 +348,8 @@ editor utilities     suggestion implementations
 components  ← props/callbacks → workspace controller / App composition</code></pre></div><p>Practical rules:</p>
 <ul>
 <li>Domain contracts belong in <code>suggestions/types.ts</code>, not in UI components.</li>
-<li>Suggestion lifecycle changes belong in the reducer and should have reducer tests.</li>
-<li>Transport or model SDK code should sit behind <code>SuggestionFeed</code>.</li>
+<li>Durable suggestion lifecycle changes belong in <code>transitions.ts</code> and should have transition tests.</li>
+<li>Transport or model SDK code belongs in the agent process behind storage operations.</li>
 <li>Cross-feature renderer orchestration belongs in <code>useWorkspaceController</code>; <code>App.tsx</code> remains responsible for layout composition.</li>
 <li>CSS layout variables are set by <code>App</code> but interpreted by <code>index.css</code>.</li>
 </ul>
@@ -374,7 +394,7 @@ components  ← props/callbacks → workspace controller / App composition</code
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#system-boundary">System boundary</a><a class="toc-link toc-link--2" href="#composition-root">Composition root</a><a class="toc-link toc-link--2" href="#state-ownership">State ownership</a><a class="toc-link toc-link--2" href="#module-boundaries">Module boundaries</a><a class="toc-link toc-link--3" href="#src-editor">src/editor</a><a class="toc-link toc-link--3" href="#src-keybindings-and-src-workspace">src/keybindings and src/workspace</a><a class="toc-link toc-link--3" href="#src-suggestions">src/suggestions</a><a class="toc-link toc-link--3" href="#src-dev-mocksuggestions">src/dev/mockSuggestions</a><a class="toc-link toc-link--3" href="#desktop-and-src-desktop">desktop and src/desktop</a><a class="toc-link toc-link--3" href="#src-components">src/components</a><a class="toc-link toc-link--2" href="#renderer-bootstrap-sequence">Renderer bootstrap sequence</a><a class="toc-link toc-link--2" href="#data-direction-and-dependency-rules">Data direction and dependency rules</a><a class="toc-link toc-link--2" href="#styling-architecture">Styling architecture</a><a class="toc-link toc-link--2" href="#build-and-runtime-assumptions">Build and runtime assumptions</a><a class="toc-link toc-link--2" href="#architectural-invariants">Architectural invariants</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#project-and-document-scope">Project and document scope</a><a class="toc-link toc-link--2" href="#system-boundary">System boundary</a><a class="toc-link toc-link--2" href="#composition-root">Composition root</a><a class="toc-link toc-link--2" href="#state-ownership">State ownership</a><a class="toc-link toc-link--2" href="#module-boundaries">Module boundaries</a><a class="toc-link toc-link--3" href="#src-editor">src/editor</a><a class="toc-link toc-link--3" href="#src-keybindings-and-src-workspace">src/keybindings and src/workspace</a><a class="toc-link toc-link--3" href="#src-suggestions">src/suggestions</a><a class="toc-link toc-link--3" href="#desktop-and-src-desktop">desktop and src/desktop</a><a class="toc-link toc-link--3" href="#src-components">src/components</a><a class="toc-link toc-link--2" href="#renderer-bootstrap-sequence">Renderer bootstrap sequence</a><a class="toc-link toc-link--2" href="#data-direction-and-dependency-rules">Data direction and dependency rules</a><a class="toc-link toc-link--2" href="#styling-architecture">Styling architecture</a><a class="toc-link toc-link--2" href="#build-and-runtime-assumptions">Build and runtime assumptions</a><a class="toc-link toc-link--2" href="#architectural-invariants">Architectural invariants</a></nav>
             <a class="toc-source" href="../architecture.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>

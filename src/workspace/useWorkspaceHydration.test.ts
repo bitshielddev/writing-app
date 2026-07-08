@@ -23,7 +23,8 @@ describe("useWorkspaceHydration", () => {
     const initialize = vi.fn();
     const writingEditor = editor();
     const { result } = renderHook(() =>
-      useWorkspaceHydration({ desktop: harness.bridge, editor: writingEditor, initialize }),
+      useWorkspaceHydration({ desktop: harness.bridge, editor: writingEditor,
+        scope: { projectId: "project-1", documentId: "document-1" }, initialize }),
     );
 
     act(() => harness.hydrate.resolve(0, createWorkspaceSnapshot()));
@@ -36,7 +37,8 @@ describe("useWorkspaceHydration", () => {
     const failed = new DesktopBridgeHarness();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const first = renderHook(() =>
-      useWorkspaceHydration({ desktop: failed.bridge, editor: editor(), initialize: vi.fn() }),
+      useWorkspaceHydration({ desktop: failed.bridge, editor: editor(),
+        scope: { projectId: "project-1", documentId: "document-1" }, initialize: vi.fn() }),
     );
     act(() => failed.hydrate.reject(0, new Error("database unavailable")));
     await waitFor(() => expect(first.result.current.phase).toBe("failed"));
@@ -45,7 +47,8 @@ describe("useWorkspaceHydration", () => {
     const pending = new DesktopBridgeHarness();
     const initialize = vi.fn();
     const second = renderHook(() =>
-      useWorkspaceHydration({ desktop: pending.bridge, editor: editor(), initialize }),
+      useWorkspaceHydration({ desktop: pending.bridge, editor: editor(),
+        scope: { projectId: "project-1", documentId: "document-1" }, initialize }),
     );
     second.unmount();
     await act(async () => pending.hydrate.resolve(0, createWorkspaceSnapshot()));

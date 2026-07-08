@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { emitPreviewResolution } from "./editor/previewEvents";
@@ -109,7 +109,7 @@ function workspaceWithSuggestion() {
   return createWorkspaceSnapshot({
     suggestions: {
       entries: [
-        { item: suggestion, viewed: false, stale: false, withdrawn: false },
+        { item: suggestion, viewed: false },
       ],
       pinnedEntries: [],
       workspacePins: [],
@@ -145,15 +145,15 @@ beforeEach(() => {
 
 describe("App desktop boundary", () => {
   it("hydrates visible state and completes a deterministic application workflow", async () => {
-    vi.useFakeTimers();
     const desktop = new DesktopBridgeHarness();
     render(<App desktop={desktop.bridge} />);
-    expect(desktop.hydrate.calls).toHaveLength(1);
+    await waitFor(() => expect(desktop.hydrate.calls).toHaveLength(1));
 
     await act(async () => {
       desktop.hydrate.resolve(0, workspaceWithSuggestion());
       await Promise.resolve();
     });
+    vi.useFakeTimers();
     expect(screen.getAllByText("Research.md").length).toBeGreaterThan(0);
     expect(screen.getByText("Agent stopped")).toBeTruthy();
     expect(screen.getByRole("button", { name: `Open ${suggestion.title}` })).toBeTruthy();
@@ -266,7 +266,7 @@ describe("App desktop boundary", () => {
           item,
         },
         suggestionRevision: 1,
-        state: { ...createEmptySuggestionState(), entries: [{ item, viewed: false, stale: false, withdrawn: false }], seenKeys: { [item.dedupeKey]: true } },
+        state: { ...createEmptySuggestionState(), entries: [{ item, viewed: false }], seenKeys: { [item.dedupeKey]: true } },
       });
     });
     expect(screen.getByRole("button", { name: "Open New suggestion" })).toBeTruthy();
@@ -277,6 +277,7 @@ describe("App desktop boundary", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const desktop = new DesktopBridgeHarness();
     const mounted = render(<App desktop={desktop.bridge} />);
+    await waitFor(() => expect(desktop.hydrate.calls).toHaveLength(1));
     await act(async () => {
       desktop.hydrate.resolve(0, createWorkspaceSnapshot());
       await Promise.resolve();
@@ -300,6 +301,7 @@ describe("App desktop boundary", () => {
     });
 
     render(<App desktop={desktop.bridge} />);
+    await waitFor(() => expect(desktop.hydrate.calls).toHaveLength(2));
     await act(async () => {
       desktop.hydrate.resolve(1, createWorkspaceSnapshot());
       await Promise.resolve();
@@ -316,6 +318,7 @@ describe("App desktop boundary", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const desktop = new DesktopBridgeHarness();
     render(<App desktop={desktop.bridge} />);
+    await waitFor(() => expect(desktop.hydrate.calls).toHaveLength(1));
     await act(async () => {
       desktop.hydrate.reject(0, new Error("database unavailable"));
       await Promise.resolve();

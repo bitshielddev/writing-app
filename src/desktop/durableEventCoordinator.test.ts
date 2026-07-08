@@ -48,7 +48,9 @@ describe("durable renderer event coordination", () => {
     await pending;
     coordinator.receive(event(1));
 
-    await vi.waitFor(() => expect(desktop.acknowledgeEvents).toHaveBeenLastCalledWith({ streamId, sequence: 1 }));
+    await vi.waitFor(() => expect(desktop.acknowledgeEvents).toHaveBeenLastCalledWith({
+      projectId: "default-project", documentId: "default-document", streamId, sequence: 1,
+    }));
     expect(applied).toEqual([1]);
   });
 
@@ -70,7 +72,9 @@ describe("durable renderer event coordination", () => {
 
     await vi.waitFor(() => expect(applied).toEqual([1, 2, 3, 4]));
     expect(replay).toHaveBeenCalledTimes(2);
-    expect(desktop.acknowledgeEvents).toHaveBeenLastCalledWith({ streamId, sequence: 4 });
+    expect(desktop.acknowledgeEvents).toHaveBeenLastCalledWith({
+      projectId: "default-project", documentId: "default-document", streamId, sequence: 4,
+    });
   });
 
   it("installs a fresh snapshot when replay history is unavailable", async () => {

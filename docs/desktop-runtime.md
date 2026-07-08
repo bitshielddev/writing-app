@@ -65,9 +65,9 @@ Hydration includes the current launch's ring, so renderer reload retains diagnos
 
 Storage is started first, inspects and opens the database, creates/repairs the workspace mirror, and reports readiness with its protocol name, exact version, build, and operation set. Main validates the complete handshake before sending requests. It then initializes Pi and applies the same check to the agent process, registers renderer IPC, creates the window, and delivers the current revision without starting a model cycle. Utility process startup failure is fatal; provider/tool failures put the enabled autonomous loop to sleep in `error` until a newer project revision arrives or the writer stops and starts it.
 
-Database startup creates the current schema only for an empty database and validates current files before use. This is an early alpha: schema changes bump `DATABASE_VERSION`, older files stop startup, and developers delete the local database to recreate it. The generic migration and backup framework remains for a future release boundary, but there is no migration path into schema version 7.
+Database startup creates the version 1 schema only for an empty database and validates current files before use. This is an early alpha: incompatible files stop startup and developers delete the local database to recreate it. The generic migration and backup framework remains for a future release boundary, but there is no migration path into this baseline.
 
-Production loads `dist/index.html` through `BrowserWindow.loadFile`; Vite therefore uses `base: "./"`. Development loads `VITE_DEV_SERVER_URL` in Electron and adds the isolated mock-suggestion window. Context isolation remains enabled and Node integration disabled.
+Production loads `dist/index.html` through `BrowserWindow.loadFile`; Vite therefore uses `base: "./"`. Development loads `VITE_DEV_SERVER_URL` in Electron and exposes DevTools through the development menu. Context isolation remains enabled and Node integration disabled.
 
 ## Build and packaging
 

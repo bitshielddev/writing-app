@@ -145,22 +145,6 @@ describe("desktop storage service", () => {
       }),
     ).resolves.toEqual({ accepted: true });
 
-    const developmentItem: TextSuggestion = {
-      ...updated,
-      id: "development-suggestion",
-      dedupeKey: "development-suggestion",
-    };
-    await expect(
-      handleStorageRequest("development.suggestion.create", {
-        item: developmentItem,
-      }),
-    ).resolves.toEqual({ accepted: true });
-    const hydrated = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
-    await expect(handleStorageRequest("suggestions.command", {
-      commandId: "dismiss-development", documentId: hydrated.document.id,
-      expectedSuggestionRevision: hydrated.suggestionRevision,
-      command: { type: "dismiss", suggestionId: developmentItem.id },
-    })).resolves.toMatchObject({ status: "applied", suggestionRevision: hydrated.suggestionRevision + 1 });
     await expect(handleStorageRequest("unknown.method")).rejects.toThrow(
       "Unknown storage operation",
     );

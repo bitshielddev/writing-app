@@ -1,7 +1,6 @@
 import {
   AgentOperations,
   DESKTOP_INVOKE_CHANNELS,
-  DEVELOPMENT_SUGGESTION_CHANNEL,
   RendererOperations,
   StorageOperations,
   type OperationCaller,
@@ -40,7 +39,6 @@ export function registerMainIpc({
   dialog,
   storage,
   agent,
-  development,
   getRuntime,
   setRuntime,
   activitySnapshot,
@@ -56,7 +54,6 @@ export function registerMainIpc({
   dialog: OpenDialogAdapter;
   storage: OperationCaller<typeof StorageOperations>;
   agent: OperationCaller<typeof AgentOperations>;
-  development: boolean;
   getRuntime: () => AgentRuntime;
   setRuntime: (runtime: AgentRuntime) => void;
   activitySnapshot: () => AgentActivity[];
@@ -80,7 +77,7 @@ export function registerMainIpc({
         const storageMutations = new Set([
           "project.create", "project.rename", "project.delete", "project.select",
           "document.create", "document.rename", "document.delete", "document.select",
-          "document.save", "suggestions.command", "source.import", "development.suggestion.create",
+          "document.save", "suggestions.command", "source.import",
         ]);
         if (storageMutations.has(operation) && getHealth && getHealth().storage.state !== "healthy") {
           throw Object.assign(new Error("Storage is unavailable; local changes have been retained"), {
@@ -210,14 +207,4 @@ export function registerMainIpc({
     return getHealth();
   });
 
-  if (development) {
-    register(
-      "development.suggestion.create",
-      DEVELOPMENT_SUGGESTION_CHANNEL,
-      async (_event, item) => {
-        const { selection } = await storage.call("workspace.catalog");
-        return storage.call("development.suggestion.create", { ...selection, item });
-      },
-    );
-  }
 }

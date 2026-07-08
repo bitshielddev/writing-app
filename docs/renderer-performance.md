@@ -29,6 +29,10 @@ initial graph are enforced.
 | Final initial graph | 1,299,334 | 384,667 | 321,121 |
 | Final lazy JavaScript | 3,883,813 | 1,048,824 | 889,071 |
 
+After the suggestion-controller consolidation, the current entry is 1,362,416
+raw bytes (401,509 gzip) and the initial graph is 1,371,009 raw bytes (404,938
+gzip). The committed budget retains 5% headroom over these measurements.
+
 The keyboard shortcut dialog moved 3,580 raw bytes (1,510 gzip) into a lazy
 chunk and caused Vite to extract 7,890 raw bytes of shared JSX runtime. The
 entry reduction is 10,014 raw bytes and 2,733 gzip bytes. The full initial graph
@@ -41,11 +45,9 @@ The largest final chunks are the 1,290,741-byte application entry and four lazy
 Mermaid dependencies: the 662,650-byte Mermaid chunk, 435,383-byte Cytoscape
 chunk, 429,053-byte emoji-data chunk, and 258,881-byte KaTeX chunk. BlockNote remains
 in the entry because it is the primary writing surface. Mermaid is absent from
-the initial graph and is loaded only by mind-map presentation. Production
-metadata contains no `src/dev` mock-suggestion modules. The attribution report
-shows no Electron or Node runtime modules in renderer output and no duplicate
-React copies. The development mock window is tree-shaken from the production
-desktop bundle.
+the initial graph and is loaded only by mind-map presentation. The attribution
+report shows no Electron or Node runtime modules in renderer output and no
+duplicate React copies.
 
 ## Startup markers
 

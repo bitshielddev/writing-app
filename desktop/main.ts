@@ -56,7 +56,6 @@ const measureStartup = process.argv.includes("--measure-startup");
 let storage: ChildRpc<typeof StorageOperations, StorageChildMessage>;
 let agent: ChildRpc<typeof AgentOperations, AgentChildMessage>;
 let workspaceWindow: BrowserWindow | undefined;
-let mockSuggestionWindow: BrowserWindow | undefined;
 let runtime: AgentRuntime = {
   status: "offline",
   cycleCount: 0,
@@ -126,9 +125,8 @@ function setProcessHealth(process: "storage" | "agent", next: ProcessHealth) {
   broadcast({ type: "process.health", health });
 }
 
-function secureWebPreferences(developmentTools: boolean): WebPreferences {
+function secureWebPreferences(): WebPreferences {
   const additionalArguments = [];
-  if (developmentTools) additionalArguments.push("--scribe-development");
   if (process.env.SCRIBE_E2E === "1") additionalArguments.push("--scribe-e2e");
   return {
     preload: join(here, "preload.cjs"),
@@ -173,7 +171,6 @@ function registerIpc(
     },
     storage,
     agent: agentEndpoint,
-    development: isDevelopment,
     getRuntime: () => runtime,
     setRuntime: (nextRuntime) => {
       runtime = nextRuntime;
@@ -199,7 +196,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 640,
     backgroundColor: "#ffffff",
-    webPreferences: secureWebPreferences(isDevelopment),
+    webPreferences: secureWebPreferences(),
   });
   workspaceWindow = window;
   if (process.env.SCRIBE_E2E === "1") {
@@ -239,28 +236,6 @@ function createWindow() {
   else void window.loadFile(join(here, "../dist/index.html"));
 }
 
-function openMockSuggestionWindow() {
-  if (!developmentServerUrl) return;
-  if (mockSuggestionWindow && !mockSuggestionWindow.isDestroyed()) {
-    mockSuggestionWindow.focus();
-    return;
-  }
-
-  const window = new BrowserWindow({
-    width: 760,
-    height: 900,
-    minWidth: 600,
-    minHeight: 600,
-    title: "ScribeAI Mock Suggestions",
-    webPreferences: secureWebPreferences(true),
-  });
-  mockSuggestionWindow = window;
-  window.on("closed", () => {
-    if (mockSuggestionWindow === window) mockSuggestionWindow = undefined;
-  });
-  void window.loadURL(new URL("/mock-suggestions", developmentServerUrl).toString());
-}
-
 function installDevelopmentMenu() {
   if (!isDevelopment) return;
   const template: MenuItemConstructorOptions[] = [
@@ -273,11 +248,6 @@ function installDevelopmentMenu() {
     {
       label: "Development",
       submenu: [
-        {
-          label: "Mock suggestions",
-          accelerator: "CmdOrCtrl+Shift+M",
-          click: openMockSuggestionWindow,
-        },
         { role: "toggleDevTools" },
       ],
     },

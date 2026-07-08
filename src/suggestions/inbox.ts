@@ -1,17 +1,12 @@
 export {
-  inboxReducer,
-  initialInboxState,
-  persistedSuggestionState,
-  projectPersistedSuggestionState,
-  selectSelectedEntry,
+  presentInboxEntry,
+  presentPinnedEntry,
   selectSortedInboxEntries,
   selectSortedPinnedEntries,
   selectUnreadCount,
-  type InboxAction,
   type InboxEntry,
-  type InboxState,
   type PinnedInboxEntry,
   type WorkspacePin,
   type WorkspacePinRect,
 } from "./inboxReducer";
-export { useSuggestionInbox, type SuggestionInboxOptions } from "./useSuggestionInbox";
+export { useSuggestionController } from "./useSuggestionController";

@@ -13,9 +13,9 @@ import { randomUUID } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const DATABASE_VERSION = 7;
+export const DATABASE_VERSION = 1;
 // Alpha databases are disposable. Only the current schema is supported; an
-// older file must be removed and recreated instead of migrated in place.
+// incompatible files must be removed and recreated instead of migrated in place.
 export const MINIMUM_SUPPORTED_DATABASE_VERSION = DATABASE_VERSION;
 
 export const CURRENT_SCHEMA_SQL = `

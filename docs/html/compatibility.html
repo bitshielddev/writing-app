@@ -145,12 +145,12 @@
 <td>Preserve and quarantine; reject the command lookup.</td>
 </tr>
 <tr>
-<td>Suggestion event</td>
-<td><code>scribe.event</code></td>
+<td>Suggestion fact</td>
+<td><code>suggestion_event_history.event_version</code></td>
 <td align="right">1</td>
-<td align="right">0</td>
-<td align="right">0</td>
-<td>Preserve and quarantine; stop projection at that sequence. Later events are not applied.</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td>Preserve and quarantine; stop projection at that sequence. Later facts are not applied.</td>
 </tr>
 <tr>
 <td>Suggestion projection</td>
@@ -196,7 +196,7 @@
 <li>If an operation registry or wire contract changed, increment the protocol version and update the build identifier. Storage and agent operation sets must match their ready handshakes.</li>
 <li>Test oldest, every intermediate, current, future, invalid, failed-transform, and idempotent legacy-upgrade cases. Verify future/invalid source text remains preserved exactly once.</li>
 <li>Test a future event followed by a known event and confirm projection stops at the gap until snapshot recovery.</li>
-<li>For a database migration, add the next contiguous <code>user_version</code> edge, a historical schema fixture, preservation tests, and backup/failure tests.</li>
+<li>During alpha, bump the database version and recreate the database. Do not add a migration until a release explicitly commits to database compatibility.</li>
 <li>Run <code>npm test</code>, <code>npm run lint</code>, <code>npm run build</code>, and <code>npm run docs:build</code>.</li>
 </ol>
 <p>Do not regenerate a historical fixture with a current serializer. Fixtures under <code>desktop/fixtures/compatibility/</code> are immutable after release.</p>

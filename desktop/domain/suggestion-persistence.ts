@@ -11,7 +11,7 @@ export const SUGGESTION_EVENT_VERSION = 1 as const;
 export const SUGGESTION_PROJECTION_VERSION = 1 as const;
 
 export type SuggestionActor = {
-  type: "writer" | "agent" | "development" | "system";
+  type: "writer" | "agent" | "system";
   id?: string;
 };
 

@@ -1,14 +1,10 @@
 /// <reference types="vite/client" />
 
-import type {
-  DesktopBridge,
-  DesktopDevelopmentBridge,
-} from "./shared/desktop";
+import type { DesktopBridge } from "./shared/desktop";
 
 declare global {
   interface Window {
     scribe?: DesktopBridge;
-    scribeDevelopment?: DesktopDevelopmentBridge;
     scribeTest?: {
       readiness(): Promise<{ ready: boolean; health: import("./shared/desktop").ProcessHealthSnapshot; userDataPath: string }>;
       terminateStorage(): Promise<{ accepted: boolean }>;

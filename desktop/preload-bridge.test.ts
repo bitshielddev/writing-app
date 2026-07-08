@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   DESKTOP_EVENT_CHANNEL,
   DESKTOP_INVOKE_CHANNELS,
-  DEVELOPMENT_SUGGESTION_CHANNEL,
 } from "../src/shared/contracts";
 import type { DesktopEvent } from "../src/shared/desktop";
 import {
@@ -13,7 +12,6 @@ import {
 } from "../src/test/desktopBridgeHarness";
 import {
   createDesktopBridge,
-  createDesktopDevelopmentBridge,
   exposePreloadBridges,
   type PreloadIpcRenderer,
 } from "./preload-bridge";
@@ -30,7 +28,6 @@ function ipcHarness() {
       state: { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 },
     };
     if (channel === DESKTOP_INVOKE_CHANNELS.importSource) return createSourceSnapshot();
-    if (channel === DEVELOPMENT_SUGGESTION_CHANNEL) return { accepted: true };
     return undefined;
   });
   const on = vi.fn();
@@ -47,30 +44,31 @@ describe("preload bridge contract", () => {
   it("maps every renderer operation to its exact invoke channel and arguments", async () => {
     const harness = ipcHarness();
     const bridge = createDesktopBridge(harness.ipc);
+    const scope = { projectId: "project-1", documentId: "document-1" };
     const saveInput = {
-      documentId: "document",
+      ...scope,
       blocks: [],
       markdown: "Draft",
       expectedRevision: 2,
     };
-    const suggestionCommand = { commandId: "command", documentId: "document",
+    const suggestionCommand = { commandId: "command", ...scope,
       expectedSuggestionRevision: 0, command: { type: "dismiss" as const, suggestionId: "suggestion" } };
 
-    await bridge.hydrate();
-    await bridge.startAgent();
-    await bridge.stopAgent();
+    await bridge.hydrate(scope);
+    await bridge.startAgent(scope);
+    await bridge.stopAgent(scope);
     await bridge.saveDocument(saveInput);
     await bridge.executeSuggestionCommand(suggestionCommand);
-    await bridge.importSource();
+    await bridge.importSource(scope);
 
     expect(harness.invoke.mock.calls).toEqual([
       [DESKTOP_INVOKE_CHANNELS.subscribeEvents],
-      [DESKTOP_INVOKE_CHANNELS.hydrate],
-      [DESKTOP_INVOKE_CHANNELS.startAgent],
-      [DESKTOP_INVOKE_CHANNELS.stopAgent],
+      [DESKTOP_INVOKE_CHANNELS.hydrate, scope],
+      [DESKTOP_INVOKE_CHANNELS.startAgent, scope],
+      [DESKTOP_INVOKE_CHANNELS.stopAgent, scope],
       [DESKTOP_INVOKE_CHANNELS.saveDocument, saveInput],
       [DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, suggestionCommand],
-      [DESKTOP_INVOKE_CHANNELS.importSource],
+      [DESKTOP_INVOKE_CHANNELS.importSource, scope],
     ]);
   });
 
@@ -99,45 +97,15 @@ describe("preload bridge contract", () => {
     );
   });
 
-  it("exposes development operations only when explicitly enabled", async () => {
+  it("exposes only the desktop bridge by default", () => {
     const harness = ipcHarness();
     const contextBridge = { exposeInMainWorld: vi.fn() };
     exposePreloadBridges({
       contextBridge,
       ipcRenderer: harness.ipc,
-      development: false,
     });
     expect(contextBridge.exposeInMainWorld.mock.calls.map((call) => call[0])).toEqual([
       "scribe",
     ]);
-
-    contextBridge.exposeInMainWorld.mockClear();
-    exposePreloadBridges({
-      contextBridge,
-      ipcRenderer: harness.ipc,
-      development: true,
-    });
-    expect(contextBridge.exposeInMainWorld.mock.calls.map((call) => call[0])).toEqual([
-      "scribe",
-      "scribeDevelopment",
-    ]);
-
-    const developmentBridge = createDesktopDevelopmentBridge(harness.ipc);
-    const item = {
-      id: "suggestion",
-      dedupeKey: "suggestion",
-      kind: "snippet" as const,
-      title: "Title",
-      summary: "Summary",
-      body: "Body",
-      insertText: "Text",
-      sourceLabels: [],
-      createdAt: 1,
-    };
-    await developmentBridge.createSuggestion(item);
-    expect(harness.invoke).toHaveBeenLastCalledWith(
-      DEVELOPMENT_SUGGESTION_CHANNEL,
-      item,
-    );
   });
 });

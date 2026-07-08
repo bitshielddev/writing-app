@@ -99,23 +99,21 @@ describe("renderer bundle budget", () => {
     ).toEqual(["initial gzip"]);
   });
 
-  it("rejects development modules and Mermaid in the initial graph", () => {
+  it("rejects Mermaid in the initial graph", () => {
     expect(
       productionViolations({
         initialFiles: ["assets/main.js"],
-        desktopMain: "ScribeAI Mock Suggestions",
         metadata: {
           chunks: [
             {
               file: "assets/main.js",
               modules: [
-                { id: "/repo/src/dev/mock.ts" },
                 { id: "/repo/node_modules/mermaid/dist/mermaid.js" },
               ],
             },
           ],
         },
       }),
-    ).toHaveLength(3);
+    ).toHaveLength(1);
   });
 });

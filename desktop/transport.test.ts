@@ -15,8 +15,9 @@ describe("storage transport", () => {
     const post = vi.fn();
     const receive = createStorageTransport(handler, post, { error: vi.fn() });
 
-    await receive({ kind: "rpc", protocolVersion: 1, id: "one", operation: "workspace.repair", params: undefined });
-    await receive({ kind: "rpc", protocolVersion: 1, id: "two", operation: "source.import", params: { path: "/source.md" } });
+    const scope = { projectId: "project", documentId: "document" };
+    await receive({ kind: "rpc", protocolVersion: 1, id: "one", operation: "workspace.repair", params: scope });
+    await receive({ kind: "rpc", protocolVersion: 1, id: "two", operation: "source.import", params: { ...scope, path: "/source.md" } });
 
     expect(post.mock.calls.map((call) => call[0])).toEqual([
       { kind: "rpc.success", protocolVersion: 1, id: "one", operation: "workspace.repair", result: { workspaceRoot: "/w", draftPath: "/w/draft.md", sourcesDirectory: "/w/sources", piDirectory: "/w/.pi", repaired: false } },
@@ -40,8 +41,9 @@ describe("agent transport", () => {
     const post = vi.fn();
     const ids = ["one", "two"];
     const storage = new AgentStorageClient(() => ids.shift() ?? "extra", post);
-    const first = storage.call("agent.suggestions.list");
-    const second = storage.call("agent.suggestion.retract", { id: "suggestion", expectedDocumentRevision: 1 });
+    const scope = { projectId: "project", documentId: "document" };
+    const first = storage.call("agent.suggestions.list", scope);
+    const second = storage.call("agent.suggestion.retract", { ...scope, id: "suggestion", expectedDocumentRevision: 1 });
 
     storage.handleResult({ kind: "storage.failure", protocolVersion: 1, id: "two", operation: "agent.suggestion.retract", error: { code: "DENIED", message: "denied", retryable: false } });
     storage.handleResult({ kind: "storage.success", protocolVersion: 1, id: "unknown", operation: "agent.suggestions.list", result: { live: [], pinned: [], workspace: [] } });
@@ -54,13 +56,13 @@ describe("agent transport", () => {
         kind: "storage.request", protocolVersion: 1,
         id: "one",
         operation: "agent.suggestions.list",
-        params: undefined,
+        params: scope,
       },
       {
         kind: "storage.request", protocolVersion: 1,
         id: "two",
         operation: "agent.suggestion.retract",
-        params: { id: "suggestion", expectedDocumentRevision: 1 },
+        params: { ...scope, id: "suggestion", expectedDocumentRevision: 1 },
       },
     ]);
   });
@@ -83,11 +85,13 @@ describe("agent transport", () => {
       protocolVersion: 1,
       id: "start",
       operation: "agent.start",
-      params: { projectRevision: 2, documentRevision: 1 },
+      params: { projectId: "project", documentId: "document", projectRevision: 2, documentRevision: 1 },
     });
     receive({
       kind: "project.changed",
       protocolVersion: 1,
+      streamId: "document:document",
+      sequence: 1,
       projectRevision: 3,
       documentRevision: 2,
     });

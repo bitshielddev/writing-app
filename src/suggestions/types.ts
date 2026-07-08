@@ -31,7 +31,3 @@ export type SuggestionEvent =
   | { type: "suggestion.updated"; item: SuggestionItem }
   | { type: "suggestion.retracted"; id: string }
   | { type: "suggestion.state.changed"; suggestionId: string; commandType: string };
-
-export interface SuggestionFeed {
-  subscribe(listener: (event: SuggestionEvent) => void): () => void;
-}

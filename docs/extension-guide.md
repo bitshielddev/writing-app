@@ -4,18 +4,18 @@ This guide identifies the existing seams for likely next steps in the Electron r
 
 ## Evolve the writing-partner transport
 
-Keep transport details behind the existing [`SuggestionFeed`](../src/suggestions/types.ts) contract. The Electron adapter receives committed events from the storage and Pi processes; the development controller injects through that same persisted path.
+Keep transport details behind the agent and storage process boundaries. The renderer receives only committed `suggestion.event` payloads through `DesktopBridge`; [`useSuggestionController`](../src/suggestions/useSuggestionController.ts) reconciles their authoritative projections.
 
 A production adapter must define:
 
-- how it starts and stops when subscribers come and go;
-- how server messages map to every `SuggestionEvent` variant;
+- how it starts and stops with the agent lifecycle;
+- how server messages become validated agent suggestion operations;
 - stable `id` and `dedupeKey` rules;
 - reconnection and replay semantics;
 - ordering of suggestion events;
-- cleanup under React `StrictMode`.
+- command/event ordering and idempotent replay.
 
-Choose or introduce adapters in [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts). Preserve stable construction with `useMemo`, or move service creation above React if it is intentionally process-wide. Runtime status and errors remain on `AgentRuntime`; they are not suggestion-feed events.
+Choose or introduce adapters in the agent process and keep [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts) on the typed desktop event boundary. Runtime status and errors remain on `AgentRuntime`; they are not suggestion events.
 
 Do not call an HTTP or model SDK directly from `SuggestionDock`. That would couple view lifecycle to transport lifecycle, make replay/dedupe inconsistent, and bypass reducer tests.
 
@@ -64,7 +64,7 @@ Adding a kind affects the discriminated union and every exhaustive presentation 
 1. Add the literal to `SUGGESTION_KINDS` and a new union member in [`types.ts`](../src/suggestions/types.ts).
 2. Add it to the relevant canonical kind-family constant and guard when it is text-insertable or structural.
 3. Add badge label/icon/tone and visual rendering in [`SuggestionPresentation.tsx`](../src/components/SuggestionPresentation.tsx).
-4. Reuse the canonical guards in the workspace controller, detail view, workspace pins, validation, mock tooling, and agent tooling; do not add local repeated kind checks.
+4. Reuse the canonical guards in the workspace controller, detail view, workspace pins, validation, and agent tooling; do not add local repeated kind checks.
 5. Update focused dock views and workspace presentation only when the new family needs distinct UI.
 6. Add an initial size in [`workspacePinLayout.ts`](../src/suggestions/workspacePinLayout.ts) if the default is unsuitable.
 7. Ensure external data validation rejects malformed payloads before they reach the reducer.

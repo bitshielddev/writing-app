@@ -18,7 +18,7 @@ npm run dev
 
 Vite builds the Electron main, preload, storage, and agent entries, starts its renderer development server, and launches Electron. Renderer changes use HMR; main, storage, or agent changes restart Electron; preload changes reload the renderer.
 
-Development intentionally uses Electron's persistent `userData` directory instead of a throwaway Vite profile. Edits, imported sources, settings, and mock suggestions therefore survive restarts and can affect the same persisted workspace as a built application when both resolve to the same app-data profile. Do not run development and an installed build concurrently against that profile.
+Development intentionally uses Electron's persistent `userData` directory instead of a throwaway Vite profile. Edits, imported sources, settings, and suggestions therefore survive restarts and can affect the same persisted workspace as a built application when both resolve to the same app-data profile. Do not run development and an installed build concurrently against that profile.
 
 Use `npm ci`, rather than `npm install`, for a clean checkout or CI job so dependency versions remain aligned with the lockfile.
 
@@ -63,15 +63,7 @@ The source checkout is not the writing project workspace. Electron creates and r
 
 Electron opens the persisted writing workspace with the agent stopped. Import sources and edit the draft without model activity, then choose **Start Agent** in the writing-partner toolbar when ready. **Stop Agent** immediately cancels active model work and keeps later revisions queued until the next start.
 
-To inject deterministic suggestions without invoking a model:
-
-1. Choose **Development → Mock suggestions**, or press `CmdOrCtrl+Shift+M`.
-2. Complete one of the six suggestion forms in the dedicated development window.
-3. Send it; the suggestion is validated, committed to SQLite, and delivered through the same event path as an agent suggestion.
-
-The development window is single-instance. Closing and reopening it does not clear injected suggestions.
-
-React runs in `StrictMode`. During development, effects are mounted, cleaned up, and mounted again to expose unsafe effect code. The mock feed opens its channel receiver for the first subscriber and closes it after the final subscriber leaves, preventing duplicate streams.
+React runs in `StrictMode`. During development, effects are mounted, cleaned up, and mounted again to expose unsafe effect code.
 
 ## Set up the Pi agent
 
@@ -131,7 +123,6 @@ The production build currently completes with Vite's warning that some minified 
 ## Runtime entry points
 
 - initial editor content: [`initialContent`](../src/App.tsx);
-- Electron-only mock suggestion controller: [`src/dev/mockSuggestions`](../src/dev/mockSuggestions);
 - autonomous Pi runtime and extension: [`agent.ts`](../desktop/agent.ts) and [`scribe-extension.ts`](../desktop/scribe-extension.ts).
 
 ## Renderer preferences
@@ -151,7 +142,7 @@ These values remain renderer-local in both runtimes. Electron workspace data liv
 
 At a viewport at least `80rem` wide:
 
-1. Inject one suggestion of each kind from **Development → Mock suggestions**.
+1. Configure and start Pi, then let it publish representative suggestion kinds.
 2. Open a text suggestion, preview it, edit the purple preview block, then cancel it.
 3. Preview again and accept it; it becomes a normal paragraph and the suggestion disappears.
 4. Pin a suggestion, open it, and place it on the workspace.
@@ -199,11 +190,3 @@ Mermaid is loaded lazily only when a mind-map visual renders. Invalid Mermaid so
 ### A workspace pin is missing
 
 Workspace cards render only at the desktop `xl` breakpoint (`80rem` and above). A card also remains hidden for one animation frame while its initial geometry is calculated. It must first be pinned in the writing partner before “Place on workspace” is available.
-
-### Suggestion behavior seems duplicated in development
-
-Check that a new feed is not being created on every render. [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts) memoizes it. Also ensure every `SuggestionFeed.subscribe` implementation fully cleans up when the last subscriber leaves; React `StrictMode` will exercise that path.
-
-### A manually sent suggestion does not appear
-
-Confirm the controller was opened from the Electron **Development** menu rather than by visiting the Vite URL in a browser. Check the controller error message and main-process logs; development injection is rejected outside the Electron development runtime.

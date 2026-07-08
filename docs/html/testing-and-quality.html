@@ -131,7 +131,11 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 </thead>
 <tbody><tr>
 <td><a href="../../src/suggestions/inbox.test.ts"><code>suggestions/inbox.test.ts</code></a></td>
-<td>Dedupe, 30-item eviction, stale/withdrawn previews, frozen pins, workspace transitions, preview resolution, and z-order.</td>
+<td>Presentation sorting and transient stale/withdrawn decoration.</td>
+</tr>
+<tr>
+<td><a href="../../src/suggestions/useSuggestionController.test.ts"><code>suggestions/useSuggestionController.test.ts</code></a></td>
+<td>Optimistic commands, serialization, event/RPC ordering, and preview update/retraction state.</td>
 </tr>
 <tr>
 <td><a href="../../src/suggestions/state.test.ts"><code>suggestions/state.test.ts</code></a></td>
@@ -140,14 +144,6 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <tr>
 <td><a href="../../src/workspace/useWorkspaceController.test.ts"><code>workspace/useWorkspaceController.test.ts</code></a></td>
 <td>Hydration, serialized autosave, desktop events, control errors, and preview resolution.</td>
-</tr>
-<tr>
-<td><a href="../../src/dev/mockSuggestions/mockSuggestionDraft.test.ts"><code>dev/mockSuggestions/mockSuggestionDraft.test.ts</code></a></td>
-<td>Common metadata, every kind-specific payload, recursive node JSON, and validation failures.</td>
-</tr>
-<tr>
-<td><a href="../../src/dev/mockSuggestions/MockSuggestionController.test.tsx"><code>dev/mockSuggestions/MockSuggestionController.test.tsx</code></a></td>
-<td>Dynamic fields, persisted development submission, rejection handling, and pending-state protection.</td>
 </tr>
 <tr>
 <td><a href="../../src/components/SuggestionDock.test.tsx"><code>components/SuggestionDock.test.tsx</code></a></td>
@@ -170,7 +166,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <td>Block/Markdown saves, mirror repair, stale suggestion rejection, and Markdown-only source import.</td>
 </tr>
 <tr>
-<td><a href="../../desktop/scribe-loop.test.ts"><code>desktop/scribe-loop.test.ts</code></a></td>
+<td><a href="../../desktop/domain/agent-loop.test.ts"><code>desktop/domain/agent-loop.test.ts</code></a></td>
 <td>Coalescing, yields, races, five-cycle cap, error sleep, wake, and restored loop state.</td>
 </tr>
 <tr>
@@ -182,7 +178,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <td>Project session continuation, extension entries, and the read-only tool contract.</td>
 </tr>
 <tr>
-<td><a href="../../desktop/agent-events.test.ts"><code>desktop/agent-events.test.ts</code></a></td>
+<td><a href="../../desktop/infrastructure/agent/pi-activity.test.ts"><code>desktop/infrastructure/agent/pi-activity.test.ts</code></a></td>
 <td>Lifecycle, message/reasoning/error, and tool activity conversion.</td>
 </tr>
 <tr>
@@ -190,8 +186,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <td>Active revisions, storage failures, wake behavior, and suggestion mutation results.</td>
 </tr>
 </tbody></table>
-<h3 id="why-reducer-tests-matter-most">Why reducer tests matter most<a class="heading-anchor" href="#why-reducer-tests-matter-most" aria-label="Link to Why reducer tests matter most">#</a></h3><p>The inbox reducer contains the application&#39;s lifecycle invariants and is pure. Any change to dedupe, updates, retractions, selection, previewing, pins, workspace geometry, queue limits, or unread behavior should begin with a reducer case. Component tests should then verify that the correct intent is exposed to users.</p>
-<h3 id="development-injection-tests">Development injection tests<a class="heading-anchor" href="#development-injection-tests" aria-label="Link to Development injection tests">#</a></h3><p>The controller test injects a callback rather than Electron IPC. Storage tests protect durable development suggestion behavior; manually confirm the development-only preload and main-process gates in Electron.</p>
+<h3 id="why-transition-and-controller-tests-matter-most">Why transition and controller tests matter most<a class="heading-anchor" href="#why-transition-and-controller-tests-matter-most" aria-label="Link to Why transition and controller tests matter most">#</a></h3><p><code>transitions.ts</code> contains durable lifecycle invariants shared by optimistic rendering and storage. <code>useSuggestionController</code> owns serialization and renderer-only selection/preview state. Changes to either boundary should begin with focused tests there; component tests should then verify the exposed user intent.</p>
 <h3 id="geometry-tests">Geometry tests<a class="heading-anchor" href="#geometry-tests" aria-label="Link to Geometry tests">#</a></h3><p>jsdom does not perform layout. Workspace tests mock <code>clientWidth</code> and <code>clientHeight</code>, and pointer-capture methods are stubbed where needed. A passing geometry unit test does not replace Electron renderer testing for actual scroll, resizing, and pointer behavior.</p>
 <h2 id="what-is-not-covered-automatically">What is not covered automatically<a class="heading-anchor" href="#what-is-not-covered-automatically" aria-label="Link to What is not covered automatically">#</a></h2><p>The current suite does not render the full <code>App</code> or BlockNote editor. It therefore does not directly verify:</p>
 <ul>
@@ -212,8 +207,8 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <li>Block formatting, selection, slash menu, and normal BlockNote editing still work.</li>
 </ul>
 <h3 id="suggestion-lifecycle">Suggestion lifecycle<a class="heading-anchor" href="#suggestion-lifecycle" aria-label="Link to Suggestion lifecycle">#</a></h3><ul>
-<li>The inbox remains empty until a controller event is sent.</li>
-<li>Each of the six controller kinds appears with its entered content and visual treatment.</li>
+<li>The inbox remains empty until the agent publishes a suggestion.</li>
+<li>Representative agent-produced kinds appear with their content and visual treatment.</li>
 <li>The workspace exposes no Generate Ideas, steering, or retry controls.</li>
 <li>Selecting marks an item read; Back returns to the correct queue.</li>
 <li>Pin and unpin preserve a frozen copy and correct ordering.</li>
@@ -225,7 +220,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <li>The preview is editable; empty content disables Accept.</li>
 <li>Cancel removes the block and keeps a normal source suggestion.</li>
 <li>Accept converts it to a normal paragraph and removes the suggestion.</li>
-<li>Feed update/retraction does not overwrite an existing preview.</li>
+<li>Agent update/retraction does not overwrite an existing preview.</li>
 </ul>
 <h3 id="desktop-layout-80rem">Desktop layout (<code>&gt;=80rem</code>)<a class="heading-anchor" href="#desktop-layout-80rem" aria-label="Link to Desktop layout ( =80rem)">#</a></h3><ul>
 <li>Both side columns can collapse independently.</li>
@@ -252,8 +247,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 <h3 id="electron-runtime">Electron runtime<a class="heading-anchor" href="#electron-runtime" aria-label="Link to Electron runtime">#</a></h3><ul>
 <li>Run <code>npm run dev</code> and confirm Electron launches without manually opening the Vite URL.</li>
 <li>Change renderer code and confirm HMR; change main/storage/agent code and confirm Electron restarts; change preload and confirm the renderer reloads.</li>
-<li>Open <strong>Development → Mock suggestions</strong> twice and confirm one controller window is focused rather than duplicated.</li>
-<li>Inject a suggestion, reload, and confirm it remains persisted. Confirm a production launch has no development menu or bridge.</li>
+<li>Publish a suggestion through Pi, reload, and confirm it remains persisted.</li>
 <li>Launch the built application and confirm the renderer mounts without failed local script or stylesheet requests.</li>
 <li>Edit and restart to verify document hydration and the 650 ms autosave path.</li>
 <li>Import <code>.md</code> and <code>.markdown</code>, including duplicate names; reject invalid UTF-8 and other extensions.</li>
@@ -268,8 +262,8 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
 </ul>
 <h2 id="adding-tests">Adding tests<a class="heading-anchor" href="#adding-tests" aria-label="Link to Adding tests">#</a></h2><p>Match the test boundary to the behavior:</p>
 <ul>
-<li>pure state transition: add to <code>inbox.test.ts</code>;</li>
-<li>feed adapter lifecycle: test through <code>SuggestionFeed</code> events with fake time or a controlled transport;</li>
+<li>pure durable transition: add to <code>transitions.test.ts</code>;</li>
+<li>command/event reconciliation or transient preview state: add to <code>useSuggestionController.test.ts</code>;</li>
 <li>component semantics/callback: render the component with explicit props and query by accessible role/name;</li>
 <li>full editor integration: use a browser-level test rather than relying on jsdom layout and <code>contenteditable</code> emulation.</li>
 </ul>
@@ -293,7 +287,7 @@ npm run build</code></pre></div><p><code>npm run build</code> is also the author
         <aside class="page-toc" aria-label="On this page">
           <div class="page-toc__inner">
             <h2>On this page</h2>
-            <nav><a class="toc-link toc-link--2" href="#test-stack">Test stack</a><a class="toc-link toc-link--2" href="#commands">Commands</a><a class="toc-link toc-link--2" href="#current-automated-coverage">Current automated coverage</a><a class="toc-link toc-link--3" href="#why-reducer-tests-matter-most">Why reducer tests matter most</a><a class="toc-link toc-link--3" href="#development-injection-tests">Development injection tests</a><a class="toc-link toc-link--3" href="#geometry-tests">Geometry tests</a><a class="toc-link toc-link--2" href="#what-is-not-covered-automatically">What is not covered automatically</a><a class="toc-link toc-link--2" href="#manual-regression-checklist">Manual regression checklist</a><a class="toc-link toc-link--3" href="#editor">Editor</a><a class="toc-link toc-link--3" href="#suggestion-lifecycle">Suggestion lifecycle</a><a class="toc-link toc-link--3" href="#preview-lifecycle">Preview lifecycle</a><a class="toc-link toc-link--3" href="#desktop-layout-80rem">Desktop layout ( =80rem)</a><a class="toc-link toc-link--3" href="#below-desktop-80rem">Below desktop (&lt;80rem)</a><a class="toc-link toc-link--3" href="#accessibility">Accessibility</a><a class="toc-link toc-link--3" href="#electron-runtime">Electron runtime</a><a class="toc-link toc-link--2" href="#adding-tests">Adding tests</a><a class="toc-link toc-link--2" href="#pre-handoff-standard">Pre-handoff standard</a></nav>
+            <nav><a class="toc-link toc-link--2" href="#test-stack">Test stack</a><a class="toc-link toc-link--2" href="#commands">Commands</a><a class="toc-link toc-link--2" href="#current-automated-coverage">Current automated coverage</a><a class="toc-link toc-link--3" href="#why-transition-and-controller-tests-matter-most">Why transition and controller tests matter most</a><a class="toc-link toc-link--3" href="#geometry-tests">Geometry tests</a><a class="toc-link toc-link--2" href="#what-is-not-covered-automatically">What is not covered automatically</a><a class="toc-link toc-link--2" href="#manual-regression-checklist">Manual regression checklist</a><a class="toc-link toc-link--3" href="#editor">Editor</a><a class="toc-link toc-link--3" href="#suggestion-lifecycle">Suggestion lifecycle</a><a class="toc-link toc-link--3" href="#preview-lifecycle">Preview lifecycle</a><a class="toc-link toc-link--3" href="#desktop-layout-80rem">Desktop layout ( =80rem)</a><a class="toc-link toc-link--3" href="#below-desktop-80rem">Below desktop (&lt;80rem)</a><a class="toc-link toc-link--3" href="#accessibility">Accessibility</a><a class="toc-link toc-link--3" href="#electron-runtime">Electron runtime</a><a class="toc-link toc-link--2" href="#adding-tests">Adding tests</a><a class="toc-link toc-link--2" href="#pre-handoff-standard">Pre-handoff standard</a></nav>
             <a class="toc-source" href="../testing-and-quality.md"><svg class="icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h5v5M10 14 20 4"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path></svg> View source</a>
           </div>
         </aside>
