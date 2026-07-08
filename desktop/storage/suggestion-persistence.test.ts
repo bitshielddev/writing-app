@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import type { WorkspaceSnapshot } from "../../src/shared/desktop";
-import type { TextSuggestion } from "../../src/suggestions/types";
+import type { TextSuggestion } from "../../src/domain/suggestions/schema.js";
 import { createStorageService, type StorageService } from "./service";
 import { SuggestionRepository } from "./repositories";
 import { decideSuggestionCommand } from "../domain/suggestion-persistence";

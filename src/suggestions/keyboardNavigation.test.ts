@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { InboxEntry, PinnedInboxEntry } from "./inbox";
 import { useSuggestionKeyboardNavigation } from "./keyboardNavigation";
-import type { TextSuggestion } from "./types";
+import type { TextSuggestion } from "../domain/suggestions/schema";
 
 function entry(id: string): InboxEntry {
   const item: TextSuggestion = {

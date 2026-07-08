@@ -2,7 +2,7 @@ import { type RefObject, useEffect, useRef } from "react";
 
 import type { AgentActivity, AgentRuntime } from "../shared/desktop";
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
-import type { SuggestionItem } from "../suggestions/types";
+import type { SuggestionItem } from "../domain/suggestions/schema";
 import type { SuggestionControllerStatus } from "../suggestions/useSuggestionController";
 import { SuggestionDockActivity } from "./SuggestionDockActivity";
 import { SuggestionDockDetail } from "./SuggestionDockDetail";

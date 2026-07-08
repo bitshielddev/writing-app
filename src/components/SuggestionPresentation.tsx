@@ -14,7 +14,7 @@ import {
   type StructureNode,
   type SuggestionItem,
   type SuggestionKind,
-} from "../suggestions/types";
+} from "../domain/suggestions/schema";
 import { MermaidDiagram } from "./MermaidDiagram";
 
 type KindPresentation = {

@@ -7,7 +7,7 @@ import {
   selectSortedPinnedEntries,
   selectUnreadCount,
 } from "./inboxReducer";
-import type { TextSuggestion } from "./types";
+import type { TextSuggestion } from "../domain/suggestions/schema";
 
 const item = (id: string, createdAt: number): TextSuggestion => ({
   id, dedupeKey: id, kind: "snippet", title: id, summary: "Summary",

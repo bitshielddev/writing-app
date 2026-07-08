@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { WritingEditor } from "../editor/schema";
-import type { TextSuggestion } from "../suggestions/schema";
+import type { TextSuggestion } from "../domain/suggestions/schema";
 import {
   DesktopBridgeHarness,
   createSourceSnapshot,

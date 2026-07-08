@@ -8,7 +8,7 @@ import {
   createWorkspaceSnapshot,
   DesktopBridgeHarness,
 } from "./test/desktopBridgeHarness";
-import type { TextSuggestion } from "./suggestions/types";
+import type { TextSuggestion } from "./domain/suggestions/schema";
 import { createEmptySuggestionState } from "./suggestions/state";
 
 const appHarness = vi.hoisted(() => {

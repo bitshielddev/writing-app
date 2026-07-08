@@ -54,7 +54,7 @@ function withoutGeneratedFields(item: SuggestionItem): Record<string, unknown> {
   );
 }
 
-describe("suggestion schema", () => {
+describe("suggestion domain schema", () => {
   it.each(SUGGESTION_KINDS)("accepts a valid %s suggestion", (kind) => {
     const parsed = parseSuggestionItem(validByKind[kind]);
     expect(parsed).toEqual({ success: true, value: validByKind[kind] });

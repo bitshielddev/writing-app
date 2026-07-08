@@ -5,7 +5,7 @@ import type { DesktopBridge } from "../shared/desktop";
 import { deferred } from "../test/desktopBridgeHarness";
 import { createEmptySuggestionState, type PersistedSuggestionState } from "./state";
 import { useSuggestionController } from "./useSuggestionController";
-import type { TextSuggestion } from "./types";
+import type { TextSuggestion } from "../domain/suggestions/schema";
 
 const item: TextSuggestion = {
   id: "one", dedupeKey: "one", kind: "snippet", title: "One",

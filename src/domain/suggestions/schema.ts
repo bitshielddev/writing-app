@@ -308,3 +308,13 @@ export const SuggestionToolUpdateInputSchema = Type.Union(
 export type SuggestionToolUpdateInput = Static<
   typeof SuggestionToolUpdateInputSchema
 >;
+
+export type SuggestionEvent =
+  | { type: "suggestion.added"; item: SuggestionItem }
+  | { type: "suggestion.updated"; item: SuggestionItem }
+  | { type: "suggestion.retracted"; id: string }
+  | {
+      type: "suggestion.state.changed";
+      suggestionId: string;
+      commandType: string;
+    };

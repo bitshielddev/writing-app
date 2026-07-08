@@ -15,7 +15,7 @@ import {
   supportsSuggestionPreview,
   supportsWorkspacePlacement,
   type SuggestionItem,
-} from "../suggestions/types";
+} from "../domain/suggestions/schema";
 import { KindBadge, SuggestionVisual } from "./SuggestionPresentation";
 
 type SuggestionDockDetailProps = {

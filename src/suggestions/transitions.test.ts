@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createEmptySuggestionState } from "./state";
 import { applySuggestionAgentEvent, applySuggestionCommand, type DurableSuggestionCommand } from "./transitions";
-import type { TextSuggestion } from "./types";
+import type { TextSuggestion } from "../domain/suggestions/schema";
 
 const item: TextSuggestion = { id: "one", dedupeKey: "one", kind: "snippet", title: "One",
   summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1 };

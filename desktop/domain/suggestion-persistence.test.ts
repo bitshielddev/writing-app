@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createEmptySuggestionState } from "../../src/suggestions/state";
-import type { TextSuggestion } from "../../src/suggestions/types";
+import type { TextSuggestion } from "../../src/domain/suggestions/schema.js";
 import {
   applySuggestionFact,
   decideSuggestionCommand,

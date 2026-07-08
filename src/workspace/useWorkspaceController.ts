@@ -8,7 +8,7 @@ import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
 import {
   supportsWorkspacePlacement,
   type SuggestionItem,
-} from "../suggestions/types";
+} from "../domain/suggestions/schema";
 import { useAgentController } from "./useAgentController";
 import { useDocumentAutosave } from "./useDocumentAutosave";
 import { usePreviewController } from "./usePreviewController";

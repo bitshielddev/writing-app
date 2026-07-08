@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkspacePin, WorkspacePinRect } from "../suggestions/inbox";
-import type { TextSuggestion } from "../suggestions/types";
+import type { TextSuggestion } from "../domain/suggestions/schema";
 import { WorkspacePins } from "./WorkspacePins";
 
 const item: TextSuggestion = {

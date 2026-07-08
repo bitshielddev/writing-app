@@ -5,7 +5,7 @@ import type { WritingEditor } from "../editor/schema";
 import {
   supportsSuggestionPreview,
   type SuggestionItem,
-} from "../suggestions/types";
+} from "../domain/suggestions/schema";
 
 type Options = {
   editor: WritingEditor;

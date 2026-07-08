@@ -13,7 +13,7 @@ import {
   type OperationResult,
 } from "../src/shared/contracts.js";
 import type { AgentActivity } from "../src/shared/desktop.js";
-import type { SuggestionItem } from "../src/suggestions/types.js";
+import type { SuggestionItem } from "../src/domain/suggestions/schema.js";
 import {
   SuggestionToolInputSchema,
   SuggestionToolUpdateInputSchema,
@@ -21,7 +21,7 @@ import {
   parseSuggestionItem,
   type SuggestionToolInput,
   type SuggestionToolUpdateInput,
-} from "../src/suggestions/schema.js";
+} from "../src/domain/suggestions/schema.js";
 
 export const SCRIBE_LOOP_ENTRY = "scribe.loop-state";
 export const SCRIBE_REVISION_EVENT = "scribe.project-revision";

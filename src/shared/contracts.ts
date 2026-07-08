@@ -1,7 +1,7 @@
 import { Type, type Static, type TSchema } from "typebox";
 import { Check, Errors } from "typebox/schema";
 
-import { SuggestionItemSchema } from "../suggestions/schema";
+import { SuggestionItemSchema } from "../domain/suggestions/schema";
 
 const strict = { additionalProperties: false } as const;
 const identifier = Type.String({ minLength: 1, maxLength: 200, pattern: "\\S" });

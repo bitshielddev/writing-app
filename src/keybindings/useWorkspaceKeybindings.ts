@@ -6,7 +6,7 @@ import type { SuggestionKeyboardNavigationController } from "../suggestions/keyb
 import {
   supportsSuggestionPreview,
   type SuggestionItem,
-} from "../suggestions/types";
+} from "../domain/suggestions/schema";
 import type { WorkspaceLayoutController } from "../workspace/useWorkspaceLayout";
 import {
   executed,

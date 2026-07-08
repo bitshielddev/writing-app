@@ -2,7 +2,7 @@ import type { WorkspacePinRect } from "./state";
 import {
   SUGGESTION_CAPABILITIES,
   type SuggestionItem,
-} from "./types";
+} from "../domain/suggestions/schema";
 
 export function getInitialWorkspacePinSize(
   item: SuggestionItem,

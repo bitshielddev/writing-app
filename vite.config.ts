@@ -12,7 +12,7 @@ const nodeTestFiles = [
   "src/keybindings/sequenceMatcher.test.ts",
   "src/shared/contracts.test.ts",
   "src/suggestions/inbox.test.ts",
-  "src/suggestions/schema.test.ts",
+  "src/domain/suggestions/schema.test.ts",
   "src/suggestions/state.test.ts",
 ];
 

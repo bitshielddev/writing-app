@@ -1,7 +1,7 @@
 import type { Static } from "typebox";
 
 import type { PersistedSuggestionStateSchema, WorkspacePinRectSchema } from "../shared/contracts";
-import type { SuggestionItem } from "./types";
+import type { SuggestionItem } from "../domain/suggestions/schema";
 
 export const SUGGESTION_ENTRY_LIMIT = 30;
 

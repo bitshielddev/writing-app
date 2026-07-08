@@ -4,7 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { InboxEntry, PinnedInboxEntry } from "../suggestions/inbox";
-import type { TextSuggestion } from "../suggestions/types";
+import type { TextSuggestion } from "../domain/suggestions/schema";
 import { SuggestionDock } from "./SuggestionDock";
 
 const item: TextSuggestion = {

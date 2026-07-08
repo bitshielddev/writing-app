@@ -1,5 +1,5 @@
 import type { PersistedSuggestionState } from "../../src/suggestions/state.js";
-import type { SuggestionItem } from "../../src/suggestions/types.js";
+import type { SuggestionItem } from "../../src/domain/suggestions/schema.js";
 import {
   applySuggestionAgentEvent,
   applySuggestionCommand,
