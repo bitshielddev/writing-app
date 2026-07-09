@@ -45,19 +45,17 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 
 ```text
 .
-├── docs/                         Developer documentation
-├── desktop/                      Electron main, preload, storage, Pi, and build entries
+├── docs/                         Authored developer documentation and docs build script
+├── docs/assets/                  Static assets copied into generated documentation
 ├── src/
-│   ├── App.tsx                   Layout composition root
-│   ├── main.tsx                  React renderer entry point
-│   ├── index.css                 Tailwind theme, layout rules, and editor overrides
-│   ├── components/               UI components and component tests
-│   ├── desktop/                  Renderer-side desktop bridge access
-│   ├── editor/                   BlockNote schema and preview events
-│   ├── suggestions/              Suggestion contracts, inbox state, and workspace layout
-│   ├── shared/                   Cross-process desktop contracts
-│   └── test/setup.ts             Shared Vitest cleanup
-├── artifacts/                    Standalone review artifacts; not used at runtime
+│   ├── contracts/                Cross-process schemas, operations, and bridge types
+│   ├── domain/                   Runtime-neutral product policy shared across runtimes
+│   ├── main/                     Electron main-process composition, IPC, and diagnostics
+│   ├── preload/                  Isolated preload bridge entry and exposed API
+│   ├── renderer/                 React application, features, UI primitives, and browser adapters
+│   ├── test/                     Cross-runtime test harness support
+│   └── utility/                  Storage and agent utility-process implementations
+├── artifacts/                    Historical standalone review artifacts; not runtime source
 ├── index.html                    Vite HTML shell and Google Font loading
 ├── vite.config.ts                Vite, React, Tailwind, and Vitest configuration
 ├── eslint.config.js              TypeScript and React lint rules
@@ -74,7 +72,7 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 
 ## Important implementation constraints
 
-- [`App.tsx`](../src/App.tsx) is the renderer layout composition root. [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts) connects the Electron bridge, hydration, autosave, previews, agent runtime, and suggestion controller.
-- [`transitions.ts`](../src/suggestions/transitions.ts) is the source of truth for durable suggestion lifecycle rules in both renderer and storage.
-- [`useSuggestionController`](../src/suggestions/useSuggestionController.ts) owns command serialization, authoritative event reconciliation, selection, and preview presentation state.
+- [`App.tsx`](../src/renderer/app/App.tsx) is the renderer layout composition root. [`useWorkspaceController`](../src/renderer/features/workspace/useWorkspaceController.ts) connects the Electron bridge, hydration, autosave, previews, agent runtime, and suggestion controller.
+- [`transitions.ts`](../src/domain/suggestions/transitions.ts) is the source of truth for durable suggestion lifecycle rules in both renderer and storage.
+- [`useSuggestionController`](../src/renderer/features/suggestions/useSuggestionController.ts) owns command serialization, authoritative event reconciliation, selection, and preview presentation state.
 - The app assumes a browser DOM. `window`, `document`, `localStorage`, media queries, `ResizeObserver`, and pointer capture are used directly.

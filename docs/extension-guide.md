@@ -4,7 +4,7 @@ This guide identifies the existing seams for likely next steps in the Electron r
 
 ## Evolve the writing-partner transport
 
-Keep transport details behind the agent and storage process boundaries. The renderer receives only committed `suggestion.event` payloads through `DesktopBridge`; [`useSuggestionController`](../src/suggestions/useSuggestionController.ts) reconciles their authoritative projections.
+Keep transport details behind the agent and storage process boundaries. The renderer receives only committed `suggestion.event` payloads through `DesktopBridge`; [`useSuggestionController`](../src/renderer/features/suggestions/useSuggestionController.ts) reconciles their authoritative projections.
 
 A production adapter must define:
 
@@ -15,7 +15,7 @@ A production adapter must define:
 - ordering of suggestion events;
 - command/event ordering and idempotent replay.
 
-Choose or introduce adapters in the agent process and keep [`useWorkspaceController`](../src/workspace/useWorkspaceController.ts) on the typed desktop event boundary. Runtime status and errors remain on `AgentRuntime`; they are not suggestion events.
+Choose or introduce adapters in the agent process and keep [`useWorkspaceController`](../src/renderer/features/workspace/useWorkspaceController.ts) on the typed desktop event boundary. Runtime status and errors remain on `AgentRuntime`; they are not suggestion events.
 
 Do not call an HTTP or model SDK directly from `SuggestionDock`. That would couple view lifecycle to transport lifecycle, make replay/dedupe inconsistent, and bypass reducer tests.
 
@@ -47,7 +47,7 @@ Temporary `suggestionPreview` blocks are excluded from the saved accepted docume
 
 The live inbox, pins, workspace cards, dedupe keys, and geometry are stored as a document-scoped projection. Changes to dedupe retention should be made deliberately because a dismissed item currently cannot be re-added with the same key.
 
-[`suggestions/state.ts`](../src/suggestions/state.ts) is the shared renderer/storage policy boundary. Change the persisted entry types, empty-state defaults, queue limit, or eviction rules there so both processes remain consistent. Do not move persistence ownership into React as part of an unrelated feature.
+[`src/domain/suggestions/state.ts`](../src/domain/suggestions/state.ts) is the shared renderer/storage policy boundary. Change the persisted entry types, empty-state defaults, queue limit, or eviction rules there so both processes remain consistent. Do not move persistence ownership into React as part of an unrelated feature.
 
 Pinned entries are user-owned frozen snapshots. Preserve that distinction if live suggestions are server-backed: server updates should not mutate a saved pin.
 
@@ -61,12 +61,12 @@ Add new durable data through the storage-process RPC boundary. Hydrate owners at
 
 Adding a kind affects the discriminated union and every exhaustive presentation or behavior decision.
 
-1. Add the literal to `SUGGESTION_KINDS` and a new union member in [`types.ts`](../src/suggestions/types.ts).
+1. Add the literal to `SUGGESTION_KINDS` and a new union member in [`src/domain/suggestions/schema.ts`](../src/domain/suggestions/schema.ts).
 2. Add it to the relevant canonical kind-family constant and guard when it is text-insertable or structural.
-3. Add badge label/icon/tone and visual rendering in [`SuggestionPresentation.tsx`](../src/components/SuggestionPresentation.tsx).
+3. Add badge label/icon/tone and visual rendering in [`SuggestionPresentation.tsx`](../src/renderer/features/suggestions/dock/SuggestionPresentation.tsx).
 4. Reuse the canonical guards in the workspace controller, detail view, workspace pins, validation, and agent tooling; do not add local repeated kind checks.
 5. Update focused dock views and workspace presentation only when the new family needs distinct UI.
-6. Add an initial size in [`workspacePinLayout.ts`](../src/suggestions/workspacePinLayout.ts) if the default is unsuitable.
+6. Add an initial size in [`workspacePinLayout.ts`](../src/renderer/features/suggestions/workspacePinLayout.ts) if the default is unsuitable.
 7. Ensure external data validation rejects malformed payloads before they reach the reducer.
 8. Add reducer and component tests, plus Mermaid-like failure handling if rendering is asynchronous.
 9. Update the kind table in [Editor and suggestion system](editor-and-suggestions.md).
@@ -75,7 +75,7 @@ Kind-family decisions are centralized in `suggestions/types.ts`. If kinds grow s
 
 ## Add a custom editor block
 
-Register the block in [`writingSchema`](../src/editor/schema.tsx), then address all serialization boundaries:
+Register the block in [`writingSchema`](../src/renderer/features/editor/schema.tsx), then address all serialization boundaries:
 
 - accepted-document plain-text extraction;
 - external HTML behavior;
@@ -87,7 +87,7 @@ Register the block in [`writingSchema`](../src/editor/schema.tsx), then address 
 
 Use the schema-derived `WritingEditor`, `WritingBlock`, and `WritingPartialBlock` types rather than importing generic BlockNote types throughout the application.
 
-If the block needs to notify application state, prefer an explicit callback/plugin boundary. The current preview block uses [`previewEvents.ts`](../src/editor/previewEvents.ts) because its renderer is registered at schema construction and is not passed `App` callbacks.
+If the block needs to notify application state, prefer an explicit callback/plugin boundary. The current preview block uses [`previewEvents.ts`](../src/renderer/features/editor/previewEvents.ts) because its renderer is registered at schema construction and is not passed `App` callbacks.
 
 ## Implement navigation and document actions
 

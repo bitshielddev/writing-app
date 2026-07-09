@@ -6,7 +6,7 @@
 - jsdom supplies the browser-like environment configured in [`vite.config.ts`](../vite.config.ts).
 - Testing Library renders React components and queries their accessible output.
 - `@testing-library/user-event` drives user-style interactions.
-- [`src/test/setup.ts`](../src/test/setup.ts) cleans up rendered React trees after every test.
+- [`src/renderer/test/setup.ts`](../src/renderer/test/setup.ts) cleans up rendered React trees after every renderer test.
 
 Tests are colocated with source files and use `*.test.ts` or `*.test.tsx`.
 
@@ -29,20 +29,20 @@ The suite currently contains unit and component coverage across renderer, storag
 
 | File | What it protects |
 | --- | --- |
-| [`suggestions/inbox.test.ts`](../src/suggestions/inbox.test.ts) | Presentation sorting and transient stale/withdrawn decoration. |
-| [`suggestions/useSuggestionController.test.ts`](../src/suggestions/useSuggestionController.test.ts) | Optimistic commands, serialization, event/RPC ordering, and preview update/retraction state. |
-| [`suggestions/state.test.ts`](../src/suggestions/state.test.ts) | Shared empty state, protected queue eviction, and canonical kind guards. |
-| [`workspace/useWorkspaceController.test.ts`](../src/workspace/useWorkspaceController.test.ts) | Hydration, serialized autosave, desktop events, control errors, and preview resolution. |
-| [`components/SuggestionDock.test.tsx`](../src/components/SuggestionDock.test.tsx) | Absence of legacy steering controls, unified stream, text preview action, pin presentation, and workspace placement callback. |
-| [`components/WorkspacePins.test.tsx`](../src/components/WorkspacePins.test.tsx) | Card content, return action, keyboard geometry, and pointer drag commit. |
-| [`components/DocumentHeader.test.tsx`](../src/components/DocumentHeader.test.tsx) | Desktop panel semantics, hidden-partner unread count, and independent mobile controls. |
-| [`components/ResponsiveDrawer.test.tsx`](../src/components/ResponsiveDrawer.test.tsx) | Escape/close behavior and focus restoration. |
-| [`desktop/storage.test.ts`](../desktop/storage.test.ts) | Block/Markdown saves, mirror repair, stale suggestion rejection, and Markdown-only source import. |
-| [`desktop/domain/agent-loop.test.ts`](../desktop/domain/agent-loop.test.ts) | Coalescing, yields, races, five-cycle cap, error sleep, wake, and restored loop state. |
-| [`desktop/activity.test.ts`](../desktop/activity.test.ts) | Aggregation, redaction, 50 KB cap, and 500-item eviction. |
-| [`desktop/pi-session.test.ts`](../desktop/pi-session.test.ts) | Project session continuation, extension entries, and the read-only tool contract. |
-| [`desktop/infrastructure/agent/pi-activity.test.ts`](../desktop/infrastructure/agent/pi-activity.test.ts) | Lifecycle, message/reasoning/error, and tool activity conversion. |
-| [`desktop/scribe-extension.test.ts`](../desktop/scribe-extension.test.ts) | Active revisions, storage failures, wake behavior, and suggestion mutation results. |
+| [`suggestions/inbox.test.ts`](../src/renderer/features/suggestions/inbox.test.ts) | Presentation sorting and transient stale/withdrawn decoration. |
+| [`suggestions/useSuggestionController.test.ts`](../src/renderer/features/suggestions/useSuggestionController.test.ts) | Optimistic commands, serialization, event/RPC ordering, and preview update/retraction state. |
+| [`suggestions/state.test.ts`](../src/domain/suggestions/state.test.ts) | Shared empty state, protected queue eviction, and canonical kind guards. |
+| [`workspace/useWorkspaceController.test.ts`](../src/renderer/features/workspace/useWorkspaceController.test.ts) | Hydration, serialized autosave, desktop events, control errors, and preview resolution. |
+| [`suggestions/dock/SuggestionDock.test.tsx`](../src/renderer/features/suggestions/dock/SuggestionDock.test.tsx) | Absence of legacy steering controls, unified stream, text preview action, pin presentation, and workspace placement callback. |
+| [`suggestions/workspace-pins/WorkspacePins.test.tsx`](../src/renderer/features/suggestions/workspace-pins/WorkspacePins.test.tsx) | Card content, return action, keyboard geometry, and pointer drag commit. |
+| [`workspace/DocumentHeader.test.tsx`](../src/renderer/features/workspace/DocumentHeader.test.tsx) | Desktop panel semantics, hidden-partner unread count, and independent mobile controls. |
+| [`ui/ResponsiveDrawer.test.tsx`](../src/renderer/ui/ResponsiveDrawer.test.tsx) | Escape/close behavior and focus restoration. |
+| [`src/utility/storage/service.test.ts`](../src/utility/storage/service.test.ts) | Block/Markdown saves, mirror repair, stale suggestion rejection, and Markdown-only source import. |
+| [`src/utility/agent/domain/loop.test.ts`](../src/utility/agent/domain/loop.test.ts) | Coalescing, yields, races, five-cycle cap, error sleep, wake, and restored loop state. |
+| [`src/main/diagnostics/activity.test.ts`](../src/main/diagnostics/activity.test.ts) | Aggregation, redaction, 50 KB cap, and 500-item eviction. |
+| [`src/utility/agent/pi/session.test.ts`](../src/utility/agent/pi/session.test.ts) | Project session continuation, extension entries, and the read-only tool contract. |
+| [`src/utility/agent/pi/activity.test.ts`](../src/utility/agent/pi/activity.test.ts) | Lifecycle, message/reasoning/error, and tool activity conversion. |
+| [`src/utility/agent/extension.test.ts`](../src/utility/agent/extension.test.ts) | Active revisions, storage failures, wake behavior, and suggestion mutation results. |
 
 ### Why transition and controller tests matter most
 

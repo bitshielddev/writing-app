@@ -1,6 +1,6 @@
 # Durable-format and process compatibility
 
-Scribe versions each durable JSON format independently from SQLite and requires exact compatibility between packaged processes. The executable registry is `desktop/compatibility.ts`; this document is the release and recovery policy.
+Scribe versions each durable JSON format independently from SQLite and requires exact compatibility between packaged processes. The executable registry is `src/contracts/compatibility.ts`; this document is the release and recovery policy.
 
 ## Supported versions
 
@@ -39,7 +39,7 @@ Before every release:
 6. During alpha, bump the database version and recreate the database. Do not add a migration until a release explicitly commits to database compatibility.
 7. Run `npm test`, `npm run lint`, `npm run build`, and `npm run docs:build`.
 
-Do not regenerate a historical fixture with a current serializer. Fixtures under `desktop/fixtures/compatibility/` are immutable after release.
+Do not regenerate a historical fixture with a current serializer. Fixtures under `src/contracts/fixtures/compatibility/` are immutable after release.
 
 ## Backup and rollback
 

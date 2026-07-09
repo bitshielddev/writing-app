@@ -8,11 +8,11 @@ The application has three conceptual regions:
 2. the document workspace (header and editor);
 3. the writing partner.
 
-`App` renders one desktop grid plus two below-desktop drawers. [`EditorWorkspace`](../src/components/EditorWorkspace.tsx) keeps the document header and editor together as the center region.
+`App` renders one desktop grid plus two below-desktop drawers. [`EditorWorkspace`](../src/renderer/features/editor/EditorWorkspace.tsx) keeps the document header and editor together as the center region.
 
 ## Responsive layout
 
-The desktop threshold is `80rem` (`xl` in Tailwind's default scale and the explicit media query in [`index.css`](../src/index.css)).
+The desktop threshold is `80rem` (`xl` in Tailwind's default scale and the explicit media query in [`index.css`](../src/renderer/index.css)).
 
 | Viewport | Navigation | Document | Writing partner | Workspace cards |
 | --- | --- | --- | --- | --- |
@@ -26,7 +26,7 @@ Desktop panel open state and mobile drawer open state are intentionally separate
 
 ## Desktop column resizing
 
-[`ColumnResizeHandle`](../src/components/ColumnResizeHandle.tsx) renders an accessible vertical separator on each open side column.
+[`ColumnResizeHandle`](../src/renderer/ui/ColumnResizeHandle.tsx) renders an accessible vertical separator on each open side column.
 
 ### Limits
 
@@ -49,7 +49,7 @@ The separator exposes `role="separator"`, its controlled column ID, orientation,
 
 ## Responsive drawers
 
-[`ResponsiveDrawer`](../src/components/ResponsiveDrawer.tsx) provides both side drawers below desktop:
+[`ResponsiveDrawer`](../src/renderer/ui/ResponsiveDrawer.tsx) provides both side drawers below desktop:
 
 - semantic modal dialog with an accessible title;
 - backdrop click and explicit close button;
@@ -63,7 +63,7 @@ This is a local dialog implementation, not a general overlay framework. It does 
 
 ## Header controls
 
-[`DocumentHeader`](../src/components/DocumentHeader.tsx) uses separate controls for desktop columns and mobile drawers, each with the correct `aria-controls` and `aria-expanded` state.
+[`DocumentHeader`](../src/renderer/features/workspace/DocumentHeader.tsx) uses separate controls for desktop columns and mobile drawers, each with the correct `aria-controls` and `aria-expanded` state.
 
 When the writing partner is not visible, its toggle includes the unread count in both the visual badge and accessible label. When the desktop partner is already open, the header suppresses its unread badge because the count is visible in the dock.
 
@@ -107,7 +107,7 @@ The shortcut reference is a modal dialog with initial close-button focus, Tab wr
 
 ## Editor surface
 
-[`DocumentEditor`](../src/components/DocumentEditor.tsx) is the only vertically scrolling center-region surface. It renders:
+[`DocumentEditor`](../src/renderer/features/editor/DocumentEditor.tsx) is the only vertically scrolling center-region surface. It renders:
 
 - a centered BlockNote editor with a maximum content width of 55rem;
 - an absolute workspace-card layer over the full editor canvas;
@@ -146,7 +146,7 @@ Action availability is constrained by lifecycle:
 
 ## Workspace card input and bounds
 
-Workspace cards are desktop reference surfaces, not editor content. [`WorkspacePins`](../src/components/WorkspacePins.tsx) supports:
+Workspace cards are desktop reference surfaces, not editor content. [`WorkspacePins`](../src/renderer/features/suggestions/workspace-pins/WorkspacePins.tsx) supports:
 
 - pointer drag through the card header;
 - pointer resize through the bottom-right handle;
@@ -182,7 +182,7 @@ When changing UI behavior, retain these existing properties:
 
 Use Tailwind utilities in components for local layout and presentation. Add global CSS only when a selector must target third-party/editor markup, define shared tokens, or coordinate the workspace grid.
 
-The brand palette is declared as `brand-50` through `brand-900` in [`index.css`](../src/index.css). BlockNote has a parallel set of `--bn-*` variables in the same file. When changing a core color, check both systems as well as hard-coded neutral colors in components.
+The brand palette is declared as `brand-50` through `brand-900` in [`index.css`](../src/renderer/index.css). BlockNote has a parallel set of `--bn-*` variables in the same file. When changing a core color, check both systems as well as hard-coded neutral colors in components.
 
 There is a `dark` custom variant declaration, but the current app forces a light color scheme and does not implement theme switching.
 

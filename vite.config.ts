@@ -8,13 +8,14 @@ import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 
 const nodeTestFiles = [
-  "src/components/workspacePins/geometry.test.ts",
-  "src/keybindings/sequenceMatcher.test.ts",
+  "src/renderer/features/suggestions/workspace-pins/geometry.test.ts",
+  "src/renderer/features/keybindings/sequenceMatcher.test.ts",
+  "src/renderer/platform/electron/durableEventCoordinator.test.ts",
   "src/contracts/*.test.ts",
-  "src/suggestions/inbox.test.ts",
   "src/domain/**/*.test.ts",
   "src/main/**/*.test.ts",
   "src/preload/**/*.test.ts",
+  "src/utility/**/*.test.ts",
 ];
 
 function cleanElectronOutput(): Plugin {
@@ -79,8 +80,8 @@ export default defineConfig({
       main: {
         entry: {
           main: "src/main/index.ts",
-          storage: "desktop/storage.ts",
-          agent: "desktop/agent.ts",
+          storage: "src/utility/storage/index.ts",
+          agent: "src/utility/agent/index.ts",
         },
         vite: {
           plugins: [notBundle({ filter: /^(?![./])/ })],
@@ -127,7 +128,7 @@ export default defineConfig({
           environment: "jsdom",
           include: ["src/**/*.test.{ts,tsx}"],
           exclude: nodeTestFiles,
-          setupFiles: "./src/test/setup.ts",
+          setupFiles: "./src/renderer/test/setup.ts",
         },
       },
     ],

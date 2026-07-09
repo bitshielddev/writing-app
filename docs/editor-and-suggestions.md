@@ -4,7 +4,7 @@ This is the core interaction model: Electron emits committed projection events, 
 
 ## Domain model
 
-The shared contracts are in [`src/suggestions/types.ts`](../src/suggestions/types.ts).
+Suggestion value schemas and kind guards are in [`src/domain/suggestions/schema.ts`](../src/domain/suggestions/schema.ts). Cross-process operation contracts are in [`src/contracts/`](../src/contracts/).
 
 ### Suggestion kinds
 
@@ -37,11 +37,11 @@ Committed `suggestion.event` payloads carry the event metadata, command ID, proj
 | `suggestion.updated` | Replace a live suggestion with the same `id`. |
 | `suggestion.retracted` | Remove a live suggestion from the durable projection. |
 
-The renderer uses one desktop subscription in `useWorkspaceController` and forwards committed suggestion events to [`useSuggestionController`](../src/suggestions/useSuggestionController.ts). The controller compares revisions and command IDs so either the durable event or the command response can acknowledge a writer action first. Suggestions are written before an event is forwarded, so reload hydrates the same projection.
+The renderer uses one desktop subscription in `useWorkspaceController` and forwards committed suggestion events to [`useSuggestionController`](../src/renderer/features/suggestions/useSuggestionController.ts). The controller compares revisions and command IDs so either the durable event or the command response can acknowledge a writer action first. Suggestions are written before an event is forwarded, so reload hydrates the same projection.
 
 ## Inbox state machine
 
-[`useSuggestionController`](../src/suggestions/useSuggestionController.ts) owns:
+[`useSuggestionController`](../src/renderer/features/suggestions/useSuggestionController.ts) owns:
 
 ```text
 entries             live inbox suggestions
@@ -54,7 +54,7 @@ nextZIndex          monotonic stacking counter for workspace cards
 active/pending commands serialized optimistic writer operations
 ```
 
-Persisted entry/pin types, empty-state defaults, the 30-entry limit, and eviction order live in [`state.ts`](../src/suggestions/state.ts) and are shared with desktop storage.
+Persisted entry/pin types, empty-state defaults, the 30-entry limit, and eviction order live in [`state.ts`](../src/domain/suggestions/state.ts) and are shared with desktop storage.
 
 ### Event behavior
 
@@ -147,7 +147,7 @@ The inserted block receives focus and is scrolled toward the center of the viewp
 
 ### Preview rendering and resolution
 
-[`schema.tsx`](../src/editor/schema.tsx) registers `suggestionPreview` alongside BlockNote's default blocks. Its React renderer owns the buttons:
+[`schema.tsx`](../src/renderer/features/editor/schema.tsx) registers `suggestionPreview` alongside BlockNote's default blocks. Its React renderer owns the buttons:
 
 - Accept is disabled if recursive content inspection finds no visible text.
 - Accept replaces the custom block with a normal paragraph carrying the edited inline content.
@@ -175,14 +175,14 @@ stateDiagram-v2
     Pins --> [*]: Dismiss / accepted preview
 ```
 
-When a card is placed, the reducer marks it `pendingInitialPlacement`. On the next animation frame, [`DocumentEditor`](../src/components/DocumentEditor.tsx) calculates a visible position based on:
+When a card is placed, the reducer marks it `pendingInitialPlacement`. On the next animation frame, [`DocumentEditor`](../src/renderer/features/editor/DocumentEditor.tsx) calculates a visible position based on:
 
 - suggestion-kind default size;
 - current canvas width and height;
 - current scroll viewport;
 - a five-position, 24 px cascade.
 
-It then commits the geometry, clearing the pending flag. [`WorkspacePins`](../src/components/WorkspacePins.tsx) renders only committed cards and clamps them whenever the canvas changes size.
+It then commits the geometry, clearing the pending flag. [`WorkspacePins`](../src/renderer/features/suggestions/workspace-pins/WorkspacePins.tsx) renders only committed cards and clamps them whenever the canvas changes size.
 
 Initial sizes are:
 
@@ -196,7 +196,7 @@ Cards cannot be smaller than 280 × 180 px and keep 16 px of edge padding. Geome
 
 ## Mermaid rendering
 
-Mind maps use [`MermaidDiagram`](../src/components/MermaidDiagram.tsx):
+Mind maps use [`MermaidDiagram`](../src/renderer/features/suggestions/dock/MermaidDiagram.tsx):
 
 - the `mermaid` package is imported once, lazily;
 - the singleton is initialized with `securityLevel: "strict"` and `startOnLoad: false`;

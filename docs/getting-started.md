@@ -122,8 +122,8 @@ The production build currently completes with Vite's warning that some minified 
 
 ## Runtime entry points
 
-- initial editor content: [`initialContent`](../src/App.tsx);
-- autonomous Pi runtime and extension: [`agent.ts`](../desktop/agent.ts) and [`scribe-extension.ts`](../desktop/scribe-extension.ts).
+- initial editor content: [`initialContent`](../src/renderer/app/App.tsx);
+- autonomous Pi runtime and extension: [`src/utility/agent/index.ts`](../src/utility/agent/index.ts) and [`src/utility/agent/extension.ts`](../src/utility/agent/extension.ts).
 
 ## Renderer preferences
 
@@ -185,7 +185,7 @@ Wayland compositor capability warnings are not, by themselves, evidence that win
 
 ### A mind map says “Diagram unavailable”
 
-Mermaid is loaded lazily only when a mind-map visual renders. Invalid Mermaid source or a failed module render activates the accessible text fallback. Inspect [`MermaidDiagram.tsx`](../src/components/MermaidDiagram.tsx) and the `mermaidSource` on the suggestion.
+Mermaid is loaded lazily only when a mind-map visual renders. Invalid Mermaid source or a failed module render activates the accessible text fallback. Inspect [`MermaidDiagram.tsx`](../src/renderer/features/suggestions/dock/MermaidDiagram.tsx) and the `mermaidSource` on the suggestion.
 
 ### A workspace pin is missing
 

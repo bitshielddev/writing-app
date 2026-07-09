@@ -47,7 +47,7 @@ Desktop queries, commands, and committed events use the typed `DesktopBridge` co
 
 ## Composition root
 
-[`App.tsx`](../src/App.tsx) is the layout composition root:
+[`App.tsx`](../src/renderer/app/App.tsx) is the layout composition root:
 
 1. `useCreateBlockNote` creates the editor from `writingSchema` and seeded content.
 2. `useWorkspaceController` owns hydration, serialized autosave, desktop subscriptions, agent controls, inbox integration, and preview coordination.
@@ -79,14 +79,14 @@ There is intentionally one owner for each lifecycle. Components such as `Suggest
 
 ## Module boundaries
 
-### `src/editor`
+### `src/renderer/features/editor`
 
-- [`schema.tsx`](../src/editor/schema.tsx) extends BlockNote with the `suggestionPreview` block and implements accept/cancel behavior.
-- [`previewEvents.ts`](../src/editor/previewEvents.ts) is a small in-process event bridge from the custom block renderer back to `App`.
+- [`schema.tsx`](../src/renderer/features/editor/schema.tsx) extends BlockNote with the `suggestionPreview` block and implements accept/cancel behavior.
+- [`previewEvents.ts`](../src/renderer/features/editor/previewEvents.ts) is a small in-process event bridge from the custom block renderer back to `App`.
 
 The editor layer knows suggestion IDs, but it does not import or mutate inbox state.
 
-### `src/keybindings` and `src/workspace`
+### `src/renderer/features/keybindings` and `src/renderer/features/workspace`
 
 - `commands.ts` defines stable semantic command IDs independently of keys and handlers.
 - `defaultKeymap.ts` contains the fixed `Ctrl+;` keymap; `sequenceMatcher.ts` resolves partial and complete sequences without React or DOM dependencies.
@@ -96,40 +96,40 @@ The editor layer knows suggestion IDs, but it does not import or mutate inbox st
 
 The command strip and shortcut dialog read the same command catalog and default keymap used for execution. This prevents discoverability copy from drifting away from the active bindings and leaves a clean keymap-replacement seam for future configurability.
 
-### `src/suggestions`
+### Suggestion domain and renderer feature
 
-- [`types.ts`](../src/suggestions/types.ts) defines suggestion data and agent event variants.
-- [`state.ts`](../src/suggestions/state.ts) defines the persisted projection, empty state, 30-entry limit, and shared eviction policy used by renderer and storage.
-- [`suggestion-persistence.ts`](../desktop/domain/suggestion-persistence.ts) is the pure suggestion aggregate and strict projection reducer. Storage records versioned intent, appends immutable facts, advances the projection, and stores the receipt in one transaction. Rebuild and repair use the same reducer; no application service writes the projection directly.
-- [`transitions.ts`](../src/suggestions/transitions.ts) implements the durable command and agent-event policy shared by renderer and storage.
-- [`useSuggestionController.ts`](../src/suggestions/useSuggestionController.ts) owns optimistic commands, authoritative reconciliation, and transient selection/preview presentation.
-- [`inbox.ts`](../src/suggestions/inbox.ts) exposes renderer-facing suggestion types and selectors.
-- [`workspacePinLayout.ts`](../src/suggestions/workspacePinLayout.ts) supplies type-specific initial card sizes.
+- [`schema.ts`](../src/domain/suggestions/schema.ts) defines suggestion data and agent event variants.
+- [`state.ts`](../src/domain/suggestions/state.ts) defines the persisted projection, empty state, 30-entry limit, and shared eviction policy used by renderer and storage.
+- [`aggregate.ts`](../src/domain/suggestions/aggregate.ts) is the pure suggestion aggregate and strict projection reducer. Storage records versioned intent, appends immutable facts, advances the projection, and stores the receipt in one transaction. Rebuild and repair use the same reducer; no application service writes the projection directly.
+- [`transitions.ts`](../src/domain/suggestions/transitions.ts) implements the durable command and agent-event policy shared by renderer and storage.
+- [`useSuggestionController.ts`](../src/renderer/features/suggestions/useSuggestionController.ts) owns optimistic commands, authoritative reconciliation, and transient selection/preview presentation.
+- [`inbox.ts`](../src/renderer/features/suggestions/inbox.ts) exposes renderer-facing suggestion types and selectors.
+- [`workspacePinLayout.ts`](../src/renderer/features/suggestions/workspacePinLayout.ts) supplies type-specific initial card sizes.
 
 The durable transition policy is pure and React-independent so storage and optimistic rendering cannot drift. Stale and withdrawn flags are presentation-only because they protect transient detail/preview state rather than durable projection state.
 
-### `desktop` and `src/desktop`
+### Runtime roots
 
-- `desktop/main.ts` owns Electron lifecycle, renderer IPC, utility processes, revision forwarding, and the activity ring.
-- `desktop/storage.ts` owns schema creation, SQLite queries, managed Markdown files, and committed events.
-- `desktop/agent.ts` creates the durable Pi coding-agent session and drives user-enabled autonomous cycles. Revisions continue to coalesce while the agent is stopped.
-- `desktop/scribe-extension.ts` defines suggestion/yield tools and persists extension loop state.
-- `desktop/preload.ts` exposes the typed desktop API.
-- `src/desktop/desktopClient.ts` provides required access to the preload bridge.
-- `src/shared/desktop.ts` is the cross-process contract.
+- `src/main/index.ts` owns Electron lifecycle, renderer IPC, utility processes, revision forwarding, and the activity ring.
+- `src/utility/storage/index.ts` is the storage utility-process entry point; storage behavior lives under `application/`, `persistence/`, and `workspace/`.
+- `src/utility/agent/index.ts` creates the durable Pi coding-agent session and drives user-enabled autonomous cycles. Revisions continue to coalesce while the agent is stopped.
+- `src/utility/agent/extension.ts` defines suggestion/yield tools and persists extension loop state.
+- `src/preload/index.ts` exposes the typed desktop API.
+- [`desktopClient.ts`](../src/renderer/platform/electron/desktopClient.ts) provides renderer-side access to the preload bridge.
+- `src/contracts/desktop-bridge.ts` is the cross-process contract.
 
-### `src/components`
+### Renderer features and UI primitives
 
-- [`EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) joins the document header and editor surface.
-- [`DocumentEditor.tsx`](../src/components/DocumentEditor.tsx) renders BlockNote and calculates initial workspace-card placement.
-- [`SuggestionDock.tsx`](../src/components/SuggestionDock.tsx) composes focused activity, detail, and queue views.
-- [`WorkspacePins.tsx`](../src/components/WorkspacePins.tsx) renders desktop cards and handles bounded pointer/keyboard geometry.
-- [`DocumentHeader.tsx`](../src/components/DocumentHeader.tsx) exposes responsive panel controls and document action placeholders.
-- [`ResponsiveDrawer.tsx`](../src/components/ResponsiveDrawer.tsx) provides the below-desktop modal panel behavior.
-- [`ColumnResizeHandle.tsx`](../src/components/ColumnResizeHandle.tsx) provides pointer and keyboard column resizing.
-- [`SuggestionPresentation.tsx`](../src/components/SuggestionPresentation.tsx) renders kind badges and structured suggestion visuals.
-- [`MermaidDiagram.tsx`](../src/components/MermaidDiagram.tsx) lazy-loads Mermaid and renders an accessible fallback on failure.
-- [`Sidebar.tsx`](../src/components/Sidebar.tsx) renders the static project navigation shell plus the persisted Electron source list and upload callback.
+- [`EditorWorkspace.tsx`](../src/renderer/features/editor/EditorWorkspace.tsx) joins the document header and editor surface.
+- [`DocumentEditor.tsx`](../src/renderer/features/editor/DocumentEditor.tsx) renders BlockNote and calculates initial workspace-card placement.
+- [`SuggestionDock.tsx`](../src/renderer/features/suggestions/dock/SuggestionDock.tsx) composes focused activity, detail, and queue views.
+- [`WorkspacePins.tsx`](../src/renderer/features/suggestions/workspace-pins/WorkspacePins.tsx) renders desktop cards and handles bounded pointer/keyboard geometry.
+- [`DocumentHeader.tsx`](../src/renderer/features/workspace/DocumentHeader.tsx) exposes responsive panel controls and document action placeholders.
+- [`ResponsiveDrawer.tsx`](../src/renderer/ui/ResponsiveDrawer.tsx) provides reusable below-desktop modal panel behavior.
+- [`ColumnResizeHandle.tsx`](../src/renderer/ui/ColumnResizeHandle.tsx) provides reusable pointer and keyboard column resizing.
+- [`SuggestionPresentation.tsx`](../src/renderer/features/suggestions/dock/SuggestionPresentation.tsx) renders kind badges and structured suggestion visuals.
+- [`MermaidDiagram.tsx`](../src/renderer/features/suggestions/dock/MermaidDiagram.tsx) lazy-loads Mermaid and renders an accessible fallback on failure.
+- [`Sidebar.tsx`](../src/renderer/features/workspace/Sidebar.tsx) renders the static project navigation shell plus the persisted Electron source list and upload callback.
 
 Components rely on their props for application actions. When adding behavior, prefer moving data and transitions into the relevant owner rather than making a display component stateful.
 
@@ -156,7 +156,7 @@ sequenceDiagram
 
 ## Data direction and dependency rules
 
-Desktop code follows the same inward dependency rule across its three runtimes:
+Runtime code follows an inward dependency rule across Electron main, preload, renderer, storage, and agent:
 
 ```mermaid
 flowchart TD
@@ -168,35 +168,50 @@ flowchart TD
 
 The boundaries are concrete rather than mirrored framework folders:
 
-- Put a new revision, cursor, or agent-loop rule in `desktop/domain` and test it without Electron, SQLite, files, or Pi.
-- Put a use case and the minimal ports it consumes in `desktop/application`. Document saves and suggestion persistence are coordinated by `storage-operations.ts`; repository, transaction, file, event, clock, and identity ports live beside it.
-- Put a repository query or durable-format mapping in `desktop/storage`, which implements the application ports with SQLite.
-- Put window, dialog, IPC, preload, and utility-process code in the desktop runtime entry points and routing modules.
-- Put Pi SDK conversion and session implementations in `desktop/infrastructure/agent`; application-facing lifecycle code consumes `AgentSessionPort`.
+- Put cross-process schemas, operation registries, and bridge-facing types in `src/contracts/`.
+- Put runtime-neutral product policy shared by more than one runtime in `src/domain/` and test it without Electron, React, SQLite, files, or Pi.
+- Put renderer-owned UI, hooks, and browser-only adapters under `src/renderer/`, grouped by feature first and `ui/` only for reusable primitives.
+- Put window, dialog, process supervision, IPC routing, and diagnostics in `src/main/`.
+- Put preload bridge exposure in `src/preload/` and keep it limited to Electron renderer APIs plus contracts.
+- Put storage use cases and ports in `src/utility/storage/application/`; SQLite repositories, migrations, durable JSON mapping, outbox dispatch, and backups in `src/utility/storage/persistence/`; workspace file and identity handling in `src/utility/storage/workspace/`.
+- Put agent loop policy in `src/utility/agent/domain/`, Pi SDK conversion and sessions in `src/utility/agent/pi/`, and Scribe tool integration at the agent utility-process boundary.
 
-`scripts/desktop-boundaries.test.mjs` enforces that domain and application modules cannot import Electron, Node infrastructure, Pi, storage adapters, or infrastructure adapters. Runtime entry points are composition roots: they construct each required adapter and contain no product policy.
+`scripts/source-boundaries.test.mjs` enforces that runtime-neutral modules stay free of runtime implementations, renderer code does not import privileged processes, preload stays narrow, and storage/agent utility layers do not reach across foreign runtimes. Runtime entry points are composition roots: they construct each required adapter and contain no product policy.
 
 The intended dependency direction is:
 
 ```text
-types/contracts
-    ↑
-editor utilities     suggestion implementations
-    ↑                         ↑
-components  ← props/callbacks → workspace controller / App composition
+contracts + shared domain
+          ↑
+runtime application logic
+          ↑
+runtime entries and platform adapters
 ```
 
 Practical rules:
 
-- Domain contracts belong in `suggestions/types.ts`, not in UI components.
-- Durable suggestion lifecycle changes belong in `transitions.ts` and should have transition tests.
-- Transport or model SDK code belongs in the agent process behind storage operations.
+- Cross-process types and schemas belong in `src/contracts/`, not in UI components or runtime entries.
+- Durable suggestion lifecycle changes belong in `src/domain/suggestions/transitions.ts` and should have transition tests.
+- Runtime-neutral revision, cursor, activity-redaction, or aggregate rules belong in `src/domain/` when more than one runtime uses them.
+- Transport, model SDK, and Pi session code belongs in the agent utility process behind storage operations.
 - Cross-feature renderer orchestration belongs in `useWorkspaceController`; `App.tsx` remains responsible for layout composition.
-- CSS layout variables are set by `App` but interpreted by `index.css`.
+- CSS layout variables are set by `App` but interpreted by `src/renderer/index.css`.
+
+## Naming and placement rules
+
+- Use kebab-case directory names for new folders.
+- Keep React component filenames in PascalCase.
+- Keep hooks in `useSomething.ts` or `useSomething.tsx` beside their owning feature.
+- Give each module one primary owner: contracts, domain, renderer feature, main, preload, agent utility, or storage utility.
+- Put a module in `src/contracts/` only when its schema or type crosses a runtime boundary.
+- Put a module in `src/domain/` only when it is runtime-neutral product policy used by more than one runtime.
+- Put renderer code under the feature that owns the behavior; use `src/renderer/ui/` only for visual or interaction primitives that are not owned by one product feature.
+- Keep executable entry modules thin and make their runtime obvious from their path.
+- Prefer direct imports from the owning module over broad re-export trees.
 
 ## Styling architecture
 
-Tailwind CSS 4 is loaded through the Vite plugin and `@import "tailwindcss"` in [`index.css`](../src/index.css). Most component styling is inline utility classes. The global stylesheet is reserved for:
+Tailwind CSS 4 is loaded through the Vite plugin and `@import "tailwindcss"` in [`index.css`](../src/renderer/index.css). Most component styling is inline utility classes. The global stylesheet is reserved for:
 
 - theme tokens and brand colors;
 - base focus and typography rules;
@@ -215,7 +230,7 @@ BlockNote's shadcn stylesheet is imported by `DocumentEditor.tsx`. Its utility c
 - Electron main, storage, and agent bundles are ES modules. Main must finish evaluating before Electron can become ready, so application startup is registered as a promise continuation rather than awaited at module scope.
 - Mermaid is a dynamic chunk because `MermaidDiagram` imports it lazily.
 - Google Fonts are external runtime requests. Font failure degrades to local fallbacks.
-- `dist/`, `dist-electron/`, and `release/` are generated outputs; source code lives under `src/` and `desktop/`.
+- `dist/`, `dist-electron/`, `release/`, `test-results/`, and `docs/html/` are generated outputs; application source code lives under `src/`.
 - Files in `artifacts/` are not imported and have no runtime effect.
 
 ## Architectural invariants

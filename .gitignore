@@ -3,5 +3,7 @@ node_modules/
 dist/
 dist-electron/
 release/
+test-results/
+docs/html/
 *.local
 .DS_Store

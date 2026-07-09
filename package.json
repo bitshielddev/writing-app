@@ -15,7 +15,7 @@
     "desktop": "npm run build && electron .",
     "package": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
-    "docs:build": "node docs/html/build.mjs",
+    "docs:build": "node docs/build.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",

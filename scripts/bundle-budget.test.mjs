@@ -23,7 +23,7 @@ afterEach(async () => {
 describe("renderer bundle budget", () => {
   it("traverses static manifest imports without including lazy chunks", () => {
     const manifest = {
-      "src/main.tsx": {
+      "src/renderer/app/main.tsx": {
         file: "assets/main.js",
         isEntry: true,
         imports: ["_shared.js"],
@@ -46,7 +46,7 @@ describe("renderer bundle budget", () => {
     await writeFile(
       join(directory, ".vite/manifest.json"),
       JSON.stringify({
-        "src/main.tsx": {
+        "src/renderer/app/main.tsx": {
           file: "assets/main.js",
           isEntry: true,
           dynamicImports: ["src/lazy.tsx"],
