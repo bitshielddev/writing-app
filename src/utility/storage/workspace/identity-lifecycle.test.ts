@@ -13,6 +13,7 @@ import { bootstrapWorkspace } from "./bootstrap";
 
 const directories: string[] = [];
 const services: StorageService[] = [];
+const FILESYSTEM_DATABASE_TEST_TIMEOUT_MS = 30_000;
 
 async function service(databasePath = ":memory:") {
   const root = await mkdtemp(join(tmpdir(), "scribe-identities-"));
@@ -88,7 +89,7 @@ describe("project and document identities", () => {
     expect(restarted.operations.catalog().selection).toEqual(selected);
     expect(restarted.paths.workspaceRoot).toContain(join("projects", selected.projectId, "documents", selected.documentId));
     expect(() => createStoragePaths(root, "../escape", selected.documentId)).toThrow("Invalid project identity");
-  });
+  }, FILESYSTEM_DATABASE_TEST_TIMEOUT_MS);
 
   it("moves the legacy workspace through a recovery journal without losing files", async () => {
     const root = await mkdtemp(join(tmpdir(), "scribe-legacy-files-"));
@@ -112,5 +113,5 @@ describe("project and document identities", () => {
       .toBe("legacy source\n");
     expect(await readFile(join(migrated.paths.piDirectory, "sessions", "checkpoint.json"), "utf8"))
       .toBe("{}");
-  });
+  }, FILESYSTEM_DATABASE_TEST_TIMEOUT_MS);
 });

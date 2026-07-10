@@ -114,7 +114,6 @@ export default defineConfig({
           name: "node",
           environment: "node",
           include: [
-            "desktop/**/*.test.ts",
             "scripts/**/*.test.mjs",
             ...nodeTestFiles,
           ],

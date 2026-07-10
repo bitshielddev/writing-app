@@ -29,6 +29,7 @@ export function useDocumentAutosave(
   const queueRef = useRef<Promise<void>>(Promise.resolve());
   const failureRef = useRef<unknown>(undefined);
   const generationRef = useRef(0);
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
     readyRef.current = ready;
@@ -40,6 +41,7 @@ export function useDocumentAutosave(
     documentIdRef.current = document.id;
     revisionRef.current = document.revision;
     initializedRef.current = true;
+    dirtyRef.current = false;
     setStatus("idle");
     setError(undefined);
     failureRef.current = undefined;
@@ -47,6 +49,7 @@ export function useDocumentAutosave(
 
   const enqueueSave = useCallback(() => {
     if (!readyRef.current || !initializedRef.current || !storageHealthy) return;
+    if (!dirtyRef.current) return;
 
     let blocks: WritingEditor["document"];
     let markdown: string;
@@ -66,6 +69,7 @@ export function useDocumentAutosave(
     const generation = generationRef.current;
     const projectId = projectIdRef.current;
     const documentId = documentIdRef.current;
+    dirtyRef.current = false;
     queueRef.current = queueRef.current
       .catch(() => undefined)
       .then(async () => {
@@ -88,6 +92,7 @@ export function useDocumentAutosave(
       })
       .catch((cause: unknown) => {
         if (generation === generationRef.current) failureRef.current = cause;
+        if (generation === generationRef.current) dirtyRef.current = true;
         if (mountedRef.current && generation === generationRef.current) {
           setStatus("failed");
           setError(message(cause));
@@ -110,7 +115,9 @@ export function useDocumentAutosave(
   }, [flush]);
 
   const handleChange = useCallback(() => {
-    if (!readyRef.current || !initializedRef.current) return;
+    if (!initializedRef.current) return;
+    dirtyRef.current = true;
+    if (!readyRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       timerRef.current = undefined;
@@ -133,6 +140,7 @@ export function useDocumentAutosave(
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = undefined;
     failureRef.current = undefined;
+    dirtyRef.current = false;
     setStatus("idle");
     setError(undefined);
   }, []);
@@ -151,7 +159,8 @@ export function useDocumentAutosave(
 
   useEffect(() => {
     if (storageHealthy && failureRef.current) enqueueSave();
-  }, [enqueueSave, storageHealthy]);
+    else if (ready && storageHealthy && dirtyRef.current) enqueueSave();
+  }, [enqueueSave, ready, storageHealthy]);
 
   return { handleChange, flush, flushForSwitch, discard, status, error, initialize, onDesktopEvent };
 }

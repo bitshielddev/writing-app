@@ -13,7 +13,6 @@
     "types": ["node", "electron"]
   },
   "include": [
-    "desktop/**/*.ts",
     "src/contracts/**/*.ts",
     "src/domain/**/*.ts",
     "src/domain/**/*.tsx",
@@ -21,5 +20,5 @@
     "src/preload/**/*.ts",
     "src/utility/**/*.ts"
   ],
-  "exclude": ["desktop/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test"]
 }

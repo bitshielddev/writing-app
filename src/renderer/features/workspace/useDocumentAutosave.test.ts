@@ -79,6 +79,30 @@ describe("useDocumentAutosave", () => {
     expect(hook.result.current.error).toBe("revision conflict");
   });
 
+  it("does not flush when the document has no pending edits", async () => {
+    vi.useFakeTimers();
+    const harness = new DesktopBridgeHarness();
+    const writingEditor = editor();
+    const { result } = renderHook(() =>
+      useDocumentAutosave(harness.bridge, writingEditor.value, true),
+    );
+    act(() => result.current.initialize(createDocumentSnapshot()));
+    act(() => result.current.flush());
+    expect(harness.saveDocument.calls).toHaveLength(0);
+
+    act(() => result.current.handleChange());
+    await act(async () => vi.advanceTimersByTime(650));
+    expect(harness.saveDocument.calls).toHaveLength(1);
+    await act(async () => {
+      harness.saveDocument.resolve(0, createDocumentSnapshot({ revision: 2 }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    act(() => result.current.flush());
+    expect(harness.saveDocument.calls).toHaveLength(1);
+  });
+
   it("flushes a pending edit on unmount", async () => {
     vi.useFakeTimers();
     const harness = new DesktopBridgeHarness();

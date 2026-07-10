@@ -21,6 +21,12 @@ async function waitForHealth(page: Page, process: "storage" | "agent", state: st
   { process, state })).toBe(true);
 }
 
+async function editableEditor(page: Page) {
+  const editor = page.locator(".bn-editor[contenteditable=true]").first();
+  await expect(editor).toBeEditable();
+  return editor;
+}
+
 test("built app starts, persists edits, and recovers utility processes", async () => {
   test.setTimeout(90_000);
   const profile = await mkdtemp(join(tmpdir(), "scribe-e2e-"));
@@ -30,10 +36,9 @@ test("built app starts, persists edits, and recovers utility processes", async (
     let page = await app.firstWindow();
     await waitForHealth(page, "storage", "healthy");
     await waitForHealth(page, "agent", "healthy");
-    const editor = page.locator(".bn-editor[contenteditable=true]").first();
-    await expect(editor).toBeEditable();
+    const editor = await editableEditor(page);
     await editor.fill("Persistent e2e draft");
-    await page.waitForTimeout(1_000);
+    await page.evaluate(() => window.scribeFlush?.());
 
     await page.evaluate(() => window.scribeTest!.terminateAgent());
     await expect.poll(() => page.evaluate(async () =>
@@ -50,7 +55,7 @@ test("built app starts, persists edits, and recovers utility processes", async (
     app = undefined;
     ({ app, page } = await launch(profile));
     await waitForHealth(page, "storage", "healthy");
-    await expect(page.locator(".bn-editor")).toContainText("Persistent e2e draft");
+    await expect(await editableEditor(page)).toContainText("Persistent e2e draft", { timeout: 15_000 });
   } finally {
     await app?.close().catch(() => undefined);
     if (!test.info().errors.length) await rm(profile, { recursive: true, force: true });

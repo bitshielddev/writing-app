@@ -57,6 +57,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const developmentServerUrl = process.env.VITE_DEV_SERVER_URL;
 const isDevelopment = import.meta.env.DEV;
 const measureStartup = process.argv.includes("--measure-startup");
+const RENDERER_SHUTDOWN_FLUSH_TIMEOUT_MS = 5_000;
 let storage: ChildRpc<typeof StorageOperations, StorageChildMessage>;
 let agent: ChildRpc<typeof AgentOperations, AgentChildMessage>;
 let workspaceWindow: BrowserWindow | undefined;
@@ -202,6 +203,7 @@ function createWindow() {
     backgroundColor: "#ffffff",
     webPreferences: secureWebPreferences(),
   });
+  const webContentsId = window.webContents.id;
   workspaceWindow = window;
   if (process.env.SCRIBE_E2E === "1") {
     window.webContents.once("did-finish-load", () => console.log("SCRIBE_E2E_READY"));
@@ -233,7 +235,7 @@ function createWindow() {
     });
   }
   window.on("closed", () => {
-    durableEvents.remove(window.webContents.id);
+    durableEvents.remove(webContentsId);
     if (workspaceWindow === window) workspaceWindow = undefined;
   });
   if (developmentServerUrl) void window.loadURL(developmentServerUrl);
@@ -258,6 +260,25 @@ function installDevelopmentMenu() {
     { role: "windowMenu" },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+async function flushRendererForShutdown(window: BrowserWindow) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      window.webContents.executeJavaScript("window.scribeFlush?.()"),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Renderer shutdown flush timed out")),
+          RENDERER_SHUTDOWN_FLUSH_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } catch (error) {
+    console.error("Renderer shutdown flush failed", error);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 async function start() {
@@ -415,8 +436,7 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   quitting = true;
   void (async () => {
-    await Promise.allSettled(BrowserWindow.getAllWindows().map((window) =>
-      window.webContents.executeJavaScript("window.scribeFlush?.()")));
+    await Promise.allSettled(BrowserWindow.getAllWindows().map(flushRendererForShutdown));
     await Promise.allSettled([agent?.shutdown(), storage?.shutdown()]);
     app.exit(0);
   })();
