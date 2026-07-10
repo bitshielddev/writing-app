@@ -18,6 +18,12 @@ import {
   type TextSuggestion,
 } from "./schema";
 
+/**
+ * What: performs the entry step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by state when that path needs this behavior.
+ */
 function entry(index: number, viewed = false): PersistedInboxEntry {
   const item: TextSuggestion = {
     id: `item-${index}`,

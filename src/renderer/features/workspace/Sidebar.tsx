@@ -53,6 +53,12 @@ type SidebarProps = {
   onDeleteDocument?: (projectId: string, documentId: string) => void;
 };
 
+/**
+ * What: renders the navigation button component and wires its props into the surrounding UI.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by Sidebar when that path needs this behavior.
+ */
 function NavigationButton({
   active,
   icon: Icon,
@@ -76,6 +82,12 @@ function NavigationButton({
   );
 }
 
+/**
+ * What: renders the sidebar component and wires its props into the surrounding UI.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by App when that path needs this behavior.
+ */
 export function Sidebar({
   sources = [],
   catalog,

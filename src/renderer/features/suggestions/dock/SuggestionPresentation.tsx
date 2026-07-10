@@ -32,6 +32,12 @@ const kindPresentation: Record<SuggestionKind, KindPresentation> = {
   mindMap: { label: "Mind map", icon: Network, tone: "text-fuchsia-800 bg-fuchsia-100" },
 };
 
+/**
+ * What: renders the kind badge component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by WorkspacePinCard, SuggestionDockDetail, SuggestionDockQueue and QueueRow when that path needs this behavior.
+ */
 export function KindBadge({ kind }: { kind: SuggestionKind }) {
   const presentation = kindPresentation[kind];
   const Icon = presentation.icon;
@@ -45,6 +51,12 @@ export function KindBadge({ kind }: { kind: SuggestionKind }) {
   );
 }
 
+/**
+ * What: renders the structure tree component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by SuggestionVisual when that path needs this behavior.
+ */
 export function StructureTree({ nodes }: { nodes: StructureNode[] }) {
   return (
     <ol className="grid gap-2.5">
@@ -68,6 +80,12 @@ export function StructureTree({ nodes }: { nodes: StructureNode[] }) {
   );
 }
 
+/**
+ * What: renders the suggestion visual component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by WorkspacePinCard and SuggestionDockDetail when that path needs this behavior.
+ */
 export function SuggestionVisual({ item }: { item: SuggestionItem }) {
   if (isStructureSuggestion(item)) {
     return <StructureTree nodes={item.nodes} />;

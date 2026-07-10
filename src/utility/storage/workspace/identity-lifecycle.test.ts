@@ -15,6 +15,12 @@ const directories: string[] = [];
 const services: StorageService[] = [];
 const FILESYSTEM_DATABASE_TEST_TIMEOUT_MS = 30_000;
 
+/**
+ * What: performs the service step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by identity-lifecycle when that path needs this behavior.
+ */
 async function service(databasePath = ":memory:") {
   const root = await mkdtemp(join(tmpdir(), "scribe-identities-"));
   directories.push(root);

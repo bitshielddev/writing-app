@@ -19,6 +19,12 @@ export class DurableEventBroker {
     private readonly maximumBufferedEvents = 256,
   ) {}
 
+  /**
+   * What: subscribes to events and returns the cleanup path.
+   *
+   * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+   * Called when: used by registerIpc and durable-event-broker when that path needs this behavior.
+   */
   subscribe(sender: Sender) {
     const consumerId = this.createId();
     this.consumers.set(sender.id, {
@@ -31,10 +37,22 @@ export class DurableEventBroker {
     return consumerId;
   }
 
+  /**
+   * What: performs the consumer id step for this file's workflow.
+   *
+   * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+   * Called when: used by registerIpc and durable-event-broker when that path needs this behavior.
+   */
   consumerId(senderId: number) {
     return this.consumers.get(senderId)?.consumerId;
   }
 
+  /**
+   * What: performs the begin hydration step for this file's workflow.
+   *
+   * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+   * Called when: used by registerIpc and durable-event-broker when that path needs this behavior.
+   */
   beginHydration(senderId: number, restart = false) {
     const consumer = this.require(senderId);
     consumer.live = false;
@@ -44,6 +62,12 @@ export class DurableEventBroker {
     }
   }
 
+  /**
+   * What: performs the complete hydration step for this file's workflow.
+   *
+   * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+   * Called when: used by registerIpc and durable-event-broker when that path needs this behavior.
+   */
   completeHydration(senderId: number, streamId: string, coveredThroughSequence: number) {
     const consumer = this.require(senderId);
     if (consumer.overflowed) return false;
@@ -56,6 +80,12 @@ export class DurableEventBroker {
     return true;
   }
 
+  /**
+   * What: performs the publish step for this file's workflow.
+   *
+   * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+   * Called when: used by start and durable-event-broker when that path needs this behavior.
+   */
   publish(event: DurableEventEnvelope) {
     for (const consumer of this.consumers.values()) {
       if (consumer.live) {
@@ -72,10 +102,22 @@ export class DurableEventBroker {
     }
   }
 
+  /**
+   * What: performs the remove step for this file's workflow.
+   *
+   * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+   * Called when: used by createWindow when that path needs this behavior.
+   */
   remove(senderId: number) {
     this.consumers.delete(senderId);
   }
 
+  /**
+   * What: performs the require step for this file's workflow.
+   *
+   * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+   * Called when: used by beginHydration and completeHydration when that path needs this behavior.
+   */
   private require(senderId: number) {
     const consumer = this.consumers.get(senderId);
     if (!consumer) throw new Error("Renderer must subscribe before hydration or event access");

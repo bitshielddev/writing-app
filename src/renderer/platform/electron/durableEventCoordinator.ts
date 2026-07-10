@@ -14,6 +14,12 @@ type CoordinatorOptions = {
   onError?(error: unknown): void;
 };
 
+/**
+ * What: returns whether the supplied value matches durable.
+ *
+ * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+ * Called when: used by durableEventCoordinator when that path needs this behavior.
+ */
 function isDurable(event: DesktopTransportEvent | DesktopEvent): event is DurableEventEnvelope {
   return typeof event === "object" && event !== null && "payload" in event && "sequence" in event;
 }
@@ -30,6 +36,12 @@ export class DurableEventCoordinator {
 
   constructor(private readonly options: CoordinatorOptions) {}
 
+  /**
+   * What: performs the hydrate step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by useWorkspaceHydration and durableEventCoordinator when that path needs this behavior.
+   */
   async hydrate() {
     if (this.options.desktop.subscribeEvents) {
       await this.options.desktop.subscribeEvents();
@@ -37,6 +49,12 @@ export class DurableEventCoordinator {
     await this.installFreshSnapshot();
   }
 
+  /**
+   * What: performs the receive step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by useWorkspaceHydration and durableEventCoordinator when that path needs this behavior.
+   */
   receive = (event: DesktopTransportEvent | DesktopEvent) => {
     if (this.stopped) return;
     if (!isDurable(event)) {
@@ -56,17 +74,35 @@ export class DurableEventCoordinator {
     if (this.installed) this.schedule(() => this.drain());
   };
 
+  /**
+   * What: stops the runtime task and releases owned resources.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by useWorkspaceHydration when that path needs this behavior.
+   */
   stop() {
     this.stopped = true;
     this.queued.clear();
   }
 
+  /**
+   * What: performs the schedule step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by durableEventCoordinator when that path needs this behavior.
+   */
   private schedule(operation: () => Promise<void>) {
     this.work = this.work.then(operation).catch((error) => {
       this.options.onError?.(error);
     });
   }
 
+  /**
+   * What: performs the install fresh snapshot step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by hydrate and drain when that path needs this behavior.
+   */
   private async installFreshSnapshot() {
     const scope = this.options.scope ?? (this.options.desktop.getWorkspaceCatalog
       ? (await this.options.desktop.getWorkspaceCatalog()).selection
@@ -87,6 +123,12 @@ export class DurableEventCoordinator {
     await this.drain();
   }
 
+  /**
+   * What: performs the drain step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by durableEventCoordinator and installFreshSnapshot when that path needs this behavior.
+   */
   private async drain() {
     if (!this.installed || !this.streamId || this.stopped) return;
     while (this.queued.size > 0) {
@@ -108,6 +150,12 @@ export class DurableEventCoordinator {
     }
   }
 
+  /**
+   * What: performs the replay to head step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by drain when that path needs this behavior.
+   */
   private async replayToHead() {
     if (!this.options.desktop.replayEvents || !this.streamId) return false;
     let hasMore = true;
@@ -130,12 +178,24 @@ export class DurableEventCoordinator {
     return true;
   }
 
+  /**
+   * What: performs the apply step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by drain and replayToHead when that path needs this behavior.
+   */
   private async apply(event: DurableEventEnvelope) {
     await this.options.applyEvent(event.payload);
     this.appliedSequence = event.sequence;
     await this.acknowledge();
   }
 
+  /**
+   * What: performs the acknowledge step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by durableEventCoordinator, installFreshSnapshot and apply when that path needs this behavior.
+   */
   private async acknowledge() {
     if (!this.options.desktop.acknowledgeEvents || !this.streamId) return;
     await this.options.desktop.acknowledgeEvents({
@@ -145,6 +205,12 @@ export class DurableEventCoordinator {
     });
   }
 
+  /**
+   * What: performs the required scope step for this file's workflow.
+   *
+   * Why: renderer platform adapters need to isolate Electron and browser runtime details.
+   * Called when: used by replayToHead and acknowledge when that path needs this behavior.
+   */
   private requiredScope() {
     if (!this.scope) throw new Error("Document session scope is unavailable");
     return this.scope;

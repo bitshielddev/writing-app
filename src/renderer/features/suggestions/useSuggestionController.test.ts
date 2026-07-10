@@ -12,6 +12,12 @@ const item: TextSuggestion = {
   summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1,
 };
 
+/**
+ * What: performs the state step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by useSuggestionController when that path needs this behavior.
+ */
 function state(viewed = false): PersistedSuggestionState {
   return { ...createEmptySuggestionState(), entries: [{ item, viewed }], seenKeys: { one: true } };
 }

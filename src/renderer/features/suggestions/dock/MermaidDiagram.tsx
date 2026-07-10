@@ -9,6 +9,12 @@ type MermaidDiagramProps = {
   description: string;
 };
 
+/**
+ * What: renders the mermaid diagram component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by SuggestionPresentation and SuggestionVisual when that path needs this behavior.
+ */
 export function MermaidDiagram({
   source,
   title,
@@ -24,6 +30,12 @@ export function MermaidDiagram({
   );
 }
 
+/**
+ * What: renders the mermaid diagram render component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by MermaidDiagram when that path needs this behavior.
+ */
 function MermaidDiagramRender({
   source,
   title,
@@ -40,6 +52,12 @@ function MermaidDiagramRender({
 
     if (!renderHost) return;
 
+    /**
+     * What: performs the render step for this file's workflow.
+     *
+     * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+     * Called when: used by MermaidDiagramRender when that path needs this behavior.
+     */
     const render = async () => {
       try {
         mermaidModule ??= import("mermaid");

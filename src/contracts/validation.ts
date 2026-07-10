@@ -10,8 +10,20 @@ export class ContractValidationError extends Error {
   }
 }
 
+/**
+ * What: sanitizes validation snippets before they are included in contract error messages.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by parseOrContractError when that path needs this behavior.
+ */
 const clean = (value: string, max = 160) => value.replace(/[\r\n\t]+/g, " ").slice(0, max);
 
+/**
+ * What: parses or contract error from untyped data into the typed representation.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by contracts, routing, register and registerMainIpc when that path needs this behavior.
+ */
 export function parseOrContractError<Schema extends TSchema>(
   schema: Schema,
   value: unknown,
@@ -31,6 +43,12 @@ export function parseOrContractError<Schema extends TSchema>(
   });
 }
 
+/**
+ * What: performs the durable compatibility contract error step for this file's workflow.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by toContractError when that path needs this behavior.
+ */
 function durableCompatibilityContractError(error: unknown): ContractError | undefined {
   if (!(error instanceof Error) || error.name !== "DurableCompatibilityError") return undefined;
   if (!("format" in error) || typeof error.format !== "string") return undefined;
@@ -46,6 +64,12 @@ function durableCompatibilityContractError(error: unknown): ContractError | unde
   };
 }
 
+/**
+ * What: performs the to contract error step for this file's workflow.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by contracts, routing, register and message-handlers when that path needs this behavior.
+ */
 export function toContractError(error: unknown): ContractError {
   if (error instanceof ContractValidationError) return error.contract;
   if (typeof error === "object" && error !== null && "contract" in error && Check(ContractErrorSchema, error.contract)) {

@@ -37,6 +37,12 @@ type SuggestionDockProps = {
   onRetrySuggestionSave: () => void;
 };
 
+/**
+ * What: renders the dock toolbar component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by SuggestionDock when that path needs this behavior.
+ */
 function DockToolbar({
   runtime,
   controlPending,
@@ -106,6 +112,12 @@ function DockToolbar({
   );
 }
 
+/**
+ * What: renders the dock content component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by SuggestionDock when that path needs this behavior.
+ */
 function DockContent(props: SuggestionDockProps) {
   const {
     entries,
@@ -168,6 +180,12 @@ function DockContent(props: SuggestionDockProps) {
   );
 }
 
+/**
+ * What: renders the suggestion dock component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by App, renderDock and DockHarness when that path needs this behavior.
+ */
 export function SuggestionDock(props: SuggestionDockProps) {
   const localDockRef = useRef<HTMLElement>(null);
   const dockRef = props.regionRef ?? localDockRef;

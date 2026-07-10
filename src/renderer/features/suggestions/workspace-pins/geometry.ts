@@ -10,10 +10,22 @@ export const WORKSPACE_PIN_GEOMETRY_POLICY = {
   cascadeCount: 5,
 } as const;
 
+/**
+ * What: performs the clamp step for this file's workflow.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by clampWorkspacePinRect when that path needs this behavior.
+ */
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
 }
 
+/**
+ * What: performs the clamp workspace pin rect step for this file's workflow.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by createInitialWorkspacePinRect, useWorkspacePinBounds, useWorkspacePinInteraction and geometry when that path needs this behavior.
+ */
 export function clampWorkspacePinRect(
   rect: WorkspacePinRect,
   bounds: WorkspacePinBounds,
@@ -32,6 +44,12 @@ export function clampWorkspacePinRect(
   };
 }
 
+/**
+ * What: performs the workspace pin rects equal step for this file's workflow.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by useWorkspacePinBounds and geometry when that path needs this behavior.
+ */
 export function workspacePinRectsEqual(
   left: WorkspacePinRect,
   right: WorkspacePinRect,
@@ -51,6 +69,12 @@ type InitialWorkspacePinRectOptions = {
   stackIndex: number;
 };
 
+/**
+ * What: creates initial workspace pin rect with the dependencies and defaults this workflow expects.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by DocumentEditor and geometry when that path needs this behavior.
+ */
 export function createInitialWorkspacePinRect({
   preferredSize,
   bounds,

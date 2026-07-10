@@ -25,6 +25,12 @@ export type CreateStorageServiceOptions = {
   createWorkspaceFiles?: (paths: StoragePaths) => WorkspaceFiles;
 };
 
+/**
+ * What: creates storage service with the dependencies and defaults this workflow expects.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by service, index, startStorageProcess and layers when that path needs this behavior.
+ */
 export function createStorageService(options: CreateStorageServiceOptions) {
   const database = new SqliteDatabaseLifecycle(options.databasePath);
   try {
@@ -53,6 +59,12 @@ export function createStorageService(options: CreateStorageServiceOptions) {
       outbox,
       dispatcher,
       workspaces: {
+        /**
+         * What: performs the for document step for this file's workflow.
+         *
+         * Why: storage workflows need durable, transactional behavior behind the application contract.
+         * Called when: used by ports, operations and workspace when that path needs this behavior.
+         */
         forDocument(projectId, documentId) {
           const descriptor = createStoragePaths(options.workspaceRoot, projectId, documentId);
           return {
@@ -75,15 +87,39 @@ export function createStorageService(options: CreateStorageServiceOptions) {
       handleRequest: createStorageRequestHandler(operations),
       dispatchPendingEvents: () => dispatcher.dispatch(),
       suggestionMaintenance: {
+        /**
+         * What: performs the verify step for this file's workflow.
+         *
+         * Why: storage workflows need durable, transactional behavior behind the application contract.
+         * Called when: used by suggestion-persistence when that path needs this behavior.
+         */
         verify(projectId: string, documentId: string) {
           return suggestions.verify(projectId, documentId);
         },
+        /**
+         * What: performs the diagnostics step for this file's workflow.
+         *
+         * Why: storage workflows need durable, transactional behavior behind the application contract.
+         * Called when: used by suggestion-persistence when that path needs this behavior.
+         */
         diagnostics(projectId: string, documentId: string) {
           return suggestions.diagnostics(projectId, documentId);
         },
+        /**
+         * What: performs the checkpoint step for this file's workflow.
+         *
+         * Why: storage workflows need durable, transactional behavior behind the application contract.
+         * Called when: used by suggestion-persistence when that path needs this behavior.
+         */
         checkpoint(projectId: string, documentId: string) {
           return suggestions.createCheckpoint(projectId, documentId, 0, true);
         },
+        /**
+         * What: performs the repair step for this file's workflow.
+         *
+         * Why: storage workflows need durable, transactional behavior behind the application contract.
+         * Called when: used by the enclosing workflow at the point this named step is required.
+         */
         repair(projectId: string, documentId: string) {
           if (options.databasePath === ":memory:") {
             throw new Error("SUGGESTION_REPAIR_REQUIRES_PERSISTED_BACKUP");

@@ -24,6 +24,12 @@ export type ProcessSupervisorOptions<Process extends SupervisedProcess> = {
   classifyRetryable?: (error: unknown) => boolean;
 };
 
+/**
+ * What: performs the error message step for this file's workflow.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by processFailed, runCycle and prepareAttempt when that path needs this behavior.
+ */
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -42,17 +48,35 @@ export class ProcessSupervisor<Process extends SupervisedProcess> {
   get health() { return this.currentHealth; }
   get current() { return this.process; }
 
+  /**
+   * What: starts the runtime task and wires the dependencies it needs.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by switchDocumentAgent and process-supervisor when that path needs this behavior.
+   */
   start() {
     this.stopped = false;
     return this.beginCycle(false);
   }
 
+  /**
+   * What: performs the process failed step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by start and createAgentSupervisor when that path needs this behavior.
+   */
   processFailed(error: unknown) {
     if (this.stopped) return Promise.reject(error);
     this.publish({ state: "degraded", reason: errorMessage(error) });
     return this.beginCycle(false, error);
   }
 
+  /**
+   * What: performs the retry step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by start and process-supervisor when that path needs this behavior.
+   */
   retry() {
     this.attempts = [];
     this.healthySince = undefined;
@@ -60,18 +84,36 @@ export class ProcessSupervisor<Process extends SupervisedProcess> {
     return this.beginCycle(true);
   }
 
+  /**
+   * What: stops the runtime task and releases owned resources.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by switchDocumentAgent when that path needs this behavior.
+   */
   stop() {
     this.stopped = true;
     this.process?.kill();
     this.process = undefined;
   }
 
+  /**
+   * What: performs the begin cycle step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by start, processFailed and retry when that path needs this behavior.
+   */
   private beginCycle(manual: boolean, initialError?: unknown): Promise<Process> {
     if (this.cycle) return this.cycle;
     this.cycle = this.runCycle(manual, initialError).finally(() => { this.cycle = undefined; });
     return this.cycle;
   }
 
+  /**
+   * What: runs cycle as a complete operation.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by beginCycle when that path needs this behavior.
+   */
   private async runCycle(manual: boolean, initialError?: unknown) {
     let error = initialError;
     while (!this.stopped) {
@@ -105,6 +147,12 @@ export class ProcessSupervisor<Process extends SupervisedProcess> {
     throw new Error("Process supervisor stopped");
   }
 
+  /**
+   * What: performs the prepare attempt step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by runCycle when that path needs this behavior.
+   */
   private prepareAttempt(error: unknown, manual: boolean) {
     const now = this.options.now?.() ?? Date.now();
     if (this.healthySince !== undefined && now - this.healthySince >= HEALTHY_RESET_MS) this.attempts = [];
@@ -121,6 +169,12 @@ export class ProcessSupervisor<Process extends SupervisedProcess> {
     return { restarting: Boolean(error || manual), attempt: this.attempts.length + 1, now };
   }
 
+  /**
+   * What: performs the publish step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by processFailed, runCycle and prepareAttempt when that path needs this behavior.
+   */
   private publish(health: ProcessHealth) {
     this.currentHealth = health;
     this.options.onHealth?.(health);

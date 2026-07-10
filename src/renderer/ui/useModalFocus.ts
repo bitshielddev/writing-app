@@ -16,6 +16,12 @@ type ModalFocusOptions = {
   onClose: () => void;
 };
 
+/**
+ * What: coordinates modal focus state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+ * Called when: used by KeybindingHelpDialog and ResponsiveDrawer when that path needs this behavior.
+ */
 export function useModalFocus({
   containerRef,
   initialFocusRef,
@@ -31,6 +37,12 @@ export function useModalFocus({
     const focusFrame = window.requestAnimationFrame(() =>
       initialFocusRef.current?.focus(),
     );
+    /**
+     * What: handles key down and routes the effect to the owning workflow.
+     *
+     * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+     * Called when: used by useModalFocus when that path needs this behavior.
+     */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();

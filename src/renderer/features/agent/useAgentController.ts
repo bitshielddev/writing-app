@@ -9,10 +9,22 @@ import type {
 
 export const AGENT_ACTIVITY_LIMIT = 500;
 
+/**
+ * What: performs the initial runtime step for this file's workflow.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by useAgentController when that path needs this behavior.
+ */
 function initialRuntime(): AgentRuntime {
   return { status: "offline", cycleCount: 0 };
 }
 
+/**
+ * What: performs the upsert step for this file's workflow.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by useAgentController when that path needs this behavior.
+ */
 function upsert(items: AgentActivity[], activity: AgentActivity) {
   const index = items.findIndex((item) => item.id === activity.id);
   if (index < 0) return [...items, activity].slice(-AGENT_ACTIVITY_LIMIT);
@@ -20,6 +32,12 @@ function upsert(items: AgentActivity[], activity: AgentActivity) {
   next[index] = activity;
   return next;
 }
+/**
+ * What: returns whether the supplied value matches current scope.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by useAgentController when that path needs this behavior.
+ */
 function isCurrentScope(
   mounted: boolean,
   current: { projectId: string; documentId: string } | undefined,
@@ -31,6 +49,12 @@ function isCurrentScope(
     current.documentId === operation.documentId;
 }
 
+/**
+ * What: coordinates agent controller state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by useWorkspaceController and workspaceServices when that path needs this behavior.
+ */
 export function useAgentController(
   desktop: DesktopBridge,
   scope?: { projectId: string; documentId: string },

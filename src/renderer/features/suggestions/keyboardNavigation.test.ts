@@ -5,6 +5,12 @@ import type { InboxEntry, PinnedInboxEntry } from "./inbox";
 import { useSuggestionKeyboardNavigation } from "./keyboardNavigation";
 import type { TextSuggestion } from "../../../domain/suggestions/schema";
 
+/**
+ * What: performs the entry step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by keyboardNavigation when that path needs this behavior.
+ */
 function entry(id: string): InboxEntry {
   const item: TextSuggestion = {
     id,

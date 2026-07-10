@@ -14,10 +14,22 @@ export type DatabaseInspection =
   | { kind: "legacy-unknown"; version: 0; tables: string[] }
   | { kind: "corrupt"; version?: number; reason: string };
 
+/**
+ * What: performs the pragma version step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by inspectDatabase, migrations and runMigrations when that path needs this behavior.
+ */
 export function pragmaVersion(db: DatabaseSync) {
   return (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
 }
 
+/**
+ * What: performs the application tables step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by applicationTableNames and inspectDatabase when that path needs this behavior.
+ */
 function applicationTables(db: DatabaseSync) {
   const rows = db.prepare(
     "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -27,6 +39,12 @@ function applicationTables(db: DatabaseSync) {
 
 let currentSchemaTableNames: readonly string[] | undefined;
 
+/**
+ * What: performs the application table names step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by inspectDatabase when that path needs this behavior.
+ */
 function applicationTableNames() {
   if (currentSchemaTableNames) return currentSchemaTableNames;
   const schema = new DatabaseSync(":memory:");
@@ -39,6 +57,12 @@ function applicationTableNames() {
   }
 }
 
+/**
+ * What: performs the integrity failure step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by inspectDatabase, backup and backupDatabase when that path needs this behavior.
+ */
 export function integrityFailure(db: DatabaseSync) {
   const quickCheck = db.prepare("PRAGMA quick_check").all() as Array<{ quick_check: string }>;
   const failedCheck = quickCheck.find((row) => row.quick_check !== "ok");
@@ -48,6 +72,12 @@ export function integrityFailure(db: DatabaseSync) {
   return undefined;
 }
 
+/**
+ * What: inspects database so later validation can make a precise decision.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by open, openApplicationDatabase, index and database when that path needs this behavior.
+ */
 export function inspectDatabase(
   db: DatabaseSync,
   supportedVersion = DATABASE_VERSION,

@@ -5,6 +5,12 @@ type AgentActivityListProps = {
   runtime: AgentRuntime;
 };
 
+/**
+ * What: renders the agent activity list component and wires its props into the surrounding UI.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by SuggestionDock and DockContent when that path needs this behavior.
+ */
 export function AgentActivityList({
   items,
   runtime,

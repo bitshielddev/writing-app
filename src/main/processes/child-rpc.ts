@@ -73,6 +73,12 @@ export const RPC_DEADLINES_MS = {
   shutdown: 10_000,
 } as const;
 
+/**
+ * What: performs the deadline for step for this file's workflow.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by callWithOptions when that path needs this behavior.
+ */
 function deadlineFor(operation: string) {
   if (operation === "agent.start" || operation === "agent.stop") return RPC_DEADLINES_MS.agentControl;
   if (operation === "hydrate" || operation === "events.replay" || operation === "health.ping") return RPC_DEADLINES_MS.read;
@@ -88,6 +94,12 @@ const defaultChildSchema = { ...StorageChildMessageSchema, anyOf: [
   ...(AgentChildMessageSchema.anyOf ?? []),
 ] } as TSchema;
 
+/**
+ * What: performs the malformed ready error step for this file's workflow.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by child-rpc when that path needs this behavior.
+ */
 function malformedReadyError(value: unknown) {
   if (typeof value !== "object" || value === null || !("kind" in value) || value.kind !== "ready") {
     return undefined;
@@ -126,6 +138,12 @@ export class ChildRpc<
     this.readyReject = reject;
   });
 
+  /**
+   * What: handles message and routes the effect to the owning workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by child-rpc and disposeWithError when that path needs this behavior.
+   */
   private readonly handleMessage = (value: unknown) => {
     let message: Message;
     try {
@@ -171,6 +189,12 @@ export class ChildRpc<
     this.onMessage?.(message);
   };
 
+  /**
+   * What: handles exit and routes the effect to the owning workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by child-rpc and disposeWithError when that path needs this behavior.
+   */
   private readonly handleExit = (code: number | null) => {
     this.disposeWithError(new Error(
       this.readySettled
@@ -179,8 +203,20 @@ export class ChildRpc<
     ));
   };
 
+  /**
+   * What: handles stderr and routes the effect to the owning workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by child-rpc and disposeWithError when that path needs this behavior.
+   */
   private readonly handleStderr = (chunk: unknown) => this.onStderr(String(chunk).trimEnd());
 
+  /**
+   * What: handles rpc result and routes the effect to the owning workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by child-rpc when that path needs this behavior.
+   */
   private handleRpcResult(message: Extract<ChildMessage, { kind: "rpc.success" | "rpc.failure" }>) {
     const request = this.pending.get(message.id);
     if (!request || request.operation !== message.operation) return;
@@ -202,6 +238,12 @@ export class ChildRpc<
     }
   }
 
+  /**
+   * What: returns whether the supplied value matches compatible ready message.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by child-rpc when that path needs this behavior.
+   */
   private isCompatibleReadyMessage(message: Extract<ChildMessage, { kind: "ready" }>) {
     if (message.protocolName !== this.expectedProtocolName) return false;
     if (message.protocolVersion !== PROTOCOL_VERSION) return false;
@@ -232,6 +274,12 @@ export class ChildRpc<
     void this.ready.finally(() => clearTimeout(this.readyTimer)).catch(() => undefined);
   }
 
+  /**
+   * What: performs the call step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by start, createAgentSupervisor, switchDocumentAgent and child-rpc when that path needs this behavior.
+   */
   async call<Name extends OperationName<Registry>>(
     operation: Name,
     ...args: OperationArgs<Registry, Name>
@@ -239,6 +287,12 @@ export class ChildRpc<
     return this.callWithOptions(operation, {}, ...args);
   }
 
+  /**
+   * What: performs the call with options step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by call and child-rpc when that path needs this behavior.
+   */
   async callWithOptions<Name extends OperationName<Registry>>(
     operation: Name,
     options: RpcCallOptions,
@@ -255,6 +309,12 @@ export class ChildRpc<
     const id = this.createId();
     const deadlineMs = options.deadlineMs ?? deadlineFor(operation);
     return new Promise((resolve, reject) => {
+      /**
+       * What: performs the finish failure step for this file's workflow.
+       *
+       * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+       * Called when: used by callWithOptions and abort when that path needs this behavior.
+       */
       const finishFailure = (error: Error) => {
         const request = this.pending.get(id);
         if (!request) return;
@@ -273,6 +333,12 @@ export class ChildRpc<
         () => finishFailure(new OperationTimeoutError(operation, deadlineMs)),
         deadlineMs,
       );
+      /**
+       * What: performs the abort step for this file's workflow.
+       *
+       * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+       * Called when: used by callWithOptions when that path needs this behavior.
+       */
       const abort = () => finishFailure(new OperationCancelledError(operation));
       this.pending.set(id, {
         operation,
@@ -300,16 +366,34 @@ export class ChildRpc<
 
   get pendingCount() { return this.pending.size; }
 
+  /**
+   * What: performs the post step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by shutdown, createAgentSupervisor and switchDocumentAgent when that path needs this behavior.
+   */
   post(message: unknown) {
     if (!this.disposed) this.child.postMessage(message);
   }
 
+  /**
+   * What: performs the kill step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by start and child-rpc when that path needs this behavior.
+   */
   kill() {
     if (this.disposed) return;
     this.child.kill();
     this.disposeWithError(new Error("Utility process was stopped"));
   }
 
+  /**
+   * What: performs the shutdown step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by index when that path needs this behavior.
+   */
   shutdown(graceMs = RPC_DEADLINES_MS.shutdown) {
     if (this.disposed) return Promise.resolve();
     const completion = new Promise<void>((resolve) => {
@@ -317,6 +401,12 @@ export class ChildRpc<
         this.child.kill();
         this.disposeWithError(new Error("Utility process exceeded shutdown grace period"));
       }, graceMs);
+      /**
+       * What: performs the done step for this file's workflow.
+       *
+       * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+       * Called when: used by shutdown when that path needs this behavior.
+       */
       const done = () => { clearTimeout(timer); resolve(); };
       this.disposeWaiters.push(done);
     });
@@ -324,10 +414,22 @@ export class ChildRpc<
     return completion;
   }
 
+  /**
+   * What: performs the dispose step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by child-rpc when that path needs this behavior.
+   */
   dispose() {
     this.disposeWithError(new Error("Utility process was disposed"));
   }
 
+  /**
+   * What: performs the dispose with error step for this file's workflow.
+   *
+   * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+   * Called when: used by child-rpc, kill, shutdown and dispose when that path needs this behavior.
+   */
   private disposeWithError(error: Error) {
     if (this.disposed) return;
     this.disposed = true;
@@ -349,6 +451,12 @@ export class ChildRpc<
   }
 }
 
+/**
+ * What: performs the contract error from step for this file's workflow.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by the enclosing workflow at the point this named step is required.
+ */
 export function contractErrorFrom(error: unknown): ContractError | undefined {
   return error instanceof RemoteContractError ? error.contract : undefined;
 }

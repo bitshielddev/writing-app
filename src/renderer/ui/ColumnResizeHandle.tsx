@@ -22,14 +22,32 @@ type ColumnResizeHandleProps = {
 
 const KEYBOARD_STEP = 16;
 
+/**
+ * What: performs the resolve width step for this file's workflow.
+ *
+ * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+ * Called when: used by resizeTo, handleKeyDown and ColumnResizeHandle when that path needs this behavior.
+ */
 function resolveWidth(value: number | (() => number)) {
   return typeof value === "function" ? value() : value;
 }
 
+/**
+ * What: performs the clamp step for this file's workflow.
+ *
+ * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+ * Called when: used by resizeTo when that path needs this behavior.
+ */
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
+/**
+ * What: renders the column resize handle component and wires its props into the surrounding UI.
+ *
+ * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+ * Called when: used by App when that path needs this behavior.
+ */
 export function ColumnResizeHandle({
   controls,
   label,
@@ -84,6 +102,12 @@ export function ColumnResizeHandle({
     return () => document.body.classList.remove("column-resize-active");
   }, [active]);
 
+  /**
+   * What: performs the resize to step for this file's workflow.
+   *
+   * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+   * Called when: used by handlePointerMove and handleKeyDown when that path needs this behavior.
+   */
   const resizeTo = (width: number) => {
     const nextWidth = Math.round(
       clamp(width, minWidth, resolveWidth(maxWidth)),
@@ -92,6 +116,12 @@ export function ColumnResizeHandle({
     onResize(nextWidth);
   };
 
+  /**
+   * What: performs the finish drag step for this file's workflow.
+   *
+   * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+   * Called when: used by ColumnResizeHandle when that path needs this behavior.
+   */
   const finishDrag = (event: PointerEvent<HTMLDivElement>) => {
     if (dragStart.current?.pointerId !== event.pointerId) {
       return;
@@ -100,6 +130,12 @@ export function ColumnResizeHandle({
     setActive(false);
   };
 
+  /**
+   * What: handles pointer down and routes the effect to the owning workflow.
+   *
+   * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+   * Called when: used by ColumnResizeHandle when that path needs this behavior.
+   */
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
@@ -112,6 +148,12 @@ export function ColumnResizeHandle({
     event.preventDefault();
   };
 
+  /**
+   * What: handles pointer move and routes the effect to the owning workflow.
+   *
+   * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+   * Called when: used by ColumnResizeHandle when that path needs this behavior.
+   */
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (dragStart.current?.pointerId !== event.pointerId) {
       return;
@@ -122,6 +164,12 @@ export function ColumnResizeHandle({
     resizeTo(dragStart.current.width + movement * direction);
   };
 
+  /**
+   * What: handles key down and routes the effect to the owning workflow.
+   *
+   * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+   * Called when: used by ColumnResizeHandle when that path needs this behavior.
+   */
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const maximum = resolveWidth(maxWidth);
     let nextWidth: number | undefined;

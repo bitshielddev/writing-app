@@ -6,6 +6,12 @@ import { DOCUMENT_SCHEMA_VERSION } from "./config.js";
 import { COMPATIBILITY_REGISTRY, encodeVersionedJson } from "../../../contracts/compatibility.js";
 import { suggestionProjectionChecksum } from "../persistence/projection-checksum.js";
 
+/**
+ * What: performs the bootstrap workspace step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by service, createStorageService and identity-lifecycle when that path needs this behavior.
+ */
 export function bootstrapWorkspace(
   db: DatabaseSync,
   identityOrProject: (() => string) | string = randomUUID,

@@ -14,6 +14,12 @@ type Options = {
   previewResolved(id: string, outcome: "accepted" | "cancelled"): void;
 };
 
+/**
+ * What: coordinates preview controller state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useWorkspaceController and workspaceServices when that path needs this behavior.
+ */
 export function usePreviewController({
   editor,
   activePreviewId,

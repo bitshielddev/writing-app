@@ -46,6 +46,12 @@ export type ScribeLoopEntryEnvelope = {
   payload: unknown;
 };
 
+/**
+ * What: encodes scribe loop entry for persistence, transport, or external runtime use.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by createScribeExtension and project-session when that path needs this behavior.
+ */
 export function encodeScribeLoopEntry(loop: ScribeLoopState): ScribeLoopEntryEnvelope {
   return {
     type: SCRIBE_LOOP_ENTRY,
@@ -54,6 +60,12 @@ export function encodeScribeLoopEntry(loop: ScribeLoopState): ScribeLoopEntryEnv
   };
 }
 
+/**
+ * What: performs the restore scribe loop entry step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by createScribeExtension and project-session when that path needs this behavior.
+ */
 export function restoreScribeLoopEntry(value: unknown): {
   state?: ScribeLoopState;
   unsupportedVersion?: number;
@@ -84,6 +96,12 @@ export type ScribeExtensionHost = {
   persist(): void;
 };
 
+/**
+ * What: performs the to suggestion step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by createScribeExtension when that path needs this behavior.
+ */
 export function toSuggestion(
   input: SuggestionToolInput | SuggestionToolUpdateInput,
   id: string = "id" in input ? input.id : randomUUID(),
@@ -96,6 +114,12 @@ export function toSuggestion(
   );
 }
 
+/**
+ * What: performs the tool result step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by executeSuggestionMutation and createScribeExtension when that path needs this behavior.
+ */
 function toolResult(value: unknown, isError = false) {
   return {
     content: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value) }],
@@ -104,6 +128,12 @@ function toolResult(value: unknown, isError = false) {
   };
 }
 
+/**
+ * What: performs the execute suggestion mutation step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by createScribeExtension and extension when that path needs this behavior.
+ */
 export async function executeSuggestionMutation(
   host: ScribeExtensionHost,
   method: "agent.suggestion.create" | "agent.suggestion.update" | "agent.suggestion.retract",
@@ -129,6 +159,12 @@ export async function executeSuggestionMutation(
   }
 }
 
+/**
+ * What: creates scribe extension with the dependencies and defaults this workflow expects.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index, initialize and project-session when that path needs this behavior.
+ */
 export function createScribeExtension(host: ScribeExtensionHost): ExtensionFactory {
   return (pi) => {
     host.persist = () => pi.appendEntry(SCRIBE_LOOP_ENTRY, encodeScribeLoopEntry(host.loop));

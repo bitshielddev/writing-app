@@ -4,6 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DocumentHeader } from "./DocumentHeader";
 
+/**
+ * What: performs the render header step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by DocumentHeader when that path needs this behavior.
+ */
 function renderHeader(
   overrides: Partial<React.ComponentProps<typeof DocumentHeader>> = {},
 ) {

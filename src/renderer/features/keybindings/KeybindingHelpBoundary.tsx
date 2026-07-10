@@ -13,6 +13,12 @@ const LazyKeybindingHelpDialog = lazy(() =>
   })),
 );
 
+/**
+ * What: renders the keybinding help boundary component and wires its props into the surrounding UI.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by App when that path needs this behavior.
+ */
 export function KeybindingHelpBoundary({
   open,
   onClose,

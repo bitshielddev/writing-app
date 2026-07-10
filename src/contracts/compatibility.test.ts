@@ -39,6 +39,12 @@ describe("durable JSON compatibility", () => {
       : fixtureName === "suggestionCommandResult" ? "suggestionCommands"
       : fixtureName;
     const policy = COMPATIBILITY_REGISTRY[policyKey as keyof typeof COMPATIBILITY_REGISTRY];
+    /**
+     * What: decodes versioned compatibility data from persisted or transported data.
+     *
+     * Why: the test needs a focused helper so assertions stay about the behavior under test.
+     * Called when: used by compatibility when that path needs this behavior.
+     */
     const decode = (value: unknown) => decodeVersionedJson({
       text: JSON.stringify(value),
       format: policy.name,

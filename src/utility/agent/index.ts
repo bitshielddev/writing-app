@@ -55,6 +55,12 @@ const storageClient = new AgentStorageClient(randomUUID, (message) =>
   process.parentPort?.postMessage(message),
 );
 
+/**
+ * What: performs the storage call step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index when that path needs this behavior.
+ */
 function storageCall<Name extends OperationName<typeof StorageOperations>>(
   operation: Name,
   ...args: OperationArgs<typeof StorageOperations, Name>
@@ -66,6 +72,12 @@ function storageCall<Name extends OperationName<typeof StorageOperations>>(
   return storageClient.call(operation, ...(scoped === undefined ? [] : [scoped]) as never);
 }
 
+/**
+ * What: performs the post runtime step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by runtime, drain, startAgent and stopAgent when that path needs this behavior.
+ */
 function postRuntime(value: AgentRuntime) {
   process.parentPort?.postMessage(parseOrContractError(AgentRuntimeMessageSchema, {
     kind: "agent.runtime",
@@ -74,6 +86,12 @@ function postRuntime(value: AgentRuntime) {
   }, "agent.outgoing.runtime"));
 }
 
+/**
+ * What: performs the post activity step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index, reportLoopPause, drain and startAgent when that path needs this behavior.
+ */
 function postActivity(value: Omit<AgentActivity, "updatedAt">) {
   const activity = value.payload === undefined
     ? value
@@ -88,17 +106,41 @@ function postActivity(value: Omit<AgentActivity, "updatedAt">) {
 const host: ScribeExtensionHost = {
   loop: new ScribeLoopState(),
   storageCall,
+  /**
+   * What: performs the runtime step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by extension, createScribeExtension, host and project-session when that path needs this behavior.
+   */
   runtime() {
     if (!configured) return;
     postRuntime(runtime());
   },
   activity: postActivity,
+  /**
+   * What: performs the wake step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by extension, executeSuggestionMutation, createScribeExtension and host when that path needs this behavior.
+   */
   wake() {
     setTimeout(() => void drain(), 0);
   },
+  /**
+   * What: performs the persist step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by extension, createScribeExtension, host and drain when that path needs this behavior.
+   */
   persist() {},
 };
 
+/**
+ * What: performs the runtime step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by drain, startAgent, stopAgent and initialize when that path needs this behavior.
+ */
 function runtime() {
   const state = host.loop.snapshot();
   return {
@@ -110,6 +152,12 @@ function runtime() {
   } satisfies AgentRuntime;
 }
 
+/**
+ * What: returns whether the caller can perform drain.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by drain when that path needs this behavior.
+ */
 function canDrain(
   activeSession: AgentSessionPort | undefined,
 ): activeSession is AgentSessionPort {
@@ -122,6 +170,12 @@ function canDrain(
   );
 }
 
+/**
+ * What: performs the report loop pause step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by drain when that path needs this behavior.
+ */
 function reportLoopPause() {
   const state = host.loop.snapshot();
   const capped = state.status === "capped";
@@ -138,12 +192,24 @@ function reportLoopPause() {
   });
 }
 
+/**
+ * What: performs the schedule working cycle step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by drain when that path needs this behavior.
+ */
 function scheduleWorkingCycle() {
   if (host.loop.isEnabled() && host.loop.snapshot().status === "working") {
     setTimeout(() => void drain(), 0);
   }
 }
 
+/**
+ * What: performs the drain step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by wake and scheduleWorkingCycle when that path needs this behavior.
+ */
 async function drain() {
   const activeSession = session;
   if (!canDrain(activeSession)) return;
@@ -195,6 +261,12 @@ async function drain() {
   scheduleWorkingCycle();
 }
 
+/**
+ * What: starts agent and wires the dependencies it needs.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by handleControl when that path needs this behavior.
+ */
 async function startAgent(revision: ScribeRevision & { projectId: string; documentId: string }) {
   activeScope = { projectId: revision.projectId, documentId: revision.documentId };
   if (!configured || !session) {
@@ -217,6 +289,12 @@ async function startAgent(revision: ScribeRevision & { projectId: string; docume
   return runtime();
 }
 
+/**
+ * What: stops agent and releases owned resources.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by handleControl when that path needs this behavior.
+ */
 async function stopAgent() {
   if (!configured || !session) {
     throw new Error("The agent is unavailable because Pi is not configured");
@@ -240,6 +318,12 @@ async function stopAgent() {
 let controlQueue = Promise.resolve();
 const cancelledControls = new Set<string>();
 
+/**
+ * What: handles control and routes the effect to the owning workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index when that path needs this behavior.
+ */
 function handleControl(message: AgentRpcRequest) {
   controlQueue = controlQueue.then(async () => {
     try {
@@ -269,6 +353,12 @@ function handleControl(message: AgentRpcRequest) {
   });
 }
 
+/**
+ * What: performs the initialize step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index when that path needs this behavior.
+ */
 async function initialize() {
   await Promise.all([
     mkdir(agentDir, { recursive: true }),
@@ -312,6 +402,12 @@ async function initialize() {
 let observedStreamId: string | undefined;
 let observedSequence = 0;
 
+/**
+ * What: emits revision to subscribers or the host runtime.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index when that path needs this behavior.
+ */
 function emitRevision(projectRevision: number, documentRevision: number) {
   eventBus.emit(SCRIBE_REVISION_EVENT, {
     projectRevision,

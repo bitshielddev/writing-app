@@ -14,6 +14,12 @@ export type SuggestionMoveResult =
   | { status: "empty" }
   | { status: "boundary"; edge: "first" | "last" };
 
+/**
+ * What: coordinates suggestion keyboard navigation state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by keyboardNavigation and useWorkspaceController when that path needs this behavior.
+ */
 export function useSuggestionKeyboardNavigation({
   entries,
   pinnedEntries,

@@ -17,12 +17,30 @@ export type SuggestionTransition =
   | { status: "unchanged"; state: PersistedSuggestionState }
   | { status: "rejected"; state: PersistedSuggestionState; reason: string };
 
+/**
+ * What: creates an isolated copy of mutable data before a reducer changes it.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by applySuggestionCommand and applySuggestionAgentEvent when that path needs this behavior.
+ */
 const clone = (state: PersistedSuggestionState): PersistedSuggestionState => structuredClone(state);
+/**
+ * What: locates the matching entry and index inside the current collection.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by applySuggestionCommand when that path needs this behavior.
+ */
 const locate = (state: PersistedSuggestionState, id: string) =>
   state.entries.find((entry) => entry.item.id === id) ??
   state.pinnedEntries.find((entry) => entry.item.id === id) ??
   state.workspacePins.find((entry) => entry.item.id === id);
 
+/**
+ * What: applies suggestion command and returns the resulting state or event.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by aggregate, decideSuggestionCommand, transitionForFact and transitions when that path needs this behavior.
+ */
 // The exhaustive command policy is intentionally kept in one pure switch so
 // storage and optimistic rendering cannot drift into separate transition rules.
 // eslint-disable-next-line complexity
@@ -104,6 +122,12 @@ export function applySuggestionCommand(
   }
 }
 
+/**
+ * What: applies suggestion agent event and returns the resulting state or event.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by aggregate, decideSuggestionCommand, transitionForFact and transitions when that path needs this behavior.
+ */
 export function applySuggestionAgentEvent(
   current: PersistedSuggestionState,
   event: SuggestionEvent,

@@ -16,6 +16,12 @@ const GROUPS: CommandDefinition["group"][] = [
   "Help",
 ];
 
+/**
+ * What: renders the keybinding help dialog component and wires its props into the surrounding UI.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by KeybindingHelpBoundary and Harness when that path needs this behavior.
+ */
 export function KeybindingHelpDialog({
   open,
   onClose,

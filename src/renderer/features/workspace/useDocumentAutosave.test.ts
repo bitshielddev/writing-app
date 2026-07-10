@@ -5,6 +5,12 @@ import type { WritingEditor } from "../editor/schema";
 import { DesktopBridgeHarness, createDocumentSnapshot } from "../../../test/desktopBridgeHarness";
 import { useDocumentAutosave } from "./useDocumentAutosave";
 
+/**
+ * What: performs the editor step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by useDocumentAutosave when that path needs this behavior.
+ */
 function editor() {
   const state = {
     document: [

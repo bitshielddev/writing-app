@@ -32,6 +32,12 @@ type IconButtonProps = {
   unreadCount?: number;
 };
 
+/**
+ * What: renders the icon button component and wires its props into the surrounding UI.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by DocumentHeader when that path needs this behavior.
+ */
 function IconButton({
   icon: Icon,
   label,
@@ -71,6 +77,12 @@ function IconButton({
 
 const tabs = ["Drafts", "Review", "Published"];
 
+/**
+ * What: renders the document header component and wires its props into the surrounding UI.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by EditorWorkspace and renderHeader when that path needs this behavior.
+ */
 export function DocumentHeader({
   navigationPanelOpen,
   contextPanelOpen,

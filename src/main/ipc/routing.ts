@@ -36,6 +36,12 @@ export type RendererEventConsumers = {
   completeHydration(senderId: number, streamId: string, sequence: number): boolean;
 };
 
+/**
+ * What: registers main ipc with the host runtime.
+ *
+ * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+ * Called when: used by index, registerIpc, routing and createHarness when that path needs this behavior.
+ */
 export function registerMainIpc({
   ipcMain,
   validateSender,
@@ -67,6 +73,12 @@ export function registerMainIpc({
   retryProcess?: (process: "storage" | "agent") => Promise<void>;
   logger?: Pick<Console, "error">;
 }) {
+  /**
+   * What: performs the register step for this file's workflow.
+   *
+   * Why: Electron IPC needs a typed boundary between renderer calls and backend services.
+   * Called when: used by registerMainIpc when that path needs this behavior.
+   */
   const register = <Name extends OperationName<typeof RendererOperations>>(
     operation: Name,
     channel: string,

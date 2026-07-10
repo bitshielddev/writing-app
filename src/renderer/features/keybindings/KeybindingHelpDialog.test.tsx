@@ -5,6 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import { KeybindingHelpDialog } from "./KeybindingHelpDialog";
 
+/**
+ * What: renders the harness component and wires its props into the surrounding UI.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by KeybindingHelpDialog when that path needs this behavior.
+ */
 function Harness() {
   const [open, setOpen] = useState(false);
   return (

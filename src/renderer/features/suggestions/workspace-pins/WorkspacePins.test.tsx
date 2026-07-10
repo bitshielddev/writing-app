@@ -30,6 +30,12 @@ const pin: WorkspacePin = {
   zIndex: 1,
 };
 
+/**
+ * What: renders the harness component and wires its props into the surrounding UI.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by WorkspacePins when that path needs this behavior.
+ */
 function Harness({
   onGeometryChange,
   onRaise,
@@ -185,14 +191,44 @@ describe("WorkspacePins", () => {
       callback(0);
       return 1;
     });
+    /**
+     * What: performs the notify resize step for this file's workflow.
+     *
+     * Why: the test needs a focused helper so assertions stay about the behavior under test.
+     * Called when: used by WorkspacePins when that path needs this behavior.
+     */
     let notifyResize = () => {};
     class ResizeObserverHarness {
       constructor(callback: ResizeObserverCallback) {
         notifyResize = () => callback([], this);
       }
+      /**
+       * What: performs the observe step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: called through ResizeObserverHarness instances when consumers invoke this method.
+       */
       observe() {}
+      /**
+       * What: performs the unobserve step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: called through ResizeObserverHarness instances when consumers invoke this method.
+       */
       unobserve() {}
+      /**
+       * What: performs the disconnect step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: called through ResizeObserverHarness instances when consumers invoke this method.
+       */
       disconnect() {}
+      /**
+       * What: performs the take records step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: called through ResizeObserverHarness instances when consumers invoke this method.
+       */
       takeRecords() {
         return [];
       }
@@ -200,6 +236,12 @@ describe("WorkspacePins", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverHarness);
     const onGeometryChange = vi.fn();
 
+    /**
+     * What: renders the multiple pins harness component and wires its props into the surrounding UI.
+     *
+     * Why: the test needs a focused helper so assertions stay about the behavior under test.
+     * Called when: used by WorkspacePins when that path needs this behavior.
+     */
     function MultiplePinsHarness() {
       const canvasRef = useRef<HTMLDivElement>(null);
       const secondPin: WorkspacePin = {

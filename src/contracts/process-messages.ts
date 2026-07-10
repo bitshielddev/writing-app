@@ -22,12 +22,24 @@ import {
 import { AgentOperations } from "./operations/agent";
 import { StorageOperations } from "./operations/storage";
 
+/**
+ * What: performs the request schemas step for this file's workflow.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by process-messages when that path needs this behavior.
+ */
 function requestSchemas(registry: OperationRegistry) {
   return Object.entries(registry).map(([name, value]) => Type.Object({
     kind: Type.Literal("rpc"), protocolVersion: ProtocolVersionSchema,
     id: identifier, operation: Type.Literal(name), params: value.params,
   }, strict));
 }
+/**
+ * What: performs the result schemas step for this file's workflow.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by process-messages when that path needs this behavior.
+ */
 function resultSchemas(registry: OperationRegistry) {
   return Object.entries(registry).flatMap(([name, value]) => [
     Type.Object({ kind: Type.Literal("rpc.success"), protocolVersion: ProtocolVersionSchema,

@@ -43,14 +43,32 @@ export class ScribeLoopState {
     };
   }
 
+  /**
+   * What: returns the current snapshot for callers that need a stable view of state.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop, executeSuggestionMutation, runtime and reportLoopPause when that path needs this behavior.
+   */
   snapshot(): ScribeLoopSnapshot {
     return { ...this.state };
   }
 
+  /**
+   * What: returns whether the supplied value matches enabled.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by canDrain, scheduleWorkingCycle and drain when that path needs this behavior.
+   */
   isEnabled() {
     return this.enabled;
   }
 
+  /**
+   * What: starts the runtime task and wires the dependencies it needs.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop, extension and startAgent when that path needs this behavior.
+   */
   start() {
     if (this.enabled) return false;
     this.enabled = true;
@@ -66,6 +84,12 @@ export class ScribeLoopState {
     return true;
   }
 
+  /**
+   * What: stops the runtime task and releases owned resources.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop and stopAgent when that path needs this behavior.
+   */
   stop() {
     if (!this.enabled) return false;
     this.enabled = false;
@@ -81,6 +105,12 @@ export class ScribeLoopState {
     return true;
   }
 
+  /**
+   * What: performs the revision step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop, createScribeExtension, extension and startAgent when that path needs this behavior.
+   */
   revision(projectRevision: number, documentRevision: number) {
     if (projectRevision < this.state.latestRevision) return false;
     if (projectRevision === this.state.latestRevision) {
@@ -98,6 +128,12 @@ export class ScribeLoopState {
     return isNewWork;
   }
 
+  /**
+   * What: performs the begin cycle step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop, extension and drain when that path needs this behavior.
+   */
   beginCycle() {
     if (!this.enabled) return undefined;
     if (this.state.latestRevision < 0) return undefined;
@@ -122,6 +158,12 @@ export class ScribeLoopState {
     };
   }
 
+  /**
+   * What: performs the request yield step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop and createScribeExtension when that path needs this behavior.
+   */
   requestYield() {
     if (
       !this.enabled ||
@@ -136,6 +178,12 @@ export class ScribeLoopState {
     return true;
   }
 
+  /**
+   * What: performs the finish cycle step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop and drain when that path needs this behavior.
+   */
   finishCycle() {
     if (!this.enabled || !this.cycleInProgress) return false;
     this.cycleInProgress = false;
@@ -159,6 +207,12 @@ export class ScribeLoopState {
     return true;
   }
 
+  /**
+   * What: performs the fail step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop and drain when that path needs this behavior.
+   */
   fail(error: string) {
     this.cycleInProgress = false;
     if (!this.enabled) return;
@@ -166,6 +220,12 @@ export class ScribeLoopState {
     this.state.error = error;
   }
 
+  /**
+   * What: performs the persisted step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by loop and encodeScribeLoopEntry when that path needs this behavior.
+   */
   persisted(): PersistedScribeLoopState {
     return {
       yieldedRevision: this.state.yieldedRevision,

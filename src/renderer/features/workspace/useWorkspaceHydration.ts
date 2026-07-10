@@ -14,8 +14,20 @@ type Options = {
   initialize(snapshot: WorkspaceSnapshot): void;
   onEvent?(event: DesktopEvent): void;
 };
+/**
+ * What: performs the ignore desktop event step for this file's workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useWorkspaceHydration when that path needs this behavior.
+ */
 const ignoreDesktopEvent = () => undefined;
 
+/**
+ * What: coordinates workspace hydration state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useWorkspaceController when that path needs this behavior.
+ */
 export function useWorkspaceHydration({ desktop, editor, scope, initialize, onEvent = ignoreDesktopEvent }: Options) {
   const [status, setStatus] = useState<{ key: string; phase: WorkspacePhase; error?: string }>({
     key: "", phase: "loading",

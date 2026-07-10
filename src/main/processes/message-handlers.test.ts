@@ -6,6 +6,12 @@ import {
   createStorageMessageHandler,
 } from "./message-handlers";
 
+/**
+ * What: performs the endpoint step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by message-handlers when that path needs this behavior.
+ */
 function endpoint() {
   return {
     call: vi.fn<(method: string, params?: unknown) => Promise<unknown>>(),

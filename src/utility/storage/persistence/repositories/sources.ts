@@ -6,6 +6,12 @@ import type { SourceStore } from "../../application/ports.js";
 export class SourceRepository implements SourceStore {
   constructor(private readonly db: DatabaseSync) {}
 
+  /**
+   * What: lists records from the current store.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, hydrate and fixture when that path needs this behavior.
+   */
   list(projectId: string, documentId: string): SourceSnapshot[] {
     documentId ??= (this.db.prepare(
       "SELECT id FROM documents WHERE project_id = ? ORDER BY created_at, id LIMIT 1",
@@ -28,6 +34,12 @@ export class SourceRepository implements SourceStore {
     }));
   }
 
+  /**
+   * What: performs the insert step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, importSource and fixture when that path needs this behavior.
+   */
   insert(source: SourceSnapshot, createdAt: number) {
     this.db.prepare(
       `INSERT INTO sources
@@ -39,6 +51,12 @@ export class SourceRepository implements SourceStore {
     );
   }
 
+  /**
+   * What: performs the get step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, importSource and fixture when that path needs this behavior.
+   */
   get(projectId: string, documentId: string, id: string): SourceSnapshot {
     if (documentId === undefined && id === undefined) {
       id = projectId;

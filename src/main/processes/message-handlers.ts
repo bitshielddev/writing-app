@@ -21,6 +21,12 @@ import type {
 
 type PostEndpoint = { post(message: unknown): void };
 
+/**
+ * What: creates storage message handler with the dependencies and defaults this workflow expects.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by index, start and message-handlers when that path needs this behavior.
+ */
 export function createStorageMessageHandler({
   storage,
   getAgent,
@@ -60,6 +66,12 @@ export function createStorageMessageHandler({
   };
 }
 
+/**
+ * What: creates agent message handler with the dependencies and defaults this workflow expects.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by index, start and message-handlers when that path needs this behavior.
+ */
 export function createAgentMessageHandler({
   storage,
   getAgent,

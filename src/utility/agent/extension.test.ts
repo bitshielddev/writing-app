@@ -8,6 +8,12 @@ import {
 } from "./extension";
 import { ScribeLoopState } from "./domain/loop";
 
+/**
+ * What: performs the host step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by extension when that path needs this behavior.
+ */
 function host(
   storageCall: ScribeExtensionHost["storageCall"] = async <T>() =>
     ({ accepted: true }) as T,
@@ -22,8 +28,20 @@ function host(
   } satisfies ScribeExtensionHost;
 }
 
+/**
+ * What: performs the successful storage step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by extension when that path needs this behavior.
+ */
 function successfulStorage() {
   const calls = vi.fn();
+  /**
+   * What: performs the storage call step for this file's workflow.
+   *
+   * Why: the test needs a focused helper so assertions stay about the behavior under test.
+   * Called when: used by successfulStorage when that path needs this behavior.
+   */
   const storageCall: ScribeExtensionHost["storageCall"] = async <T>(
     method: string,
     params?: unknown,

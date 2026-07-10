@@ -16,6 +16,12 @@ import {
   type PreloadIpcRenderer,
 } from "./bridge";
 
+/**
+ * What: performs the ipc harness step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by bridge when that path needs this behavior.
+ */
 function ipcHarness() {
   const invoke = vi.fn(async (channel: string) => {
     if (channel === DESKTOP_INVOKE_CHANNELS.subscribeEvents) return { consumerId: "consumer" };

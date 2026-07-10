@@ -13,6 +13,12 @@ import {
 } from "../../contracts/process-messages";
 import { AgentOperations } from "../../contracts/operations/agent";
 
+/**
+ * What: performs the ready step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by child-rpc when that path needs this behavior.
+ */
 const ready = (overrides: Record<string, unknown> = {}) => ({
   kind: "ready",
   protocolName: AGENT_PROTOCOL_NAME,
@@ -28,11 +34,23 @@ class FakeUtilityProcess extends EventEmitter {
   readonly stderr = new EventEmitter();
   readonly kill = vi.fn(() => true);
 
+  /**
+   * What: performs the post message step for this file's workflow.
+   *
+   * Why: the test needs a focused helper so assertions stay about the behavior under test.
+   * Called when: called through FakeUtilityProcess instances when consumers invoke this method.
+   */
   postMessage(message: unknown) {
     this.posted.push(message);
   }
 }
 
+/**
+ * What: creates rpc with the dependencies and defaults this workflow expects.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by child-rpc when that path needs this behavior.
+ */
 function createRpc(onMessage = vi.fn()) {
   const child = new FakeUtilityProcess();
   const ids = ["first", "second", "third"];

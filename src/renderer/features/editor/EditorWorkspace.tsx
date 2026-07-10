@@ -23,6 +23,12 @@ type EditorWorkspaceProps = {
   onReturnToPins: (id: string) => void;
 };
 
+/**
+ * What: renders the editor workspace component and wires its props into the surrounding UI.
+ *
+ * Why: editor code needs a stable adapter around BlockNote and preview-specific behavior.
+ * Called when: used by App when that path needs this behavior.
+ */
 export function EditorWorkspace({
   editor,
   workspacePins,

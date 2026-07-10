@@ -17,6 +17,12 @@ import { NodeWorkspaceFiles } from "../workspace/files";
 const workspaces: string[] = [];
 const services: StorageService[] = [];
 
+/**
+ * What: performs the service step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by layers when that path needs this behavior.
+ */
 async function service(
   publishEvent?: Parameters<typeof createStorageService>[0]["publishEvent"],
 ) {
@@ -196,6 +202,12 @@ describe("storage operation consistency", () => {
     const instance = createStorageService({
       databasePath: ":memory:",
       workspaceRoot,
+      /**
+       * What: creates workspace files with the dependencies and defaults this workflow expects.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: used by service and forDocument when that path needs this behavior.
+       */
       createWorkspaceFiles(paths) {
         const real = new NodeWorkspaceFiles(paths);
         return {
@@ -224,6 +236,12 @@ describe("storage operation consistency", () => {
   it("serializes document saves so only one request can consume a revision", async () => {
     const instance = await service();
     const initial = await instance.handleRequest("hydrate") as WorkspaceSnapshot;
+    /**
+     * What: performs the input step for this file's workflow.
+     *
+     * Why: the test needs a focused helper so assertions stay about the behavior under test.
+     * Called when: used by layers when that path needs this behavior.
+     */
     const input = (markdown: string) => ({
       documentId: initial.document.id,
       expectedRevision: initial.document.revision,
@@ -303,11 +321,23 @@ describe("storage operation consistency", () => {
       databasePath: ":memory:",
       workspaceRoot,
       logger: { error },
+      /**
+       * What: creates workspace files with the dependencies and defaults this workflow expects.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: used by service and forDocument when that path needs this behavior.
+       */
       createWorkspaceFiles(paths) {
         const real = new NodeWorkspaceFiles(paths);
         const files: WorkspaceFiles = {
           writeDraft: (markdown) => real.writeDraft(markdown),
           repairDraft: (markdown) => real.repairDraft(markdown),
+          /**
+           * What: performs the copy source step for this file's workflow.
+           *
+           * Why: the test needs a focused helper so assertions stay about the behavior under test.
+           * Called when: used by ports, importSource, fixture and createWorkspaceFiles when that path needs this behavior.
+           */
           async copySource(path) {
             const copied = await real.copySource(path);
             copiedPath = copied.destination;

@@ -16,6 +16,12 @@ const NAVIGATION_WIDTH_KEY = "scribe-navigation-column-width";
 const CONTEXT_WIDTH_KEY = "scribe-context-column-width";
 const DESKTOP_QUERY = "(min-width: 1280px)";
 
+/**
+ * What: reads saved width from the available environment or storage.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useWorkspaceLayout when that path needs this behavior.
+ */
 function readSavedWidth(key: string, min: number, max: number) {
   try {
     const width = Number(window.localStorage.getItem(key));
@@ -27,6 +33,12 @@ function readSavedWidth(key: string, min: number, max: number) {
   }
 }
 
+/**
+ * What: saves width through the configured persistence path.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useWorkspaceLayout and constrainSavedWidths when that path needs this behavior.
+ */
 function saveWidth(key: string, width: number | null) {
   try {
     if (width === null) {
@@ -39,6 +51,12 @@ function saveWidth(key: string, width: number | null) {
   }
 }
 
+/**
+ * What: coordinates workspace layout state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by App when that path needs this behavior.
+ */
 export function useWorkspaceLayout() {
   const workspaceRef = useRef<HTMLElement>(null);
   const navigationColumnRef = useRef<HTMLDivElement>(null);
@@ -164,6 +182,12 @@ export function useWorkspaceLayout() {
   const closeContextDrawer = useCallback(() => setContextDrawerOpen(false), []);
 
   useEffect(() => {
+    /**
+     * What: performs the constrain saved widths step for this file's workflow.
+     *
+     * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+     * Called when: used by useWorkspaceLayout when that path needs this behavior.
+     */
     const constrainSavedWidths = () => {
       if (!isDesktop()) return;
 
@@ -188,6 +212,12 @@ export function useWorkspaceLayout() {
 
   useEffect(() => {
     const desktopQuery = window.matchMedia(DESKTOP_QUERY);
+    /**
+     * What: performs the close drawers at desktop step for this file's workflow.
+     *
+     * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+     * Called when: used by useWorkspaceLayout when that path needs this behavior.
+     */
     const closeDrawersAtDesktop = (event: MediaQueryListEvent) => {
       setDesktop(event.matches);
       if (event.matches) closeDrawers();

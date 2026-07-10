@@ -17,6 +17,12 @@ type InteractiveWorkspacePinProps = {
   onReturnToPins: (id: string) => void;
 };
 
+/**
+ * What: renders the interactive workspace pin component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by WorkspacePins when that path needs this behavior.
+ */
 function InteractiveWorkspacePin({
   pin,
   bounds,
@@ -51,6 +57,12 @@ export type WorkspacePinsProps = {
   onReturnToPins: (id: string) => void;
 };
 
+/**
+ * What: renders the workspace pins component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by DocumentEditor, Harness and MultiplePinsHarness when that path needs this behavior.
+ */
 export function WorkspacePins({
   canvasRef,
   pins,

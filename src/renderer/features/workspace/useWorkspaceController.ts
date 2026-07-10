@@ -15,6 +15,12 @@ import { usePreviewController } from "./usePreviewController";
 import { useSourceController } from "./useSourceController";
 import { useWorkspaceHydration } from "./useWorkspaceHydration";
 
+/**
+ * What: coordinates workspace controller state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by App when that path needs this behavior.
+ */
 export function useWorkspaceController(
   desktop: DesktopBridge,
   editor: WritingEditor,

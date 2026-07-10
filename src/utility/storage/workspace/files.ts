@@ -9,11 +9,23 @@ import type { CopiedSource, WorkspaceFiles } from "../application/ports.js";
 export class NodeWorkspaceFiles implements WorkspaceFiles {
   constructor(readonly paths: StoragePaths) {}
 
+  /**
+   * What: performs the ensure directories step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by repairDraft and createWorkspaceFiles when that path needs this behavior.
+   */
   async ensureDirectories() {
     await mkdir(this.paths.sourcesDirectory, { recursive: true });
     await mkdir(this.paths.piDirectory, { recursive: true });
   }
 
+  /**
+   * What: performs the write draft step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, performDocumentSave, fixture and operations when that path needs this behavior.
+   */
   async writeDraft(markdown: string) {
     const temporary = join(this.paths.workspaceRoot, `.draft-${randomUUID()}.tmp`);
     try {
@@ -24,6 +36,12 @@ export class NodeWorkspaceFiles implements WorkspaceFiles {
     }
   }
 
+  /**
+   * What: performs the repair draft step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, repairWorkspace, performDocumentSave and fixture when that path needs this behavior.
+   */
   async repairDraft(markdown: string) {
     await this.ensureDirectories();
     let current: string | undefined;
@@ -37,6 +55,12 @@ export class NodeWorkspaceFiles implements WorkspaceFiles {
     return { repaired };
   }
 
+  /**
+   * What: performs the copy source step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, importSource, fixture and createWorkspaceFiles when that path needs this behavior.
+   */
   async copySource(sourcePath: string): Promise<CopiedSource> {
     const bytes = await readFile(sourcePath);
     validateMarkdownSource(sourcePath, bytes);
@@ -55,15 +79,33 @@ export class NodeWorkspaceFiles implements WorkspaceFiles {
     }
   }
 
+  /**
+   * What: performs the remove source step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, importSource, fixture and createWorkspaceFiles when that path needs this behavior.
+   */
   async removeSource(path: string) {
     await rm(path, { force: true });
   }
 
+  /**
+   * What: performs the remove workspace step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, deleteProject and deleteDocument when that path needs this behavior.
+   */
   async removeWorkspace() {
     await rm(this.paths.workspaceRoot, { recursive: true, force: true });
   }
 }
 
+/**
+ * What: validates markdown source before callers depend on it.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by copySource when that path needs this behavior.
+ */
 export function validateMarkdownSource(path: string, bytes: Uint8Array) {
   const extension = extname(path).toLocaleLowerCase();
   if (extension !== ".md" && extension !== ".markdown") {

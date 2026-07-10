@@ -14,6 +14,12 @@ vi.mock("mermaid", () => ({
   default: mermaidMocks,
 }));
 
+/**
+ * What: performs the render host step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by MermaidDiagram when that path needs this behavior.
+ */
 function renderHost(options: RunOptions | undefined) {
   const host = options?.nodes?.[0];
   if (!(host instanceof HTMLElement)) {
@@ -22,6 +28,12 @@ function renderHost(options: RunOptions | undefined) {
   return host;
 }
 
+/**
+ * What: performs the append rendered svg step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by MermaidDiagram when that path needs this behavior.
+ */
 function appendRenderedSvg(host: HTMLElement) {
   host.replaceChildren(
     document.createElementNS("http://www.w3.org/2000/svg", "svg"),

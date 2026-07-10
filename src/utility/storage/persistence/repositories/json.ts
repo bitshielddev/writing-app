@@ -17,6 +17,12 @@ export const LEGACY_TO_CURRENT: readonly JsonMigration[] = [{
   migrate: (value) => value,
 }];
 
+/**
+ * What: performs the quarantine step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by decode, validatePersisted, outbox and parseContiguous when that path needs this behavior.
+ */
 export function quarantine(db: DatabaseSync, error: DurableCompatibilityError, sourceText: string) {
   db.prepare(`INSERT INTO durable_json_quarantine
     (format_name, record_identity, source_text, detected_version, error_code, quarantined_at)
@@ -32,6 +38,12 @@ export function quarantine(db: DatabaseSync, error: DurableCompatibilityError, s
   );
 }
 
+/**
+ * What: decodes the input data from persisted or transported data.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by documents, get, suggestions and findReceipt when that path needs this behavior.
+ */
 export function decode(db: DatabaseSync, options: Parameters<typeof decodeVersionedJson>[0]) {
   try {
     return decodeVersionedJson(options);
@@ -41,6 +53,12 @@ export function decode(db: DatabaseSync, options: Parameters<typeof decodeVersio
   }
 }
 
+/**
+ * What: validates persisted before callers depend on it.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by documents, get, suggestions and findReceipt when that path needs this behavior.
+ */
 export function validatePersisted<Schema extends TSchema>(options: {
   db: DatabaseSync;
   schema: Schema;
@@ -66,10 +84,22 @@ export function validatePersisted<Schema extends TSchema>(options: {
   }
 }
 
+/**
+ * What: checks suggestion projection and throws before invalid state crosses the boundary.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by the enclosing workflow at the point this named step is required.
+ */
 export function assertSuggestionProjection(value: unknown): asserts value is PersistedSuggestionState {
   parseOrContractError(PersistedSuggestionStateSchema, value, "persisted.suggestion-projection");
 }
 
+/**
+ * What: performs the suggestion projection policy step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by the enclosing workflow at the point this named step is required.
+ */
 export function suggestionProjectionPolicy() {
   return COMPATIBILITY_REGISTRY.suggestionProjection;
 }

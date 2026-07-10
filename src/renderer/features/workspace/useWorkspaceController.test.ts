@@ -12,6 +12,12 @@ import type {
 import { createEmptySuggestionState } from "../../../domain/suggestions/state";
 import { useWorkspaceController } from "./useWorkspaceController";
 
+/**
+ * What: performs the document snapshot step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by snapshot, createHarness and useWorkspaceController when that path needs this behavior.
+ */
 function documentSnapshot(revision: number, blocks: unknown[]): DocumentSnapshot {
   return {
     id: "document",
@@ -25,6 +31,12 @@ function documentSnapshot(revision: number, blocks: unknown[]): DocumentSnapshot
   };
 }
 
+/**
+ * What: returns the current snapshot for callers that need a stable view of state.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by createHarness when that path needs this behavior.
+ */
 function snapshot(): WorkspaceSnapshot {
   return {
     streamId: "document:default-document",
@@ -52,6 +64,12 @@ function snapshot(): WorkspaceSnapshot {
   };
 }
 
+/**
+ * What: creates harness with the dependencies and defaults this workflow expects.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by useWorkspaceController when that path needs this behavior.
+ */
 function createHarness() {
   const listeners = new Set<(event: DesktopEvent) => void>();
   const editorState = {
@@ -91,6 +109,12 @@ function createHarness() {
     editor,
     editorState,
     listenerCount: () => listeners.size,
+    /**
+     * What: performs the emit step for this file's workflow.
+     *
+     * Why: the test needs a focused helper so assertions stay about the behavior under test.
+     * Called when: used by useWorkspaceController when that path needs this behavior.
+     */
     emit(event: DesktopEvent) {
       listeners.forEach((listener) => listener(event));
     },

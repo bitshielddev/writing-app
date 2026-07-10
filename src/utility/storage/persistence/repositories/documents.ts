@@ -20,6 +20,12 @@ import {
 export class DocumentRepository implements DocumentStore {
   constructor(private readonly db: DatabaseSync) {}
 
+  /**
+   * What: lists records from the current store.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, catalog, deleteProject and selectProject when that path needs this behavior.
+   */
   list(projectId?: string) {
     const sql = `SELECT id, project_id, title, revision FROM documents
       ${projectId ? "WHERE project_id = ?" : ""} ORDER BY created_at, id`;
@@ -28,6 +34,12 @@ export class DocumentRepository implements DocumentStore {
     return rows.map((row) => ({ id: row.id, projectId: row.project_id, title: row.title, revision: row.revision }));
   }
 
+  /**
+   * What: performs the get step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, hydrate, repairWorkspace and performDocumentSave when that path needs this behavior.
+   */
   get(projectId: string, id: string): DocumentSnapshot {
     if (id === undefined) {
       id = projectId;
@@ -74,6 +86,12 @@ export class DocumentRepository implements DocumentStore {
     };
   }
 
+  /**
+   * What: performs the create step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, createProject and createDocument when that path needs this behavior.
+   */
   create(projectId: string, id: string, title: string, now: number) {
     const blocks = [{ type: "heading", props: { level: 1 }, content: "New Page" }];
     this.db.prepare(`INSERT INTO documents
@@ -98,6 +116,12 @@ export class DocumentRepository implements DocumentStore {
     return this.get(projectId, id);
   }
 
+  /**
+   * What: performs the rename step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports and renameDocument when that path needs this behavior.
+   */
   rename(projectId: string, id: string, title: string, now: number) {
     const result = this.db.prepare(
       "UPDATE documents SET title = ?, updated_at = ? WHERE project_id = ? AND id = ?",
@@ -106,11 +130,23 @@ export class DocumentRepository implements DocumentStore {
     return this.get(projectId, id);
   }
 
+  /**
+   * What: performs the count step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports and delete when that path needs this behavior.
+   */
   count(projectId: string) {
     return (this.db.prepare("SELECT COUNT(*) AS count FROM documents WHERE project_id = ?")
       .get(projectId) as { count: number }).count;
   }
 
+  /**
+   * What: performs the delete step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports and deleteDocument when that path needs this behavior.
+   */
   delete(projectId: string, id: string) {
     if (this.count(projectId) <= 1) throw new Error("LAST_DOCUMENT_DELETE_FORBIDDEN");
     const result = this.db.prepare(
@@ -119,6 +155,12 @@ export class DocumentRepository implements DocumentStore {
     if (result.changes !== 1) throw new Error("Document not found or not owned by project");
   }
 
+  /**
+   * What: performs the save step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, performDocumentSave, fixture and operations when that path needs this behavior.
+   */
   save(projectId: string, id: string | unknown[], blocks: unknown[] | string, markdown: string | number, updatedAt?: number) {
     if (updatedAt === undefined) {
       updatedAt = markdown as number;

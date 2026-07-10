@@ -21,6 +21,12 @@ type ToolEvent = Extract<
   }
 >;
 
+/**
+ * What: performs the serializable step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by observeLifecycle, observeMessage and observeToolActivity when that path needs this behavior.
+ */
 function serializable(value: unknown): unknown {
   try {
     return JSON.parse(JSON.stringify(value)) as unknown;
@@ -29,6 +35,12 @@ function serializable(value: unknown): unknown {
   }
 }
 
+/**
+ * What: performs the message parts step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by observeMessage when that path needs this behavior.
+ */
 function messageParts(message: unknown) {
   const record = message as {
     role?: string;
@@ -55,6 +67,12 @@ function messageParts(message: unknown) {
   };
 }
 
+/**
+ * What: performs the observe lifecycle step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by activitiesFromSessionEvent when that path needs this behavior.
+ */
 function observeLifecycle(event: LifecycleEvent, now: number): ActivityInput[] {
   return [
     {
@@ -68,6 +86,12 @@ function observeLifecycle(event: LifecycleEvent, now: number): ActivityInput[] {
   ];
 }
 
+/**
+ * What: performs the observe message step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by activitiesFromSessionEvent when that path needs this behavior.
+ */
 function observeMessage(event: MessageEvent): ActivityInput[] {
   const parts = messageParts(event.message);
   const key = `${parts.role}:${parts.timestamp}`;
@@ -106,6 +130,12 @@ function observeMessage(event: MessageEvent): ActivityInput[] {
   return activities;
 }
 
+/**
+ * What: performs the observe tool activity step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by activitiesFromSessionEvent when that path needs this behavior.
+ */
 function observeToolActivity(event: ToolEvent, now: number): ActivityInput[] {
   return [
     {
@@ -120,6 +150,12 @@ function observeToolActivity(event: ToolEvent, now: number): ActivityInput[] {
   ];
 }
 
+/**
+ * What: performs the activities from session event step for this file's workflow.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by session, subscribeActivity and activity when that path needs this behavior.
+ */
 export function activitiesFromSessionEvent(
   event: AgentSessionEvent,
   now = Date.now(),

@@ -14,6 +14,12 @@ export type DesktopProcess<Registry extends OperationRegistry> = OperationCaller
   kill(): void;
 };
 
+/**
+ * What: starts desktop and wires the dependencies it needs.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by startup when that path needs this behavior.
+ */
 export async function startDesktop({
   spawnStorage,
   spawnAgent,
@@ -54,6 +60,12 @@ export async function startDesktop({
   return { storage, agent };
 }
 
+/**
+ * What: runs desktop startup as a complete operation.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by index and startup when that path needs this behavior.
+ */
 export async function runDesktopStartup(
   start: () => Promise<unknown>,
   onFailure: (error: unknown) => void,
@@ -65,6 +77,12 @@ export async function runDesktopStartup(
   }
 }
 
+/**
+ * What: performs the database startup guidance step for this file's workflow.
+ *
+ * Why: desktop child-process lifecycle and RPC behavior need one predictable implementation.
+ * Called when: used by index and startup when that path needs this behavior.
+ */
 export function databaseStartupGuidance(error: unknown) {
   if (!(error instanceof ChildStartupError) || !error.code.startsWith("DATABASE_")) {
     return undefined;

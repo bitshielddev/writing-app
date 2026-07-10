@@ -24,6 +24,12 @@ type KeybindingControllerOptions = {
   handlers: CommandHandlers;
 };
 
+/**
+ * What: returns whether the supplied value matches leader.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by handleKeyDown when that path needs this behavior.
+ */
 function isLeader(event: KeyboardEvent) {
   return (
     event.ctrlKey &&
@@ -35,6 +41,12 @@ function isLeader(event: KeyboardEvent) {
   );
 }
 
+/**
+ * What: performs the normalize stroke step for this file's workflow.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by handleKeyDown when that path needs this behavior.
+ */
 function normalizeStroke(event: KeyboardEvent): KeyStroke | undefined {
   if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) {
     return undefined;
@@ -44,6 +56,12 @@ function normalizeStroke(event: KeyboardEvent): KeyStroke | undefined {
   return undefined;
 }
 
+/**
+ * What: coordinates keybinding controller state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by useWorkspaceKeybindings and Harness when that path needs this behavior.
+ */
 export function useKeybindingController({
   disabled = false,
   handlers,
@@ -77,6 +95,12 @@ export function useKeybindingController({
   }, [message]);
 
   useEffect(() => {
+    /**
+     * What: handles key down and routes the effect to the owning workflow.
+     *
+     * Why: keyboard workflows need shared sequence and command behavior across the UI.
+     * Called when: used by useKeybindingController when that path needs this behavior.
+     */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (disabled) return;
 

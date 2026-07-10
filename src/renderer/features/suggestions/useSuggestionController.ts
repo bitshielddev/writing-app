@@ -22,13 +22,31 @@ type Candidate = { commandId: string; command: DurableSuggestionCommand };
 type TransientEntry = { id: string; entry: InboxEntry; stale: boolean; withdrawn: boolean };
 
 const failureText = "A suggestion change could not be applied. Retry or refresh the workspace.";
+/**
+ * What: performs the new command id step for this file's workflow.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by useSuggestionController when that path needs this behavior.
+ */
 const newCommandId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
+/**
+ * What: locates the matching entry and index inside the current collection.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by useSuggestionController when that path needs this behavior.
+ */
 function locate(state: PersistedSuggestionState, id: string) {
   return state.entries.find((entry) => entry.item.id === id) ??
     state.pinnedEntries.find((entry) => entry.item.id === id);
 }
 
+/**
+ * What: performs the optimistic projection step for this file's workflow.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by useSuggestionController when that path needs this behavior.
+ */
 function optimisticProjection(
   authoritative: PersistedSuggestionState,
   active: Candidate | undefined,
@@ -42,6 +60,12 @@ function optimisticProjection(
   return projection;
 }
 
+/**
+ * What: coordinates suggestion controller state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by inbox and useWorkspaceController when that path needs this behavior.
+ */
 export function useSuggestionController(desktop: DesktopBridge) {
   const [projection, setProjection] = useState(createEmptySuggestionState);
   const projectionRef = useRef(projection);
@@ -153,6 +177,12 @@ export function useSuggestionController(desktop: DesktopBridge) {
   const updateTransientFromEvent = useCallback((event: Extract<DesktopEvent, { type: "suggestion.event" }>["event"]) => {
     if (event.type !== "suggestion.updated" && event.type !== "suggestion.retracted") return;
     const id = event.type === "suggestion.updated" ? event.item.id : event.id;
+    /**
+     * What: performs the update step for this file's workflow.
+     *
+     * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+     * Called when: used by useSuggestionController when that path needs this behavior.
+     */
     const update = (current: TransientEntry | undefined) => {
       if (!current || current.id !== id) return current;
       if (event.type === "suggestion.retracted") {

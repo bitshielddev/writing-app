@@ -32,6 +32,12 @@ type WorkspaceKeybindingOptions = {
   onPreview: (item: SuggestionItem) => void;
 };
 
+/**
+ * What: coordinates workspace keybindings state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by App when that path needs this behavior.
+ */
 export function useWorkspaceKeybindings({
   editor,
   layout,

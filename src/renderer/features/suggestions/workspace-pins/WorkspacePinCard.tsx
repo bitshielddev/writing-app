@@ -24,6 +24,12 @@ type WorkspacePinCardProps = {
   onReturnToPins: () => void;
 };
 
+/**
+ * What: renders the workspace pin card component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by WorkspacePins and InteractiveWorkspacePin when that path needs this behavior.
+ */
 export function WorkspacePinCard({
   pin,
   rect,

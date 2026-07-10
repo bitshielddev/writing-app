@@ -16,10 +16,22 @@ import { PiAgentSessionAdapter } from "./session.js";
 
 export type PiEventBus = ReturnType<typeof createEventBus>;
 
+/**
+ * What: creates pi event bus with the dependencies and defaults this workflow expects.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index when that path needs this behavior.
+ */
 export function createPiEventBus(): PiEventBus {
   return createEventBus();
 }
 
+/**
+ * What: creates pi agent runtime with the dependencies and defaults this workflow expects.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index and initialize when that path needs this behavior.
+ */
 export async function createPiAgentRuntime({
   workspaceRoot,
   agentDir,

@@ -2,6 +2,12 @@ import { Type, type Static, type TSchema } from "typebox";
 
 export const strict = { additionalProperties: false } as const;
 export const identifier = Type.String({ minLength: 1, maxLength: 200, pattern: "\\S" });
+/**
+ * What: creates a reusable strict TypeBox string schema with the requested length and format constraints.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by events, common and storage when that path needs this behavior.
+ */
 export const text = (maxLength: number) => Type.String({ maxLength });
 export const revision = Type.Integer({ minimum: 0 });
 export const timestamp = Type.Number({ minimum: 0 });
@@ -47,6 +53,12 @@ export const ContractErrorSchema = Type.Object(
 );
 export type ContractError = Static<typeof ContractErrorSchema>;
 
+/**
+ * What: builds a typed operation contract from request and result schemas.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by agent, storage and renderer when that path needs this behavior.
+ */
 export function operation<Params extends TSchema, Result extends TSchema>(params: Params, result: Result) {
   return { params, result, error: ContractErrorSchema } as const;
 }

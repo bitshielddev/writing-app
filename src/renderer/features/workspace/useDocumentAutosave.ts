@@ -7,10 +7,22 @@ export const DOCUMENT_AUTOSAVE_DELAY_MS = 650;
 
 export type DocumentSaveStatus = "idle" | "saving" | "failed";
 
+/**
+ * What: performs the message step for this file's workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useDocumentAutosave when that path needs this behavior.
+ */
 function message(error: unknown): string {
   return error instanceof Error ? error.message : "The document could not be saved";
 }
 
+/**
+ * What: coordinates document autosave state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useWorkspaceController when that path needs this behavior.
+ */
 export function useDocumentAutosave(
   desktop: DesktopBridge,
   editor: WritingEditor,

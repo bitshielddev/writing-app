@@ -9,6 +9,12 @@ import {
 } from "./inboxReducer";
 import type { TextSuggestion } from "../../../domain/suggestions/schema";
 
+/**
+ * What: performs the item step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by inbox when that path needs this behavior.
+ */
 const item = (id: string, createdAt: number): TextSuggestion => ({
   id, dedupeKey: id, kind: "snippet", title: id, summary: "Summary",
   body: "Body", insertText: "Text", sourceLabels: [], createdAt,

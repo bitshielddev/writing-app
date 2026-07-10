@@ -17,6 +17,12 @@ import {
 } from "./schema.js";
 import { DatabaseStartupError } from "./startup-error.js";
 
+/**
+ * What: creates current database with the dependencies and defaults this workflow expects.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by openApplicationDatabase, index, database and identity-lifecycle when that path needs this behavior.
+ */
 export function createCurrentDatabase(
   db: DatabaseSync,
   version = DATABASE_VERSION,
@@ -33,6 +39,12 @@ export function createCurrentDatabase(
   }
 }
 
+/**
+ * What: performs the error for inspection step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by openApplicationDatabase when that path needs this behavior.
+ */
 function errorForInspection(inspection: DatabaseInspection, databasePath: string) {
   switch (inspection.kind) {
     case "newer":
@@ -58,6 +70,12 @@ function errorForInspection(inspection: DatabaseInspection, databasePath: string
   }
 }
 
+/**
+ * What: performs the open read only step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by openApplicationDatabase when that path needs this behavior.
+ */
 function openReadOnly(databasePath: string) {
   return new DatabaseSync(databasePath, {
     readOnly: true,
@@ -66,6 +84,12 @@ function openReadOnly(databasePath: string) {
   });
 }
 
+/**
+ * What: performs the open application database step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by index, database and lifecycle when that path needs this behavior.
+ */
 export function openApplicationDatabase(
   databasePath: string,
   migrations: readonly DatabaseMigration[] = DATABASE_MIGRATIONS,

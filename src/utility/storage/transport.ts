@@ -15,6 +15,12 @@ import {
 } from "../../contracts/validation.js";
 import type { StorageOperations } from "./application/operations.js";
 
+/**
+ * What: creates storage transport with the dependencies and defaults this workflow expects.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by index, startStorageProcess and transport when that path needs this behavior.
+ */
 export function createStorageTransport(
   handleRequest: (operation: string, params?: unknown) => unknown | Promise<unknown>,
   postMessage: (message: StorageRpcResult) => void,
@@ -72,10 +78,22 @@ type Params<Name extends StorageRpcMethod> = OperationParams<
   Name
 >;
 
+/**
+ * What: performs the params for step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by createStorageRequestHandler when that path needs this behavior.
+ */
 function paramsFor<Name extends StorageRpcMethod>(value: unknown): Params<Name> {
   return value as Params<Name>;
 }
 
+/**
+ * What: creates storage request handler with the dependencies and defaults this workflow expects.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by service and createStorageService when that path needs this behavior.
+ */
 export function createStorageRequestHandler(operations: StorageOperations) {
   const operationMap = {
     "health.ping": () => {

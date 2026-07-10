@@ -22,6 +22,12 @@ export const LEGACY_DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
   toVersion: 3,
   name: "authoritative-suggestion-writer",
   requiresBackup: true,
+  /**
+   * What: performs the up step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+   */
   up(db) {
     db.exec("ALTER TABLE suggestion_state ADD COLUMN revision INTEGER NOT NULL DEFAULT 0");
     db.exec(`CREATE TABLE suggestion_command_receipts (
@@ -36,6 +42,12 @@ export const LEGACY_DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
   toVersion: 4,
   name: "sequenced-durable-events",
   requiresBackup: true,
+  /**
+   * What: performs the up step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+   */
   up(db) {
     db.exec(`ALTER TABLE event_outbox RENAME TO event_outbox_v3`);
     db.exec(`CREATE TABLE event_outbox (
@@ -69,6 +81,12 @@ export const LEGACY_DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
   toVersion: 5,
   name: "durable-json-quarantine",
   requiresBackup: true,
+  /**
+   * What: performs the up step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+   */
   up(db) {
     db.exec(`CREATE TABLE durable_json_quarantine (
       id INTEGER PRIMARY KEY,
@@ -86,6 +104,12 @@ export const LEGACY_DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
   toVersion: 6,
   name: "document-scoped-identities",
   requiresBackup: true,
+  /**
+   * What: performs the up step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+   */
   up(db) {
     const counts = {
       sources: (db.prepare("SELECT COUNT(*) AS count FROM sources").get() as { count: number }).count,
@@ -193,6 +217,12 @@ export const LEGACY_DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [{
 
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [];
 
+/**
+ * What: performs the migration path step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by validateMigrationRegistry and runMigrations when that path needs this behavior.
+ */
 function migrationPath(
   migrations: readonly DatabaseMigration[],
   fromVersion: number,
@@ -219,6 +249,12 @@ function migrationPath(
   return path;
 }
 
+/**
+ * What: validates migration registry before callers depend on it.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by open, openApplicationDatabase, index and database when that path needs this behavior.
+ */
 export function validateMigrationRegistry(
   migrations: readonly DatabaseMigration[],
   minimumVersion = MINIMUM_SUPPORTED_DATABASE_VERSION,
@@ -232,6 +268,12 @@ export function validateMigrationRegistry(
   }
 }
 
+/**
+ * What: performs the execute migration transaction step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by executeMigrationStep when that path needs this behavior.
+ */
 function executeMigrationTransaction(db: DatabaseSync, migration: DatabaseMigration) {
   db.exec("BEGIN IMMEDIATE");
   try {
@@ -244,6 +286,12 @@ function executeMigrationTransaction(db: DatabaseSync, migration: DatabaseMigrat
   }
 }
 
+/**
+ * What: performs the retain failed backup step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by executeMigrationStep when that path needs this behavior.
+ */
 function retainFailedBackup(backupPath: string | undefined) {
   if (!backupPath) return undefined;
   const failedBackupPath = backupPath.replace(/\.bak$/, ".failed.bak");
@@ -251,6 +299,12 @@ function retainFailedBackup(backupPath: string | undefined) {
   return failedBackupPath;
 }
 
+/**
+ * What: performs the migration error step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by executeMigrationStep when that path needs this behavior.
+ */
 function migrationError(
   migration: DatabaseMigration,
   databasePath: string,
@@ -266,6 +320,12 @@ function migrationError(
   );
 }
 
+/**
+ * What: performs the execute migration step step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by runMigrations when that path needs this behavior.
+ */
 function executeMigrationStep(
   db: DatabaseSync,
   migration: DatabaseMigration,
@@ -284,10 +344,22 @@ function executeMigrationStep(
   }
 }
 
+/**
+ * What: performs the existing paths step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by runMigrations when that path needs this behavior.
+ */
 function existingPaths(paths: Array<string | undefined>): string[] {
   return paths.filter((path): path is string => path !== undefined);
 }
 
+/**
+ * What: runs migrations as a complete operation.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by open, openApplicationDatabase, index and database when that path needs this behavior.
+ */
 export function runMigrations({
   db,
   databasePath,

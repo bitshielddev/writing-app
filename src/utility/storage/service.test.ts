@@ -24,6 +24,12 @@ describe("desktop storage service", () => {
     await rm(workspaceRoot, { recursive: true, force: true });
   });
 
+  /**
+   * What: handles storage request and routes the effect to the owning workflow.
+   *
+   * Why: the test needs a focused helper so assertions stay about the behavior under test.
+   * Called when: used by service and acknowledge when that path needs this behavior.
+   */
   const handleStorageRequest = (method: string, params?: unknown) =>
     service.handleRequest(method, params);
 
@@ -205,6 +211,12 @@ describe("desktop storage service", () => {
     expect((service.database.db.prepare("SELECT count(*) AS count FROM event_outbox")
       .get() as { count: number }).count).toBe(2);
 
+    /**
+     * What: performs the acknowledge step for this file's workflow.
+     *
+     * Why: the test needs a focused helper so assertions stay about the behavior under test.
+     * Called when: used by service when that path needs this behavior.
+     */
     const acknowledge = (consumerId: string, sequence: number) => handleStorageRequest(
       "events.acknowledge", { consumerId, streamId: initial.streamId, sequence },
     ) as Promise<{ acknowledgedSequence: number }>;

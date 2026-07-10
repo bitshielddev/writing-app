@@ -2,6 +2,12 @@ const MAX_PAYLOAD_BYTES = 50 * 1024;
 const REDACTED = "[redacted]";
 const SENSITIVE_KEY = /(?:api[-_]?key|authorization|cookie|credentials?|password|secret|(?:access|refresh|id)[-_]?token|bearer|headers?)/i;
 
+/**
+ * What: redacts nested payload data that should not be logged or shown directly.
+ *
+ * Why: agent activity payloads need to be safe before they cross process or UI boundaries.
+ * Called when: used by safeActivityPayload when that path needs this behavior.
+ */
 function redact(value: unknown, seen = new WeakSet<object>()): unknown {
   if (!value || typeof value !== "object") return value;
   if (seen.has(value)) return "[circular]";
@@ -15,6 +21,12 @@ function redact(value: unknown, seen = new WeakSet<object>()): unknown {
   );
 }
 
+/**
+ * What: converts arbitrary agent activity payloads into a UI-safe value.
+ *
+ * Why: agent activity payloads need to be safe before they cross process or UI boundaries.
+ * Called when: used by payload, activity, add and index when that path needs this behavior.
+ */
 export function safeActivityPayload(payload: unknown): unknown {
   const redacted = redact(payload);
   let serialized: string;

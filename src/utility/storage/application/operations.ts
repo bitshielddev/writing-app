@@ -53,6 +53,12 @@ export class StorageOperations {
     this.logger = deps.logger ?? console;
   }
 
+  /**
+   * What: performs the catalog step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createProject, renameProject, deleteProject and selectProject when that path needs this behavior.
+   */
   catalog() {
     return {
       projects: this.deps.projects.list!(),
@@ -61,6 +67,12 @@ export class StorageOperations {
     };
   }
 
+  /**
+   * What: creates project with the dependencies and defaults this workflow expects.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   createProject(input: Params<"project.create">) {
     const name = requiredLabel(input.name, "Project name");
     return this.deps.transactions.run(() => {
@@ -74,11 +86,23 @@ export class StorageOperations {
     });
   }
 
+  /**
+   * What: renames project and keeps dependent state in sync.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   renameProject(input: Params<"project.rename">) {
     this.deps.projects.rename!(input.projectId, requiredLabel(input.name, "Project name"), this.deps.clock.now());
     return this.catalog();
   }
 
+  /**
+   * What: deletes project and updates related state.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   async deleteProject(input: Params<"project.delete">) {
     const selected = this.selection();
     if (selected.projectId === input.projectId) throw new Error("ACTIVE_PROJECT_DELETE_FORBIDDEN");
@@ -90,6 +114,12 @@ export class StorageOperations {
     return this.catalog();
   }
 
+  /**
+   * What: selects project from the current state for UI or application callers.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   selectProject(input: Params<"project.select">) {
     this.deps.projects.get(input.projectId);
     const document = this.deps.documents.list!(input.projectId)[0];
@@ -98,6 +128,12 @@ export class StorageOperations {
     return this.catalog();
   }
 
+  /**
+   * What: creates document with the dependencies and defaults this workflow expects.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   createDocument(input: Params<"document.create">) {
     const title = requiredLabel(input.title, "Document title");
     return this.deps.transactions.run(() => {
@@ -109,6 +145,12 @@ export class StorageOperations {
     });
   }
 
+  /**
+   * What: renames document and keeps dependent state in sync.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   renameDocument(input: Params<"document.rename">) {
     this.deps.documents.rename!(
       input.projectId, input.documentId, requiredLabel(input.title, "Document title"), this.deps.clock.now(),
@@ -116,6 +158,12 @@ export class StorageOperations {
     return this.catalog();
   }
 
+  /**
+   * What: deletes document and updates related state.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   async deleteDocument(input: Params<"document.delete">) {
     const selected = this.selection();
     if (selected.projectId === input.projectId && selected.documentId === input.documentId) {
@@ -126,12 +174,24 @@ export class StorageOperations {
     return this.catalog();
   }
 
+  /**
+   * What: selects document from the current state for UI or application callers.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   selectDocument(input: Params<"document.select">) {
     this.assertScope(input);
     this.deps.selections!.set(input.projectId, input.documentId, this.deps.clock.now());
     return this.catalog();
   }
 
+  /**
+   * What: performs the hydrate step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   hydrate(input?: Params<"hydrate">): WorkspaceSnapshot {
     input ??= this.selection();
     this.assertScope(input);
@@ -150,12 +210,24 @@ export class StorageOperations {
     };
   }
 
+  /**
+   * What: performs the replay events step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   replayEvents(input: Params<"events.replay">) {
     this.assertScope(input);
     if (input.streamId !== streamFor(input.documentId)) throw new Error("UNKNOWN_EVENT_STREAM");
     return this.deps.outbox.replay(input.streamId, input.afterSequence, input.limit);
   }
 
+  /**
+   * What: performs the acknowledge events step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   acknowledgeEvents(input: Params<"events.acknowledge">) {
     this.assertScope(input);
     if (input.streamId !== streamFor(input.documentId)) throw new Error("UNKNOWN_EVENT_STREAM");
@@ -164,6 +236,12 @@ export class StorageOperations {
     ) };
   }
 
+  /**
+   * What: performs the repair workspace step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler, startStorageProcess, service and layers when that path needs this behavior.
+   */
   async repairWorkspace(input?: Params<"workspace.repair">) {
     input ??= this.selection();
     this.assertScope(input);
@@ -174,6 +252,12 @@ export class StorageOperations {
     return { ...workspace.descriptor, ...result };
   }
 
+  /**
+   * What: saves document through the configured persistence path.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by operations and createStorageRequestHandler when that path needs this behavior.
+   */
   async saveDocument(input: Omit<Params<"document.save">, "projectId"> & { projectId?: string }): Promise<DocumentSnapshot> {
     const scoped = { ...this.selection(), ...input } as Params<"document.save">;
     this.assertScope(scoped);
@@ -186,6 +270,12 @@ export class StorageOperations {
     finally { release(); }
   }
 
+  /**
+   * What: performs the perform document save step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by saveDocument when that path needs this behavior.
+   */
   private async performDocumentSave(input: Params<"document.save">) {
     const { files } = this.workspace(input);
     const current = this.deps.documents.get(input.projectId, input.documentId);
@@ -217,6 +307,12 @@ export class StorageOperations {
     return saved;
   }
 
+  /**
+   * What: performs the import source step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   async importSource(input: Params<"source.import">): Promise<SourceSnapshot> {
     this.assertScope(input);
     const { files } = this.workspace(input);
@@ -244,6 +340,12 @@ export class StorageOperations {
     return source;
   }
 
+  /**
+   * What: performs the execute suggestion command step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   async executeSuggestionCommand(input: Params<"suggestions.command">) {
     this.assertScope(input);
     const duplicate = this.deps.suggestions.findReceipt(input.projectId, input.documentId, input.commandId);
@@ -293,6 +395,12 @@ export class StorageOperations {
     return result;
   }
 
+  /**
+   * What: reads observation seed for callers that need the derived value.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   getObservationSeed(input: Params<"agent.seed">): ObservationSeed {
     this.assertScope(input);
     const project = this.deps.projects.get(input.projectId);
@@ -303,6 +411,12 @@ export class StorageOperations {
       documentTitle: document.title, documentRevision: document.revision };
   }
 
+  /**
+   * What: lists suggestions from the current store.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   listSuggestions(input: Params<"agent.suggestions.list">) {
     this.assertScope(input);
     const state = this.deps.suggestions.get(input.projectId, input.documentId).state;
@@ -310,16 +424,40 @@ export class StorageOperations {
       workspace: state.workspacePins.map((entry) => entry.item) };
   }
 
+  /**
+   * What: creates suggestion with the dependencies and defaults this workflow expects.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   async createSuggestion(input: Params<"agent.suggestion.create">) {
     return this.mutateSuggestion(input, { type: "publish", item: input.item }, { type: "agent" });
   }
+  /**
+   * What: performs the update suggestion step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   async updateSuggestion(input: Params<"agent.suggestion.update">) {
     return this.mutateSuggestion(input, { type: "update", item: input.item }, { type: "agent" });
   }
+  /**
+   * What: performs the retract suggestion step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createStorageRequestHandler when that path needs this behavior.
+   */
   async retractSuggestion(input: Params<"agent.suggestion.retract">) {
     return this.mutateSuggestion(input, { type: "retract", suggestionId: input.id }, { type: "agent" });
   }
 
+  /**
+   * What: performs the mutate suggestion step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by createSuggestion, updateSuggestion and retractSuggestion when that path needs this behavior.
+   */
   private async mutateSuggestion(input: Scope & { expectedDocumentRevision: number },
     intent: SuggestionIntent, actor: SuggestionActor) {
     this.assertScope(input);
@@ -356,10 +494,22 @@ export class StorageOperations {
     return result;
   }
 
+  /**
+   * What: checks current revision and throws before invalid state crosses the boundary.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by mutateSuggestion when that path needs this behavior.
+   */
   private assertCurrentRevision(scope: Scope, expected: number) {
     assertSuggestionDocumentRevision(expected, this.deps.documents.get(scope.projectId, scope.documentId).revision);
   }
 
+  /**
+   * What: performs the publish suggestion facts step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by executeSuggestionCommand and mutateSuggestion when that path needs this behavior.
+   */
   private publishSuggestionFacts(scope: Scope,
     events: Array<{ eventId: string }>) {
     for (const event of events) {
@@ -367,17 +517,35 @@ export class StorageOperations {
     }
   }
 
+  /**
+   * What: checks scope and throws before invalid state crosses the boundary.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by selectDocument, hydrate, replayEvents and acknowledgeEvents when that path needs this behavior.
+   */
   private assertScope(scope: Scope) {
     this.deps.projects.get(scope.projectId);
     this.deps.documents.get(scope.projectId, scope.documentId);
   }
 
+  /**
+   * What: performs the selection step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by catalog, deleteProject, deleteDocument and hydrate when that path needs this behavior.
+   */
   private selection() {
     if (this.deps.selections) return this.deps.selections.resolve();
     if (this.deps.projectId && this.deps.documentId) return { projectId: this.deps.projectId, documentId: this.deps.documentId };
     throw new Error("Workspace selection is unavailable");
   }
 
+  /**
+   * What: performs the workspace step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by deleteProject, deleteDocument, repairWorkspace and performDocumentSave when that path needs this behavior.
+   */
   private workspace(scope: Scope) {
     if (this.deps.workspaces) return this.deps.workspaces.forDocument(scope.projectId, scope.documentId);
     if (this.deps.workspace && this.deps.files) return { descriptor: this.deps.workspace, files: this.deps.files };
@@ -385,8 +553,26 @@ export class StorageOperations {
   }
 }
 
+/**
+ * What: performs the stream for step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by hydrate, replayEvents, acknowledgeEvents and getObservationSeed when that path needs this behavior.
+ */
 const streamFor = (documentId: string) => `document:${documentId}`;
+/**
+ * What: performs the scope key step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by saveDocument when that path needs this behavior.
+ */
 const scopeKey = (scope: Scope) => `${scope.projectId}:${scope.documentId}`;
+/**
+ * What: performs the required label step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by createProject, renameProject, createDocument and renameDocument when that path needs this behavior.
+ */
 function requiredLabel(value: string, label: string) {
   const trimmed = value.trim();
   if (!trimmed) throw new Error(`${label} is required`);

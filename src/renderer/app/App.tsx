@@ -31,6 +31,12 @@ type AppProps = {
   desktop: DesktopBridge;
 };
 
+/**
+ * What: renders the process health banner component and wires its props into the surrounding UI.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by App when that path needs this behavior.
+ */
 function ProcessHealthBanner({
   health,
   canRetry,
@@ -59,6 +65,12 @@ function ProcessHealthBanner({
   );
 }
 
+/**
+ * What: renders the app component and wires its props into the surrounding UI.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by main when that path needs this behavior.
+ */
 export default function App({ desktop }: AppProps) {
   const layout = useWorkspaceLayout();
   const {
@@ -149,6 +161,12 @@ export default function App({ desktop }: AppProps) {
     return () => { delete window.scribeFlush; };
   }, [flushDocument]);
 
+  /**
+   * What: performs the render dock step for this file's workflow.
+   *
+   * Why: callers need this behavior in one named place instead of duplicating it.
+   * Called when: used by App when that path needs this behavior.
+   */
   const renderDock = (
     keyboardNavigationActive: boolean,
     regionRef?: typeof contextRegionRef,

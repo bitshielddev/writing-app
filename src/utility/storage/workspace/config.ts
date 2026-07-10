@@ -10,6 +10,12 @@ export type StoragePaths = {
   piDirectory: string;
 };
 
+/**
+ * What: checks workspace identity and throws before invalid state crosses the boundary.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by createStoragePaths when that path needs this behavior.
+ */
 export function assertWorkspaceIdentity(value: string, label: string) {
   // Version 2 used these two values as durable identities. They remain readable
   // only so the v6 filesystem migration can move the workspace to its scoped path.
@@ -18,6 +24,12 @@ export function assertWorkspaceIdentity(value: string, label: string) {
   return value;
 }
 
+/**
+ * What: creates storage paths with the dependencies and defaults this workflow expects.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by migration, migrateLegacyWorkspaceFiles, service and forDocument when that path needs this behavior.
+ */
 export function createStoragePaths(
   applicationWorkspaceRoot: string,
   projectId?: string,

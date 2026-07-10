@@ -13,6 +13,12 @@ type ResponsiveDrawerProps = {
   onClose: () => void;
 };
 
+/**
+ * What: renders the responsive drawer component and wires its props into the surrounding UI.
+ *
+ * Why: shared UI primitives need consistent focus, sizing, and interaction behavior.
+ * Called when: used by App and DrawerHarness when that path needs this behavior.
+ */
 export function ResponsiveDrawer({
   children,
   id,

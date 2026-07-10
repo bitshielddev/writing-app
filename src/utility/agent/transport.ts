@@ -29,6 +29,12 @@ export class AgentStorageClient {
     private readonly postMessage: (message: StorageForwardRequest) => void,
   ) {}
 
+  /**
+   * What: performs the call step for this file's workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by storageCall, index and transport when that path needs this behavior.
+   */
   call<Name extends OperationName<typeof StorageOperations>>(
     operation: Name,
     ...args: OperationArgs<typeof StorageOperations, Name>
@@ -55,6 +61,12 @@ export class AgentStorageClient {
     });
   }
 
+  /**
+   * What: handles result and routes the effect to the owning workflow.
+   *
+   * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+   * Called when: used by createAgentParentTransport and transport when that path needs this behavior.
+   */
   handleResult(message: StorageForwardResult) {
     const request = this.pending.get(message.id);
     if (!request || request.operation !== message.operation) return;
@@ -75,6 +87,12 @@ export class AgentStorageClient {
   }
 }
 
+/**
+ * What: creates agent parent transport with the dependencies and defaults this workflow expects.
+ *
+ * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
+ * Called when: used by index and transport when that path needs this behavior.
+ */
 export function createAgentParentTransport({
   storage,
   handleControl,

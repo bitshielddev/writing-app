@@ -4,6 +4,12 @@ import type { DurableEventEnvelope } from "../../contracts/desktop-bridge";
 import { createDocumentSnapshot } from "../../test/desktopBridgeHarness";
 import { DurableEventBroker } from "./durable-event-broker";
 
+/**
+ * What: performs the envelope step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by durable-event-broker when that path needs this behavior.
+ */
 function envelope(sequence: number): DurableEventEnvelope {
   return { eventId: `event-${sequence}`, streamId: "document:default-document",
     sequence, occurredAt: sequence, payload: { type: "document.saved",

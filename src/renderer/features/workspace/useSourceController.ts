@@ -2,9 +2,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { DesktopBridge, DesktopEvent, SourceSnapshot } from "../../../contracts/desktop-bridge";
 
+/**
+ * What: performs the reconcile step for this file's workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useSourceController when that path needs this behavior.
+ */
 function reconcile(sources: SourceSnapshot[], source: SourceSnapshot) {
   return [source, ...sources.filter((candidate) => candidate.id !== source.id)];
 }
+/**
+ * What: returns whether the supplied value matches current scope.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useSourceController when that path needs this behavior.
+ */
 function isCurrentScope(
   mounted: boolean,
   current: { projectId: string; documentId: string } | undefined,
@@ -16,6 +28,12 @@ function isCurrentScope(
     current.documentId === operation.documentId;
 }
 
+/**
+ * What: coordinates source controller state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: workspace views and controllers need one source for selection, layout, and persistence behavior.
+ * Called when: used by useWorkspaceController and workspaceServices when that path needs this behavior.
+ */
 export function useSourceController(
   desktop: DesktopBridge,
   scope?: { projectId: string; documentId: string },

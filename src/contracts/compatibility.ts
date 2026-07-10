@@ -63,6 +63,12 @@ export type JsonMigration = {
   migrate(value: unknown): unknown;
 };
 
+/**
+ * What: validates json migration registry before callers depend on it.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by migrateJson and compatibility when that path needs this behavior.
+ */
 export function validateJsonMigrationRegistry(
   migrations: readonly JsonMigration[],
   minimumVersion: number,
@@ -88,6 +94,12 @@ export function validateJsonMigrationRegistry(
   }
 }
 
+/**
+ * What: migrates json to the current supported format.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by decodeVersionedJson and compatibility when that path needs this behavior.
+ */
 export function migrateJson(
   value: unknown,
   fromVersion: number,
@@ -118,10 +130,22 @@ export class DurableCompatibilityError extends Error {
   }
 }
 
+/**
+ * What: returns whether the supplied value matches record.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by inspectEnvelope when that path needs this behavior.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * What: parses durable json from untyped data into the typed representation.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by decodeVersionedJson when that path needs this behavior.
+ */
 function parseDurableJson(text: string, format: string, recordIdentity: string) {
   try {
     return JSON.parse(text) as unknown;
@@ -133,6 +157,12 @@ function parseDurableJson(text: string, format: string, recordIdentity: string) 
   }
 }
 
+/**
+ * What: inspects envelope so later validation can make a precise decision.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by decodeVersionedJson when that path needs this behavior.
+ */
 function inspectEnvelope(source: unknown, payloadKey: string, legacyVersion: number) {
   const sourceRecord = isRecord(source) ? source : undefined;
   const enveloped = Boolean(
@@ -144,6 +174,12 @@ function inspectEnvelope(source: unknown, payloadKey: string, legacyVersion: num
   return { sourceRecord, enveloped, detectedVersion };
 }
 
+/**
+ * What: checks supported envelope and throws before invalid state crosses the boundary.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by decodeVersionedJson when that path needs this behavior.
+ */
 function assertSupportedEnvelope(options: {
   enveloped: boolean;
   sourceRecord?: Record<string, unknown>;
@@ -173,6 +209,12 @@ function assertSupportedEnvelope(options: {
   }
 }
 
+/**
+ * What: decodes versioned json from persisted or transported data.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by compatibility, decode, json and suggestions when that path needs this behavior.
+ */
 export function decodeVersionedJson(options: {
   text: string;
   format: string;
@@ -205,6 +247,12 @@ export function decodeVersionedJson(options: {
   }
 }
 
+/**
+ * What: encodes versioned json for persistence, transport, or external runtime use.
+ *
+ * Why: transport, persistence, and renderer boundaries need one shared contract shape.
+ * Called when: used by bootstrap, bootstrapWorkspace, documents and get when that path needs this behavior.
+ */
 export function encodeVersionedJson(
   format: string,
   version: number,

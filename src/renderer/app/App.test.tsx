@@ -105,6 +105,12 @@ const suggestion: TextSuggestion = {
   createdAt: 1,
 };
 
+/**
+ * What: performs the workspace with suggestion step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by App when that path needs this behavior.
+ */
 function workspaceWithSuggestion() {
   return createWorkspaceSnapshot({
     suggestions: {

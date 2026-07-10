@@ -74,6 +74,12 @@ let quitting = false;
 const activity = new ActivityRing();
 const durableEvents = new DurableEventBroker(DESKTOP_EVENT_CHANNEL, randomUUID);
 
+/**
+ * What: performs the spawn child step for this file's workflow.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by start and createAgentSupervisor when that path needs this behavior.
+ */
 function spawnChild<Registry extends OperationRegistry, Message extends StorageChildMessage | AgentChildMessage>(
   modulePath: string,
   args: string[],
@@ -105,6 +111,12 @@ function spawnChild<Registry extends OperationRegistry, Message extends StorageC
   );
 }
 
+/**
+ * What: performs the broadcast step for this file's workflow.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by setRuntime, setProcessHealth and start when that path needs this behavior.
+ */
 function broadcast(event: DesktopTransportEvent) {
   let validated: DesktopTransportEvent;
   try {
@@ -118,6 +130,12 @@ function broadcast(event: DesktopTransportEvent) {
   }
 }
 
+/**
+ * What: updates runtime in the active runtime state.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by start when that path needs this behavior.
+ */
 function setRuntime(update: Partial<AgentRuntime>) {
   runtime = { ...runtime, ...update };
   if (runtime.status === "working" || runtime.status === "waiting" || runtime.status === "capped") agentShouldRun = true;
@@ -125,11 +143,23 @@ function setRuntime(update: Partial<AgentRuntime>) {
   broadcast({ type: "agent.runtime", runtime });
 }
 
+/**
+ * What: updates process health in the active runtime state.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by start and createAgentSupervisor when that path needs this behavior.
+ */
 function setProcessHealth(process: "storage" | "agent", next: ProcessHealth) {
   health = { ...health, [process]: next };
   broadcast({ type: "process.health", health });
 }
 
+/**
+ * What: performs the secure web preferences step for this file's workflow.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by createWindow when that path needs this behavior.
+ */
 function secureWebPreferences(): WebPreferences {
   const additionalArguments = [];
   if (process.env.SCRIBE_E2E === "1") additionalArguments.push("--scribe-e2e");
@@ -143,6 +173,12 @@ function secureWebPreferences(): WebPreferences {
 }
 
 const agentEndpoint = {
+  /**
+   * What: performs the call step for this file's workflow.
+   *
+   * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+   * Called when: used by the enclosing workflow at the point this named step is required.
+   */
   call<Name extends OperationName<typeof AgentOperations>>(
     operation: Name,
     ...args: OperationArgs<typeof AgentOperations, Name>
@@ -151,6 +187,12 @@ const agentEndpoint = {
   },
 };
 
+/**
+ * What: registers ipc with the host runtime.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by start when that path needs this behavior.
+ */
 function registerIpc(
   onScopeSelected?: (scope: { projectId: string; documentId: string }) => Promise<void>,
   retryProcess?: (process: "storage" | "agent") => Promise<void>,
@@ -194,6 +236,12 @@ function registerIpc(
   });
 }
 
+/**
+ * What: creates window with the dependencies and defaults this workflow expects.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by start and index when that path needs this behavior.
+ */
 function createWindow() {
   const window = new BrowserWindow({
     width: 1440,
@@ -211,6 +259,12 @@ function createWindow() {
   if (measureStartup) {
     window.webContents.once("did-finish-load", () => {
       const deadline = Date.now() + 30_000;
+      /**
+       * What: performs the collect step for this file's workflow.
+       *
+       * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+       * Called when: used by createWindow when that path needs this behavior.
+       */
       const collect = async () => {
         const marks = await window.webContents.executeJavaScript(
           `Object.fromEntries(performance.getEntriesByType("mark").map(({ name, startTime }) => [name, startTime]))`,
@@ -242,6 +296,12 @@ function createWindow() {
   else void window.loadFile(join(here, "../dist/index.html"));
 }
 
+/**
+ * What: performs the install development menu step for this file's workflow.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by start when that path needs this behavior.
+ */
 function installDevelopmentMenu() {
   if (!isDevelopment) return;
   const template: MenuItemConstructorOptions[] = [
@@ -262,6 +322,12 @@ function installDevelopmentMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+/**
+ * What: performs the flush renderer for shutdown step for this file's workflow.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by index when that path needs this behavior.
+ */
 async function flushRendererForShutdown(window: BrowserWindow) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -281,11 +347,23 @@ async function flushRendererForShutdown(window: BrowserWindow) {
   }
 }
 
+/**
+ * What: starts the runtime task and wires the dependencies it needs.
+ *
+ * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+ * Called when: used by index when that path needs this behavior.
+ */
 async function start() {
   const userDataPath = app.getPath("userData");
   const dbPath = join(userDataPath, "scribe.sqlite3");
   const agentDir = join(userDataPath, "pi");
   const storageEndpoint = {
+    /**
+     * What: performs the call step for this file's workflow.
+     *
+     * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+     * Called when: used by the enclosing workflow at the point this named step is required.
+     */
     call<Name extends OperationName<typeof StorageOperations>>(
       operation: Name,
       ...args: OperationArgs<typeof StorageOperations, Name>
@@ -308,6 +386,12 @@ async function start() {
   let selectedScope: { projectId: string; documentId: string };
   let agentGeneration = 0;
   let agentSupervisor: ProcessSupervisor<ChildRpc<typeof AgentOperations, AgentChildMessage>>;
+  /**
+   * What: performs the retryable step for this file's workflow.
+   *
+   * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+   * Called when: used by start and createAgentSupervisor when that path needs this behavior.
+   */
   const retryable = (error: unknown) => !(error instanceof Error && (
     error.message.includes("compatibility mismatch") ||
     ("code" in error && typeof error.code === "string" && (
@@ -338,6 +422,12 @@ async function start() {
     onHealth: (next) => setProcessHealth("storage", next),
   });
 
+  /**
+   * What: creates agent supervisor with the dependencies and defaults this workflow expects.
+   *
+   * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+   * Called when: used by switchDocumentAgent and start when that path needs this behavior.
+   */
   const createAgentSupervisor = (scope: { projectId: string; documentId: string }) => new ProcessSupervisor({
     spawn: () => {
     const generation = ++agentGeneration;
@@ -380,6 +470,12 @@ async function start() {
     classifyRetryable: retryable,
     onHealth: (next: ProcessHealth) => setProcessHealth("agent", next),
   });
+  /**
+   * What: performs the switch document agent step for this file's workflow.
+   *
+   * Why: the Electron shell needs centralized startup, routing, and runtime coordination.
+   * Called when: used by start when that path needs this behavior.
+   */
   const switchDocumentAgent = async (scope: { projectId: string; documentId: string }) => {
     try { await agent.call("agent.stop", scope); } catch { /* process may already be unavailable */ }
     agent?.post({ kind: "shutdown", protocolVersion: PROTOCOL_VERSION });

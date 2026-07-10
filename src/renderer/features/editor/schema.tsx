@@ -9,6 +9,12 @@ import { Check, Sparkles, X } from "lucide-react";
 
 import { emitPreviewResolution } from "./previewEvents";
 
+/**
+ * What: returns whether the supplied value has visible content.
+ *
+ * Why: editor code needs a stable adapter around BlockNote and preview-specific behavior.
+ * Called when: used by schema when that path needs this behavior.
+ */
 function hasVisibleContent(value: unknown): boolean {
   if (typeof value === "string") {
     return value.trim().length > 0;
@@ -34,6 +40,12 @@ const suggestionPreviewBlock = createReactBlockSpec(
   },
   {
     render: ({ block, editor, contentRef }) => {
+      /**
+       * What: performs the resolve step for this file's workflow.
+       *
+       * Why: editor code needs a stable adapter around BlockNote and preview-specific behavior.
+       * Called when: used by schema when that path needs this behavior.
+       */
       const resolve = (outcome: "accepted" | "cancelled") => {
         const fullEditor = editor as unknown as BlockNoteEditor;
         if (outcome === "accepted") {

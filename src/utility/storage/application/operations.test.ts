@@ -7,6 +7,12 @@ import {
   type StorageOperationDependencies,
 } from "./operations";
 
+/**
+ * What: performs the fixture step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by operations when that path needs this behavior.
+ */
 function fixture() {
   const project = { id: "project", name: "Draft", revision: 0 };
   let document: DocumentSnapshot = {

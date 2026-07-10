@@ -24,6 +24,12 @@ type DocumentEditorProps = {
   onReturnToPins: (id: string) => void;
 };
 
+/**
+ * What: renders the document editor component and wires its props into the surrounding UI.
+ *
+ * Why: editor code needs a stable adapter around BlockNote and preview-specific behavior.
+ * Called when: used by EditorWorkspace when that path needs this behavior.
+ */
 export function DocumentEditor({
   editor,
   workspacePins,

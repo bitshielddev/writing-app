@@ -48,6 +48,12 @@ const validByKind = {
   },
 } as const satisfies Record<SuggestionItem["kind"], SuggestionItem>;
 
+/**
+ * What: performs the without generated fields step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by schema when that path needs this behavior.
+ */
 function withoutGeneratedFields(item: SuggestionItem): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(item).filter(([key]) => key !== "id" && key !== "createdAt"),

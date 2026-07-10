@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { ProcessSupervisor, RESTART_DELAYS_MS } from "./process-supervisor";
 
+/**
+ * What: performs the child step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by process-supervisor when that path needs this behavior.
+ */
 function child(ready: Promise<void> = Promise.resolve()) {
   return { ready, kill: vi.fn() };
 }

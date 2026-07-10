@@ -2,6 +2,12 @@ import { Type, type Static } from "typebox";
 import { Check, Errors } from "typebox/schema";
 
 const strictObject = { additionalProperties: false } as const;
+/**
+ * What: performs the non empty string step for this file's workflow.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by schema and textSuggestionSchema when that path needs this behavior.
+ */
 const nonEmptyString = (maxLength: number) =>
   Type.String({ minLength: 1, maxLength, pattern: "\\S" });
 
@@ -37,6 +43,12 @@ export const StructureNodesSchema = Type.Array(StructureNodeSchema, {
   maxItems: 100,
 });
 
+/**
+ * What: performs the text suggestion schema step for this file's workflow.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by schema when that path needs this behavior.
+ */
 function textSuggestionSchema<Kind extends "snippet" | "fact" | "term">(
   kind: Kind,
 ) {
@@ -50,6 +62,12 @@ function textSuggestionSchema<Kind extends "snippet" | "fact" | "term">(
   );
 }
 
+/**
+ * What: performs the structure suggestion schema step for this file's workflow.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by schema when that path needs this behavior.
+ */
 function structureSuggestionSchema<Kind extends "outline" | "layout">(
   kind: Kind,
 ) {
@@ -125,6 +143,12 @@ export type SuggestionParseResult =
   | { success: true; value: SuggestionItem }
   | { success: false; issues: SuggestionValidationIssue[] };
 
+/**
+ * What: performs the safe issue step for this file's workflow.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by parseSuggestionItem when that path needs this behavior.
+ */
 function safeIssue(error: ReturnType<typeof Errors>[1][number]): SuggestionValidationIssue {
   return {
     path: error.instancePath || "/",
@@ -133,6 +157,12 @@ function safeIssue(error: ReturnType<typeof Errors>[1][number]): SuggestionValid
   };
 }
 
+/**
+ * What: parses suggestion item from untyped data into the typed representation.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by schema, extension and toSuggestion when that path needs this behavior.
+ */
 export function parseSuggestionItem(value: unknown): SuggestionParseResult {
   const kind =
     typeof value === "object" && value !== null && "kind" in value
@@ -150,14 +180,32 @@ export function parseSuggestionItem(value: unknown): SuggestionParseResult {
   return { success: false, issues: errors.map(safeIssue) };
 }
 
+/**
+ * What: returns whether the supplied value matches suggestion item.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by schema when that path needs this behavior.
+ */
 export function isSuggestionItem(value: unknown): value is SuggestionItem {
   return Check(SuggestionItemSchema, value);
 }
 
+/**
+ * What: returns whether the supplied value matches structure nodes.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by the enclosing workflow at the point this named step is required.
+ */
 export function isStructureNodes(value: unknown): value is StructureNode[] {
   return Check(StructureNodesSchema, value);
 }
 
+/**
+ * What: formats suggestion validation issues for display, validation output, or diagnostics.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by extension and toSuggestion when that path needs this behavior.
+ */
 export function formatSuggestionValidationIssues(
   issues: readonly SuggestionValidationIssue[],
 ): string {
@@ -223,6 +271,12 @@ export const SUGGESTION_KINDS = Object.keys(
   SUGGESTION_CAPABILITIES,
 ) as SuggestionKind[];
 
+/**
+ * What: returns whether the supplied value matches suggestion kind.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by isTextSuggestionKind, isStructureSuggestionKind, isMindMapSuggestionKind and state when that path needs this behavior.
+ */
 export function isSuggestionKind(value: unknown): value is SuggestionKind {
   return (
     typeof value === "string" &&
@@ -230,10 +284,22 @@ export function isSuggestionKind(value: unknown): value is SuggestionKind {
   );
 }
 
+/**
+ * What: returns whether the supplied value matches text suggestion kind.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by state when that path needs this behavior.
+ */
 export function isTextSuggestionKind(value: unknown): value is TextSuggestionKind {
   return isSuggestionKind(value) && SUGGESTION_CAPABILITIES[value].family === "text";
 }
 
+/**
+ * What: returns whether the supplied value matches structure suggestion kind.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by state when that path needs this behavior.
+ */
 export function isStructureSuggestionKind(
   value: unknown,
 ): value is StructureSuggestionKind {
@@ -243,6 +309,12 @@ export function isStructureSuggestionKind(
   );
 }
 
+/**
+ * What: returns whether the supplied value matches mind map suggestion kind.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by the enclosing workflow at the point this named step is required.
+ */
 export function isMindMapSuggestionKind(value: unknown): value is "mindMap" {
   return (
     isSuggestionKind(value) &&
@@ -250,34 +322,70 @@ export function isMindMapSuggestionKind(value: unknown): value is "mindMap" {
   );
 }
 
+/**
+ * What: returns whether the supplied value matches text suggestion.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by state when that path needs this behavior.
+ */
 export function isTextSuggestion(item: SuggestionItem): item is TextSuggestion {
   return SUGGESTION_CAPABILITIES[item.kind].family === "text";
 }
 
+/**
+ * What: returns whether the supplied value matches structure suggestion.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by state, SuggestionPresentation and SuggestionVisual when that path needs this behavior.
+ */
 export function isStructureSuggestion(
   item: SuggestionItem,
 ): item is StructureSuggestion {
   return SUGGESTION_CAPABILITIES[item.kind].family === "structure";
 }
 
+/**
+ * What: returns whether the supplied value matches mind map suggestion.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by state, SuggestionPresentation and SuggestionVisual when that path needs this behavior.
+ */
 export function isMindMapSuggestion(
   item: SuggestionItem,
 ): item is MindMapSuggestion {
   return SUGGESTION_CAPABILITIES[item.kind].family === "mindMap";
 }
 
+/**
+ * What: returns whether the suggestion or value supports suggestion preview.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by SuggestionDockDetail, useWorkspaceKeybindings and usePreviewController when that path needs this behavior.
+ */
 export function supportsSuggestionPreview(
   item: SuggestionItem,
 ): item is TextSuggestion {
   return SUGGESTION_CAPABILITIES[item.kind].supportsPreview;
 }
 
+/**
+ * What: returns whether the supplied value matches visual suggestion.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by state, WorkspacePinCard and SuggestionDockDetail when that path needs this behavior.
+ */
 export function isVisualSuggestion(
   item: SuggestionItem,
 ): item is StructureSuggestion | MindMapSuggestion {
   return SUGGESTION_CAPABILITIES[item.kind].supportsVisualRendering;
 }
 
+/**
+ * What: returns whether the suggestion or value supports workspace placement.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by SuggestionDockDetail and useWorkspaceController when that path needs this behavior.
+ */
 export function supportsWorkspacePlacement(item: SuggestionItem): boolean {
   return SUGGESTION_CAPABILITIES[item.kind].supportsWorkspacePlacement;
 }

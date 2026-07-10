@@ -5,6 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import { ResponsiveDrawer } from "./ResponsiveDrawer";
 
+/**
+ * What: renders the drawer harness component and wires its props into the surrounding UI.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by ResponsiveDrawer when that path needs this behavior.
+ */
 function DrawerHarness() {
   const [open, setOpen] = useState(false);
 

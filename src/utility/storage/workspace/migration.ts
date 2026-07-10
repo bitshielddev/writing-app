@@ -65,6 +65,12 @@ export function migrateLegacyWorkspaceFiles(
   rmSync(journalPath, { force: true });
 }
 
+/**
+ * What: performs the write journal step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by migrateLegacyWorkspaceFiles when that path needs this behavior.
+ */
 function writeJournal(path: string, journal: Journal) {
   const temporary = `${path}.tmp`;
   writeFileSync(temporary, JSON.stringify(journal), "utf8");

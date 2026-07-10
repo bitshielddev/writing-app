@@ -24,12 +24,24 @@ const fixturePath = fileURLToPath(
 );
 const directories: string[] = [];
 
+/**
+ * What: performs the temporary path step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by createFixture and database when that path needs this behavior.
+ */
 async function temporaryPath(filename = "scribe.sqlite3") {
   const directory = await mkdtemp(join(tmpdir(), "scribe-database-"));
   directories.push(directory);
   return join(directory, filename);
 }
 
+/**
+ * What: creates fixture with the dependencies and defaults this workflow expects.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by database when that path needs this behavior.
+ */
 async function createFixture() {
   const path = await temporaryPath();
   const db = new DatabaseSync(path);
@@ -38,6 +50,12 @@ async function createFixture() {
   return path;
 }
 
+/**
+ * What: performs the version step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by database when that path needs this behavior.
+ */
 function version(db: DatabaseSync) {
   return (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
 }
@@ -128,6 +146,12 @@ describe("database lifecycle", () => {
       toVersion: 3,
       name: "add project description",
       requiresBackup: false,
+      /**
+       * What: performs the up step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+       */
       up(database) {
         database.exec("ALTER TABLE projects ADD COLUMN description TEXT NOT NULL DEFAULT ''");
       },
@@ -149,6 +173,12 @@ describe("database lifecycle", () => {
       toVersion: 3,
       name: "failing fixture migration",
       requiresBackup: true,
+      /**
+       * What: performs the up step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+       */
       up(database) {
         database.exec("CREATE TABLE partial_change (id INTEGER PRIMARY KEY) STRICT");
         throw new Error("synthetic failure");
@@ -209,6 +239,12 @@ describe("database lifecycle", () => {
       toVersion: 4,
       name: "skips a version",
       requiresBackup: false,
+      /**
+       * What: performs the up step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+       */
       up() {},
     };
     expect(() => runMigrations({
@@ -222,11 +258,23 @@ describe("database lifecycle", () => {
   });
 
   it("rejects duplicate and disconnected migration registries", () => {
+    /**
+     * What: performs the migration step for this file's workflow.
+     *
+     * Why: the test needs a focused helper so assertions stay about the behavior under test.
+     * Called when: used by database when that path needs this behavior.
+     */
     const migration = (fromVersion: number, toVersion: number): DatabaseMigration => ({
       fromVersion,
       toVersion,
       name: `${fromVersion}-to-${toVersion}`,
       requiresBackup: false,
+      /**
+       * What: performs the up step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+       */
       up() {},
     });
     expect(() => validateMigrationRegistry(
@@ -249,6 +297,12 @@ describe("database lifecycle", () => {
       toVersion: fromVersion + 1,
       name: `${fromVersion}-to-${fromVersion + 1}`,
       requiresBackup: true,
+      /**
+       * What: performs the up step for this file's workflow.
+       *
+       * Why: the test needs a focused helper so assertions stay about the behavior under test.
+       * Called when: used by migrations and executeMigrationTransaction when that path needs this behavior.
+       */
       up() {},
     }));
     runMigrations({ db, databasePath: path, migrations, targetVersion: 6 });

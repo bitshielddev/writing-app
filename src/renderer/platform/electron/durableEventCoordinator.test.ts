@@ -6,6 +6,12 @@ import { DurableEventCoordinator } from "./durableEventCoordinator";
 
 const streamId = "document:default-document";
 
+/**
+ * What: performs the event step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by durableEventCoordinator when that path needs this behavior.
+ */
 function event(sequence: number): DurableEventEnvelope {
   return {
     eventId: `event-${sequence}`,
@@ -20,6 +26,12 @@ function event(sequence: number): DurableEventEnvelope {
   };
 }
 
+/**
+ * What: performs the bridge step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by durableEventCoordinator when that path needs this behavior.
+ */
 function bridge(overrides: Partial<DesktopBridge> = {}): DesktopBridge {
   return {
     hydrate: vi.fn().mockResolvedValue(createWorkspaceSnapshot()),

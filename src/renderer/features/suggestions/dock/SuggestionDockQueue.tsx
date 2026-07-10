@@ -61,6 +61,12 @@ type QueueRowProps = {
   onTarget: () => void;
 };
 
+/**
+ * What: renders the queue row component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by SuggestionDockQueue when that path needs this behavior.
+ */
 function QueueRow({
   entry,
   pinned,
@@ -148,6 +154,12 @@ type SuggestionDockQueueProps = {
   onUnpin: (id: string) => void;
 };
 
+/**
+ * What: renders the suggestion dock queue component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by SuggestionDock and DockContent when that path needs this behavior.
+ */
 export function SuggestionDockQueue({
   entries,
   pinnedEntries,
@@ -170,6 +182,12 @@ export function SuggestionDockQueue({
     row?.scrollIntoView?.({ block: "nearest" });
   }, [keyboardTargetId]);
 
+  /**
+   * What: performs the row ref step for this file's workflow.
+   *
+   * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+   * Called when: used by SuggestionDockQueue when that path needs this behavior.
+   */
   const rowRef = (id: string) => (element: HTMLButtonElement | null) => {
     if (element) rowRefs.current.set(id, element);
     else rowRefs.current.delete(id);

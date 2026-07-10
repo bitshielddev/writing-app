@@ -7,6 +7,12 @@ import type { TextSuggestion } from "./schema";
 const item: TextSuggestion = { id: "one", dedupeKey: "one", kind: "snippet", title: "One",
   summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1 };
 
+/**
+ * What: performs the changed step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by transitions when that path needs this behavior.
+ */
 const changed = (state: ReturnType<typeof createEmptySuggestionState>, command: DurableSuggestionCommand) => {
   const result = applySuggestionCommand(state, command);
   expect(result.status).toBe("changed");

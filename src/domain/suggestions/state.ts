@@ -76,6 +76,12 @@ export type PersistedWorkspacePin = WorkspacePinRect & {
 
 export type PersistedSuggestionState = Static<typeof PersistedSuggestionStateSchema>;
 
+/**
+ * What: creates empty suggestion state with the dependencies and defaults this workflow expects.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by desktopBridgeHarness, createWorkspaceSnapshot, contracts and aggregate when that path needs this behavior.
+ */
 export function createEmptySuggestionState(): PersistedSuggestionState {
   return {
     entries: [],
@@ -86,6 +92,12 @@ export function createEmptySuggestionState(): PersistedSuggestionState {
   };
 }
 
+/**
+ * What: performs the trim suggestion entries step for this file's workflow.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by transitions, applySuggestionCommand, applySuggestionAgentEvent and state when that path needs this behavior.
+ */
 export function trimSuggestionEntries<T extends PersistedInboxEntry>(
   entries: readonly T[],
   protectedIds: Iterable<string> = [],

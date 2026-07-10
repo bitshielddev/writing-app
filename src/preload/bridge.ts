@@ -24,6 +24,12 @@ export type PreloadContextBridge = {
   exposeInMainWorld(name: string, value: unknown): void;
 };
 
+/**
+ * What: performs the invoke step for this file's workflow.
+ *
+ * Why: the preload boundary must expose a narrow, typed bridge instead of raw Electron APIs.
+ * Called when: used by subscribeEvents and createDesktopBridge when that path needs this behavior.
+ */
 async function invoke<Name extends OperationName<typeof RendererOperations>>(
   ipcRenderer: PreloadIpcRenderer,
   operation: Name,
@@ -42,8 +48,20 @@ async function invoke<Name extends OperationName<typeof RendererOperations>>(
   ) as OperationResult<typeof RendererOperations, Name>;
 }
 
+/**
+ * What: creates desktop bridge with the dependencies and defaults this workflow expects.
+ *
+ * Why: the preload boundary must expose a narrow, typed bridge instead of raw Electron APIs.
+ * Called when: used by exposePreloadBridges and bridge when that path needs this behavior.
+ */
 export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBridge {
   let subscription: Promise<{ consumerId: string }> | undefined;
+  /**
+   * What: subscribes to events and returns the cleanup path.
+   *
+   * Why: the preload boundary must expose a narrow, typed bridge instead of raw Electron APIs.
+   * Called when: used by createDesktopBridge when that path needs this behavior.
+   */
   const subscribeEvents = () => subscription ??= invoke(
     ipcRenderer, "events.subscribe", DESKTOP_INVOKE_CHANNELS.subscribeEvents,
   );
@@ -70,7 +88,19 @@ export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBri
     executeSuggestionCommand: (input) => invoke(ipcRenderer, "suggestions.command", DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, input),
     importSource: (input) => invoke(ipcRenderer, "source.import", DESKTOP_INVOKE_CHANNELS.importSource, input),
     retryProcess: (input) => invoke(ipcRenderer, "process.retry", DESKTOP_INVOKE_CHANNELS.retryProcess, input),
+    /**
+     * What: subscribes to events and returns the cleanup path.
+     *
+     * Why: the preload boundary must expose a narrow, typed bridge instead of raw Electron APIs.
+     * Called when: used by desktop-bridge, desktopBridgeHarness, bridge and useWorkspaceHydration when that path needs this behavior.
+     */
     subscribe(listener) {
+      /**
+       * What: performs the handler step for this file's workflow.
+       *
+       * Why: the preload boundary must expose a narrow, typed bridge instead of raw Electron APIs.
+       * Called when: used by subscribe when that path needs this behavior.
+       */
       const handler = (_event: unknown, payload: unknown) => {
         try {
           listener(parseOrContractError(DesktopEventSchema, payload, "preload.desktop-event"));
@@ -84,6 +114,12 @@ export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBri
   };
 }
 
+/**
+ * What: performs the expose preload bridges step for this file's workflow.
+ *
+ * Why: the preload boundary must expose a narrow, typed bridge instead of raw Electron APIs.
+ * Called when: used by bridge and index when that path needs this behavior.
+ */
 export function exposePreloadBridges({
   contextBridge,
   ipcRenderer,

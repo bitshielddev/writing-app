@@ -11,6 +11,12 @@ import { ChildStartupError } from "./child-rpc";
 import { AgentOperations } from "../../contracts/operations/agent";
 import { StorageOperations } from "../../contracts/operations/storage";
 
+/**
+ * What: performs the process harness step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by startup when that path needs this behavior.
+ */
 function processHarness(ready: Promise<void>, calls: string[], name: string) {
   return {
     ready,

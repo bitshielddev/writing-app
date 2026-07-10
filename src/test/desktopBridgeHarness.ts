@@ -15,6 +15,12 @@ export type Deferred<T> = {
   reject(error: unknown): void;
 };
 
+/**
+ * What: performs the deferred step for this file's workflow.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by desktopBridgeHarness, startup, useSuggestionController and durableEventCoordinator when that path needs this behavior.
+ */
 export function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
@@ -28,18 +34,36 @@ export function deferred<T>(): Deferred<T> {
 export class ControlledOperation<Args extends unknown[], Result> {
   readonly calls: Array<{ args: Args; completion: Deferred<Result> }> = [];
 
+  /**
+   * What: performs the invoke step for this file's workflow.
+   *
+   * Why: callers need this behavior in one named place instead of duplicating it.
+   * Called when: used by desktopBridgeHarness when that path needs this behavior.
+   */
   readonly invoke = (...args: Args): Promise<Result> => {
     const completion = deferred<Result>();
     this.calls.push({ args, completion });
     return completion.promise;
   };
 
+  /**
+   * What: performs the resolve step for this file's workflow.
+   *
+   * Why: callers need this behavior in one named place instead of duplicating it.
+   * Called when: used by App, useDocumentAutosave, useWorkspaceHydration and workspaceServices when that path needs this behavior.
+   */
   resolve(index: number, result: Result) {
     const call = this.calls[index];
     if (!call) throw new Error(`No controlled call at index ${index}`);
     call.completion.resolve(result);
   }
 
+  /**
+   * What: performs the reject step for this file's workflow.
+   *
+   * Why: callers need this behavior in one named place instead of duplicating it.
+   * Called when: used by App, useDocumentAutosave, useWorkspaceHydration and workspaceServices when that path needs this behavior.
+   */
   reject(index: number, error: unknown) {
     const call = this.calls[index];
     if (!call) throw new Error(`No controlled call at index ${index}`);
@@ -47,6 +71,12 @@ export class ControlledOperation<Args extends unknown[], Result> {
   }
 }
 
+/**
+ * What: creates document snapshot with the dependencies and defaults this workflow expects.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by createWorkspaceSnapshot, contracts, durable-event-broker and envelope when that path needs this behavior.
+ */
 export function createDocumentSnapshot(
   overrides: Partial<DocumentSnapshot> = {},
 ): DocumentSnapshot {
@@ -63,6 +93,12 @@ export function createDocumentSnapshot(
   };
 }
 
+/**
+ * What: creates source snapshot with the dependencies and defaults this workflow expects.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by createWorkspaceSnapshot, contracts, routing and createHarness when that path needs this behavior.
+ */
 export function createSourceSnapshot(
   overrides: Partial<SourceSnapshot> = {},
 ): SourceSnapshot {
@@ -78,6 +114,12 @@ export function createSourceSnapshot(
   };
 }
 
+/**
+ * What: creates workspace snapshot with the dependencies and defaults this workflow expects.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by contracts, routing, createHarness and bridge when that path needs this behavior.
+ */
 export function createWorkspaceSnapshot(
   overrides: Partial<WorkspaceSnapshot> = {},
 ): WorkspaceSnapshot {
@@ -144,6 +186,12 @@ export class DesktopBridgeHarness {
     return this.listeners.size;
   }
 
+  /**
+   * What: performs the emit step for this file's workflow.
+   *
+   * Why: callers need this behavior in one named place instead of duplicating it.
+   * Called when: used by App when that path needs this behavior.
+   */
   emit(event: DesktopEvent) {
     for (const listener of this.listeners) listener(event as DesktopTransportEvent);
   }

@@ -99,6 +99,12 @@ export function decideSuggestionCommand(
   return { status: "changed", facts: [factForWriterCommand(command)] };
 }
 
+/**
+ * What: builds for writer command for the durable suggestion event stream.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by decideSuggestionCommand when that path needs this behavior.
+ */
 function factForWriterCommand(command: DurableSuggestionCommand): SuggestionFact {
   switch (command.type) {
     case "markViewed": return { type: "suggestion.viewed", version: 1, suggestionId: command.suggestionId };
@@ -138,6 +144,12 @@ export function applySuggestionFact(
     coveredThroughSequence: event.sequence };
 }
 
+/**
+ * What: converts for fact into the state transition callers need.
+ *
+ * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
+ * Called when: used by applySuggestionFact when that path needs this behavior.
+ */
 function transitionForFact(state: PersistedSuggestionState, fact: Exclude<SuggestionFact,
   { type: "suggestion.projectionImported" }>) {
   switch (fact.type) {

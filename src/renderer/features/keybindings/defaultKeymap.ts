@@ -18,10 +18,22 @@ export const DEFAULT_KEYMAP = {
   "suggestion.dismiss": ["d", "d"],
 } as const satisfies Keymap;
 
+/**
+ * What: formats stroke for display, validation output, or diagnostics.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by formatSequence, useKeybindingController and KeybindingCommandStrip when that path needs this behavior.
+ */
 export function formatStroke(stroke: KeyStroke) {
   return stroke === "Enter" ? "Enter" : stroke;
 }
 
+/**
+ * What: formats sequence for display, validation output, or diagnostics.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by KeybindingHelpDialog when that path needs this behavior.
+ */
 export function formatSequence(sequence: KeySequence) {
   return ["Ctrl", ";", ...sequence.map(formatStroke)];
 }

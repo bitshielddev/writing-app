@@ -7,6 +7,12 @@ import {
   type WorkspacePinBounds,
 } from "./geometry";
 
+/**
+ * What: coordinates workspace pin bounds state, side effects, and callbacks for the renderer workflow.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by WorkspacePins when that path needs this behavior.
+ */
 export function useWorkspacePinBounds(
   canvasRef: RefObject<HTMLDivElement | null>,
   pins: WorkspacePin[],
@@ -23,6 +29,12 @@ export function useWorkspacePinBounds(
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    /**
+     * What: performs the update bounds step for this file's workflow.
+     *
+     * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+     * Called when: used by useWorkspacePinBounds when that path needs this behavior.
+     */
     const updateBounds = () =>
       setBounds({ width: canvas.clientWidth, height: canvas.clientHeight });
     updateBounds();

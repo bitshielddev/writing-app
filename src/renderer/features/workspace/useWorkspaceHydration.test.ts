@@ -5,6 +5,12 @@ import type { WritingEditor } from "../editor/schema";
 import { DesktopBridgeHarness, createWorkspaceSnapshot } from "../../../test/desktopBridgeHarness";
 import { useWorkspaceHydration } from "./useWorkspaceHydration";
 
+/**
+ * What: performs the editor step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by useWorkspaceHydration when that path needs this behavior.
+ */
 function editor() {
   const document = [{ id: "initial", type: "paragraph" }];
   return {

@@ -32,6 +32,12 @@ const pinnedEntry: PinnedInboxEntry = {
   pinnedAt: 2,
 };
 
+/**
+ * What: performs the render dock step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by SuggestionDock when that path needs this behavior.
+ */
 function renderDock(
   overrides: Partial<React.ComponentProps<typeof SuggestionDock>> = {},
 ) {
@@ -56,6 +62,12 @@ function renderDock(
     onRetrySuggestionSave: vi.fn(),
     ...overrides,
   };
+  /**
+   * What: renders the dock harness component and wires its props into the surrounding UI.
+   *
+   * Why: the test needs a focused helper so assertions stay about the behavior under test.
+   * Called when: used by renderDock when that path needs this behavior.
+   */
   function DockHarness() {
     const [view, setView] = useState(props.view);
     return (

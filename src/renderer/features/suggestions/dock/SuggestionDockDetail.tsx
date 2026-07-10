@@ -29,6 +29,12 @@ type SuggestionDockDetailProps = {
   onPreview: (item: SuggestionItem) => void;
 };
 
+/**
+ * What: renders the source labels component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by SuggestionDockDetail when that path needs this behavior.
+ */
 function SourceLabels({ labels }: { labels: string[] }) {
   if (!labels.length) return null;
   return (
@@ -46,6 +52,12 @@ function SourceLabels({ labels }: { labels: string[] }) {
   );
 }
 
+/**
+ * What: renders the suggestion dock detail component and wires its props into the surrounding UI.
+ *
+ * Why: suggestion UI and state flows need consistent presentation and mutation behavior.
+ * Called when: used by SuggestionDock and DockContent when that path needs this behavior.
+ */
 export function SuggestionDockDetail({
   entry,
   pinned,

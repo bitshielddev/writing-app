@@ -11,10 +11,22 @@ export type SequenceMatch =
   | { status: "exact"; commandId: AppCommandId }
   | { status: "invalid" };
 
+/**
+ * What: returns whether the supplied value matches prefix.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by matchSequence when that path needs this behavior.
+ */
 function isPrefix(prefix: KeySequence, sequence: KeySequence) {
   return prefix.every((stroke, index) => sequence[index] === stroke);
 }
 
+/**
+ * What: performs the match sequence step for this file's workflow.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by useKeybindingController, handleKeyDown and sequenceMatcher when that path needs this behavior.
+ */
 export function matchSequence(
   strokes: KeySequence,
   keymap: Keymap,

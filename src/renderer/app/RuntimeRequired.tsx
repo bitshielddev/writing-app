@@ -2,6 +2,12 @@ type RuntimeRequiredProps = {
   message: string;
 };
 
+/**
+ * What: renders the runtime required component and wires its props into the surrounding UI.
+ *
+ * Why: callers need this behavior in one named place instead of duplicating it.
+ * Called when: used by main when that path needs this behavior.
+ */
 export function RuntimeRequired({ message }: RuntimeRequiredProps) {
   return (
     <main className="grid min-h-dvh place-items-center bg-[#f7f6ff] p-8">

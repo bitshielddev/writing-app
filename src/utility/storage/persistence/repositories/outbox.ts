@@ -39,6 +39,12 @@ export type PendingEvent = DurableEventEnvelope;
 export class OutboxRepository implements EventOutbox {
   constructor(private readonly db: DatabaseSync) {}
 
+  /**
+   * What: performs the enqueue step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, performDocumentSave, importSource and fixture when that path needs this behavior.
+   */
   enqueue(projectId: string | DurableEventPayload, documentId?: string, event?: DurableEventPayload, causationId?: string) {
     if (typeof projectId !== "string") {
       causationId = documentId;
@@ -72,6 +78,12 @@ export class OutboxRepository implements EventOutbox {
     return { eventId, streamId, sequence, occurredAt, causationId, payload: validated };
   }
 
+  /**
+   * What: performs the enqueue suggestion fact step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, publishSuggestionFacts and fixture when that path needs this behavior.
+   */
   enqueueSuggestionFact(projectId: string, documentId: string, suggestionEventId: string) {
     const factRow = this.db.prepare(`SELECT command_id, occurred_at FROM suggestion_event_history
       WHERE event_id = ? AND project_id = ? AND document_id = ?`).get(
@@ -91,6 +103,12 @@ export class OutboxRepository implements EventOutbox {
       occurred_at: factRow.occurred_at, causation_id: factRow.command_id });
   }
 
+  /**
+   * What: performs the pending step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, fixture, deliverPending and layers when that path needs this behavior.
+   */
   pending(): PendingEvent[] {
     const rows = this.db.prepare(
       `SELECT event_id, project_id, document_id, stream_id, sequence, event_json,
@@ -100,12 +118,24 @@ export class OutboxRepository implements EventOutbox {
     return this.parseContiguous(rows);
   }
 
+  /**
+   * What: performs the mark dispatched step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, fixture and deliverPending when that path needs this behavior.
+   */
   markDispatched(eventId: string) {
     this.db.prepare(
       "UPDATE event_outbox SET dispatched_at = ? WHERE event_id = ?",
     ).run(Date.now(), eventId);
   }
 
+  /**
+   * What: performs the head step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, hydrate, getObservationSeed and fixture when that path needs this behavior.
+   */
   head(streamId: string) {
     const row = this.db.prepare(
       "SELECT COALESCE(MAX(sequence), 0) AS sequence FROM event_outbox WHERE stream_id = ?",
@@ -113,6 +143,12 @@ export class OutboxRepository implements EventOutbox {
     return row.sequence;
   }
 
+  /**
+   * What: performs the replay step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, replayEvents, fixture and layers when that path needs this behavior.
+   */
   replay(streamId: string, afterSequence: number, requestedLimit = 100) {
     const limit = clampReplayLimit(requestedLimit);
     const headSequence = this.head(streamId);
@@ -140,6 +176,12 @@ export class OutboxRepository implements EventOutbox {
       historyAvailable: true };
   }
 
+  /**
+   * What: performs the acknowledge step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, acknowledgeEvents and fixture when that path needs this behavior.
+   */
   acknowledge(consumerId: string, streamId: string, sequence: number) {
     const ownership = this.streamOwnership(streamId);
     if (!ownership) throw new Error("UNKNOWN_EVENT_STREAM");
@@ -165,6 +207,12 @@ export class OutboxRepository implements EventOutbox {
     return row.acknowledged_sequence;
   }
 
+  /**
+   * What: performs the stream ownership step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by replay and acknowledge when that path needs this behavior.
+   */
   private streamOwnership(streamId: string) {
     const row = this.db.prepare(`SELECT project_id, id AS document_id FROM documents
       WHERE 'document:' || id = ?`).get(streamId) as
@@ -172,6 +220,12 @@ export class OutboxRepository implements EventOutbox {
     return row && { projectId: row.project_id, documentId: row.document_id };
   }
 
+  /**
+   * What: parses contiguous from untyped data into the typed representation.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by pending and replay when that path needs this behavior.
+   */
   private parseContiguous(rows: PersistedEventRow[]) {
     const events: DurableEventEnvelope[] = [];
     for (const row of rows) {
@@ -196,6 +250,12 @@ export class OutboxRepository implements EventOutbox {
     return events;
   }
 
+  /**
+   * What: parses row from untyped data into the typed representation.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by enqueueSuggestionFact and parseContiguous when that path needs this behavior.
+   */
   private parseRow(row: PersistedEventRow) {
     if (!row.suggestion_event_id) {
       if (row.event_json === null) throw new Error("INVALID_DURABLE_DELIVERY_REFERENCE");
@@ -232,6 +292,12 @@ type PersistedEventRow = {
   occurred_at: number; causation_id: string | null;
 };
 
+/**
+ * What: performs the legacy suggestion event step for this file's workflow.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by parseRow when that path needs this behavior.
+ */
 function legacySuggestionEvent(fact: SuggestionFact) {
   switch (fact.type) {
     case "suggestion.published": return { type: "suggestion.added" as const, item: fact.item };
@@ -246,6 +312,12 @@ function legacySuggestionEvent(fact: SuggestionFact) {
   }
 }
 
+/**
+ * What: parses envelope from untyped data into the typed representation.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by parseRow when that path needs this behavior.
+ */
 function parseEnvelope(db: DatabaseSync, row: PersistedEventRow): DurableEventEnvelope {
   if (row.event_json === null) throw new Error("DURABLE_EVENT_PAYLOAD_MISSING");
   const policy = COMPATIBILITY_REGISTRY.suggestionEvents;

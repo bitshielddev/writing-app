@@ -5,6 +5,12 @@ import type { SelectionStore } from "../../application/ports.js";
 export class SelectionRepository implements SelectionStore {
   constructor(private readonly db: DatabaseSync) {}
 
+  /**
+   * What: performs the resolve step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, selection and createStorageService when that path needs this behavior.
+   */
   resolve() {
     const stored = this.db.prepare(`SELECT selected_project_id, selected_document_id
       FROM workspace_settings WHERE id = 1`).get() as
@@ -20,6 +26,12 @@ export class SelectionRepository implements SelectionStore {
     return this.set(fallback.project_id, fallback.document_id, Date.now());
   }
 
+  /**
+   * What: performs the set step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, createProject, selectProject and createDocument when that path needs this behavior.
+   */
   set(projectId: string, documentId: string, now: number) {
     const owned = this.db.prepare(
       "SELECT 1 FROM documents WHERE project_id = ? AND id = ?",

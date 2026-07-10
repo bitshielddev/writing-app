@@ -5,6 +5,12 @@ type KeybindingCommandStripProps = {
   state?: CommandStripState;
 };
 
+/**
+ * What: renders the keycap component and wires its props into the surrounding UI.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by KeybindingCommandStrip when that path needs this behavior.
+ */
 function Keycap({ children }: { children: string }) {
   return (
     <kbd className="inline-flex min-h-6 min-w-6 items-center justify-center rounded border border-white/20 bg-white/10 px-1.5 font-mono text-[0.7rem] font-bold text-white shadow-sm">
@@ -13,6 +19,12 @@ function Keycap({ children }: { children: string }) {
   );
 }
 
+/**
+ * What: renders the keybinding command strip component and wires its props into the surrounding UI.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by App, useKeybindingController and Harness when that path needs this behavior.
+ */
 export function KeybindingCommandStrip({
   state,
 }: KeybindingCommandStripProps) {

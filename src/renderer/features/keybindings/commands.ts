@@ -116,7 +116,19 @@ export const COMMANDS_BY_ID = Object.fromEntries(
   COMMAND_CATALOG.map((command) => [command.id, command]),
 ) as Record<AppCommandId, CommandDefinition>;
 
+/**
+ * What: performs the executed step for this file's workflow.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by useWorkspaceKeybindings, useKeybindingController and createHandlers when that path needs this behavior.
+ */
 export const executed = (): CommandResult => ({ status: "executed" });
+/**
+ * What: performs the unavailable step for this file's workflow.
+ *
+ * Why: keyboard workflows need shared sequence and command behavior across the UI.
+ * Called when: used by useWorkspaceKeybindings when that path needs this behavior.
+ */
 export const unavailable = (message: string): CommandResult => ({
   status: "unavailable",
   message,

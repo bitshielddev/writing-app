@@ -14,6 +14,12 @@ import {
   parseOrContractError,
 } from "../../contracts/validation.js";
 
+/**
+ * What: starts storage process and wires the dependencies it needs.
+ *
+ * Why: storage workflows need durable, transactional behavior behind the application contract.
+ * Called when: used by index when that path needs this behavior.
+ */
 export async function startStorageProcess(
   databasePath: string | undefined,
   workspaceRoot: string | undefined,
@@ -27,6 +33,12 @@ export async function startStorageProcess(
     service = createStorageService({
       databasePath,
       workspaceRoot,
+      /**
+       * What: performs the publish event step for this file's workflow.
+       *
+       * Why: storage workflows need durable, transactional behavior behind the application contract.
+       * Called when: used by service and createStorageService when that path needs this behavior.
+       */
       publishEvent(event) {
         process.parentPort?.postMessage({
           kind: "domain.event",

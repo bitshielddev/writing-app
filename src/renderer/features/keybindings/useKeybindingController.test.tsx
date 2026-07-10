@@ -9,17 +9,35 @@ import {
 import { KeybindingCommandStrip } from "./KeybindingCommandStrip";
 import { useKeybindingController } from "./useKeybindingController";
 
+/**
+ * What: creates handlers with the dependencies and defaults this workflow expects.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by useKeybindingController when that path needs this behavior.
+ */
 function createHandlers() {
   return Object.fromEntries(
     APP_COMMAND_IDS.map((id) => [id, vi.fn(() => executed())]),
   ) as unknown as CommandHandlers;
 }
 
+/**
+ * What: renders the harness component and wires its props into the surrounding UI.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by useKeybindingController when that path needs this behavior.
+ */
 function Harness({ handlers }: { handlers: CommandHandlers }) {
   const controller = useKeybindingController({ handlers });
   return <KeybindingCommandStrip state={controller.stripState} />;
 }
 
+/**
+ * What: performs the press step for this file's workflow.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by useKeybindingController when that path needs this behavior.
+ */
 function press(key: string, options: KeyboardEventInit = {}) {
   const event = new KeyboardEvent("keydown", {
     key,

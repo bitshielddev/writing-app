@@ -14,6 +14,12 @@ import {
   type RpcCaller,
 } from "./routing";
 
+/**
+ * What: creates harness with the dependencies and defaults this workflow expects.
+ *
+ * Why: the test needs a focused helper so assertions stay about the behavior under test.
+ * Called when: used by routing when that path needs this behavior.
+ */
 function createHarness(eventConsumers?: RendererEventConsumers) {
   const handlers = new Map<
     string,
@@ -82,6 +88,12 @@ function createHarness(eventConsumers?: RendererEventConsumers) {
     eventConsumers,
     logger: { error: vi.fn() },
   });
+  /**
+   * What: performs the invoke step for this file's workflow.
+   *
+   * Why: the test needs a focused helper so assertions stay about the behavior under test.
+   * Called when: used by createHarness when that path needs this behavior.
+   */
   const invoke = (channel: string, ...args: unknown[]) => {
     const handler = handlers.get(channel);
     if (!handler) throw new Error(`Missing handler: ${channel}`);

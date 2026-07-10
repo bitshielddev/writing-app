@@ -40,6 +40,12 @@ import {
 export class SuggestionRepository implements SuggestionStore {
   constructor(private readonly db: DatabaseSync) {}
 
+  /**
+   * What: performs the get step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, hydrate, executeSuggestionCommand and listSuggestions when that path needs this behavior.
+   */
   get(projectId: string, documentId?: string): SuggestionProjection {
     documentId ??= (this.db.prepare(
       "SELECT id FROM documents WHERE project_id = ? ORDER BY created_at, id LIMIT 1",
@@ -72,6 +78,12 @@ export class SuggestionRepository implements SuggestionStore {
     return { state, revision: row.revision, coveredThroughSequence: row.covered_through_sequence };
   }
 
+  /**
+   * What: performs the compare and put step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports and fixture when that path needs this behavior.
+   */
   compareAndPut(projectId: string, documentId: string | number, expectedRevision: number | PersistedSuggestionState, state?: PersistedSuggestionState) {
     if (typeof documentId === "number") {
       state = expectedRevision as PersistedSuggestionState;
@@ -98,6 +110,12 @@ export class SuggestionRepository implements SuggestionStore {
     return this.get(projectId, documentId);
   }
 
+  /**
+   * What: performs the append facts step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, executeSuggestionCommand, mutateSuggestion and fixture when that path needs this behavior.
+   */
   appendFacts(command: SuggestionCommandEnvelope, facts: SuggestionFact[], eventIds: string[]) {
     const validatedCommand = parseOrContractError(
       SuggestionCommandEnvelopeSchema, command, "persisted.suggestion-command.write",
@@ -139,6 +157,12 @@ export class SuggestionRepository implements SuggestionStore {
     return { projection, events };
   }
 
+  /**
+   * What: performs the record command receipt step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, executeSuggestionCommand, mutateSuggestion and fixture when that path needs this behavior.
+   */
   recordCommandReceipt(command: SuggestionCommandEnvelope, result: SuggestionCommandResult,
     firstSequence?: number, resultingSequence = this.get(command.projectId, command.documentId).coveredThroughSequence ?? 0,
     errorCode?: string) {
@@ -160,6 +184,12 @@ export class SuggestionRepository implements SuggestionStore {
         errorCode ?? null, validatedCommand.requestedAt, Date.now());
   }
 
+  /**
+   * What: performs the history step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by rebuild and parseRow when that path needs this behavior.
+   */
   history(projectId: string, documentId: string, afterSequence = 0): SequencedSuggestionFact[] {
     const rows = this.db.prepare(`SELECT event_id, sequence, command_id, actor_json, payload_json, occurred_at
       FROM suggestion_event_history WHERE project_id = ? AND document_id = ? AND sequence > ?
@@ -173,6 +203,12 @@ export class SuggestionRepository implements SuggestionStore {
     }, "persisted.suggestion-event.read") as SequencedSuggestionFact);
   }
 
+  /**
+   * What: performs the rebuild step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by verify and repair when that path needs this behavior.
+   */
   rebuild(projectId: string, documentId: string) {
     const empty = createEmptySuggestionState();
     let projection = { state: empty, revision: 0, coveredThroughSequence: 0 };
@@ -208,6 +244,12 @@ export class SuggestionRepository implements SuggestionStore {
     };
   }
 
+  /**
+   * What: performs the verify step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports and diagnostics when that path needs this behavior.
+   */
   verify(projectId: string, documentId: string) {
     const started = performance.now();
     try {
@@ -228,6 +270,12 @@ export class SuggestionRepository implements SuggestionStore {
     }
   }
 
+  /**
+   * What: performs the repair step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports when that path needs this behavior.
+   */
   repair(projectId: string, documentId: string, backupConfirmed: boolean) {
     if (!backupConfirmed) throw new Error("SUGGESTION_REPAIR_REQUIRES_BACKUP");
     const rebuilt = this.rebuild(projectId, documentId);
@@ -242,6 +290,12 @@ export class SuggestionRepository implements SuggestionStore {
     return rebuilt;
   }
 
+  /**
+   * What: creates checkpoint with the dependencies and defaults this workflow expects.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, executeSuggestionCommand, mutateSuggestion and fixture when that path needs this behavior.
+   */
   createCheckpoint(projectId: string, documentId: string, replayDurationMs = 0, force = false) {
     const projection = this.get(projectId, documentId);
     const coverage = projection.coveredThroughSequence ?? 0;
@@ -266,6 +320,12 @@ export class SuggestionRepository implements SuggestionStore {
     return { checkpointId, sequence: coverage, checksum };
   }
 
+  /**
+   * What: performs the diagnostics step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports when that path needs this behavior.
+   */
   diagnostics(projectId: string, documentId: string) {
     const events = this.db.prepare(`SELECT COUNT(*) AS count,
       COALESCE(SUM(LENGTH(payload_json) + LENGTH(actor_json)), 0) AS bytes
@@ -281,6 +341,12 @@ export class SuggestionRepository implements SuggestionStore {
       projectionMismatch: !verification.valid, databaseBytes: pageCount * pageSize };
   }
 
+  /**
+   * What: performs the find receipt step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports, executeSuggestionCommand and fixture when that path needs this behavior.
+   */
   findReceipt(projectId: string, documentId?: string, commandId?: string) {
     if (commandId === undefined) {
       commandId = projectId;
@@ -311,6 +377,12 @@ export class SuggestionRepository implements SuggestionStore {
     return result;
   }
 
+  /**
+   * What: performs the record receipt step for this file's workflow.
+   *
+   * Why: storage workflows need durable, transactional behavior behind the application contract.
+   * Called when: used by ports and fixture when that path needs this behavior.
+   */
   recordReceipt(projectId: string, documentId: string | SuggestionCommandResult, result?: SuggestionCommandResult) {
     if (typeof documentId !== "string") {
       result = documentId;
