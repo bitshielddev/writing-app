@@ -4,17 +4,18 @@ import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkspacePin, WorkspacePinRect } from "../inbox";
-import type { TextSuggestion } from "../../../../domain/suggestions/schema";
+import type { EditSuggestion } from "../../../../domain/suggestions/schema";
 import { WorkspacePins } from "./WorkspacePins";
 
-const item: TextSuggestion = {
+const item: EditSuggestion = {
   id: "workspace-item",
   dedupeKey: "workspace-item",
-  kind: "snippet",
+  kind: "edit",
   title: "Keep the core argument visible",
   summary: "A short workspace reference.",
   body: "The full reference content remains outside the document.",
-  insertText: "Insertable content.",
+  sourceText: "Insertable content.",
+  newText: "Replacement content.",
   sourceLabels: [],
   createdAt: 1,
 };

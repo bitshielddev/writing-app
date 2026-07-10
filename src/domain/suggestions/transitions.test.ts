@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { createEmptySuggestionState } from "./state";
 import { applySuggestionAgentEvent, applySuggestionCommand, type DurableSuggestionCommand } from "./transitions";
-import type { TextSuggestion } from "./schema";
+import type { EditSuggestion } from "./schema";
 
-const item: TextSuggestion = { id: "one", dedupeKey: "one", kind: "snippet", title: "One",
-  summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1 };
+const item: EditSuggestion = { id: "one", dedupeKey: "one", kind: "edit", title: "One",
+  summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1 };
 
 /**
  * What: performs the changed step for this file's workflow.

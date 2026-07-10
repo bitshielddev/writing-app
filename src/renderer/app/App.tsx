@@ -132,6 +132,7 @@ export default function App({ desktop }: AppProps) {
     handleStartAgent,
     handleStopAgent,
     handlePreview,
+    handleAcceptSuggestion,
     handlePlaceOnWorkspace,
     flushDocument,
   } = useWorkspaceController(desktop, editor);
@@ -150,6 +151,7 @@ export default function App({ desktop }: AppProps) {
     onPin: inbox.pin,
     onUnpin: inbox.unpin,
     onPreview: handlePreview,
+    onAccept: handleAcceptSuggestion,
   });
 
   useEffect(() => {
@@ -197,6 +199,7 @@ export default function App({ desktop }: AppProps) {
       onUnpin={inbox.unpin}
       onPlaceOnWorkspace={handlePlaceOnWorkspace}
       onPreview={handlePreview}
+      onAccept={handleAcceptSuggestion}
       onStartAgent={handleStartAgent}
       onStopAgent={handleStopAgent}
       onRetrySuggestionSave={retrySuggestionSave}

@@ -4,17 +4,18 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { InboxEntry, PinnedInboxEntry } from "../inbox";
-import type { TextSuggestion } from "../../../../domain/suggestions/schema";
+import type { EditSuggestion, SuggestionItem } from "../../../../domain/suggestions/schema";
 import { SuggestionDock } from "./SuggestionDock";
 
-const item: TextSuggestion = {
+const item: EditSuggestion = {
   id: "suggestion",
   dedupeKey: "suggestion",
-  kind: "snippet",
+  kind: "edit",
   title: "Bring the human role forward",
   summary: "A concise summary for the queue.",
   body: "Full suggestion content.",
-  insertText: "Text to preview.",
+  sourceText: "Text to preview.",
+  newText: "Replacement text.",
   sourceLabels: ["Vision.docx"],
   createdAt: 1,
 };
@@ -30,6 +31,30 @@ const pinnedEntry: PinnedInboxEntry = {
   ...entry,
   viewed: true,
   pinnedAt: 2,
+};
+
+const note: SuggestionItem = {
+  id: "note",
+  dedupeKey: "note",
+  kind: "note",
+  title: "Reference note",
+  summary: "A note summary.",
+  body: "Useful context that is not accepted into the draft.",
+  sourceLabels: [],
+  createdAt: 2,
+};
+
+const diagram: SuggestionItem = {
+  id: "diagram",
+  dedupeKey: "diagram",
+  kind: "diagram",
+  title: "Flow",
+  summary: "A diagram summary.",
+  body: "Diagram context.",
+  mermaidSource: "flowchart TD\n  A[Draft]",
+  accessibleDescription: "Draft flow.",
+  sourceLabels: [],
+  createdAt: 3,
 };
 
 /**
@@ -57,6 +82,7 @@ function renderDock(
     onUnpin: vi.fn(),
     onPlaceOnWorkspace: vi.fn(),
     onPreview: vi.fn(),
+    onAccept: vi.fn(),
     onStartAgent: vi.fn(),
     onStopAgent: vi.fn(),
     onRetrySuggestionSave: vi.fn(),
@@ -209,13 +235,47 @@ describe("SuggestionDock", () => {
     cleanup();
   });
 
-  it("offers an editable preview action only from text detail", async () => {
+  it("offers edit preview and accept actions from edit detail", async () => {
     const props = renderDock({ selectedEntry: { ...entry, viewed: true } });
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Preview in document" }),
+      screen.getByRole("button", { name: "Preview source" }),
     );
     expect(props.onPreview).toHaveBeenCalledWith(item);
+    expect(screen.getByText("Text to preview.")).toBeTruthy();
+    expect(screen.getByText("Replacement text.")).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: "Accept edit" }));
+    expect(props.onAccept).toHaveBeenCalledWith(item);
+  });
+
+  it("keeps disabled edits visible but blocks preview and accept", () => {
+    renderDock({
+      selectedEntry: { ...entry, viewed: true, disabledReason: "missing" },
+    });
+
+    expect(screen.getByText(/This edit is disabled/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Preview source" }).hasAttribute("disabled"))
+      .toBe(true);
+    expect(screen.getByRole("button", { name: "Accept edit" }).hasAttribute("disabled"))
+      .toBe(true);
+    expect(screen.getByRole("button", { name: "Dismiss" }).hasAttribute("disabled"))
+      .toBe(false);
+  });
+
+  it.each([note, diagram])("does not offer preview or accept for %s", (suggestion) => {
+    renderDock({
+      selectedEntry: {
+        item: suggestion,
+        viewed: true,
+        stale: false,
+        withdrawn: false,
+      },
+    });
+
+    expect(screen.queryByRole("button", { name: "Preview source" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Accept edit" })).toBeNull();
+    cleanup();
   });
 
   it("pins from the queue and renders pins in a separate section", async () => {

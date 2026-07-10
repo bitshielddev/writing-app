@@ -43,7 +43,9 @@ export function WorkspacePinCard({
       role="region"
       aria-label={`Workspace pin: ${pin.item.title}`}
       data-workspace-pin={pin.item.id}
-      className="pointer-events-auto absolute flex overflow-hidden rounded-xl border border-brand-300 bg-[#fffdf4] shadow-[0_18px_42px_rgb(35_31_66/22%)]"
+      className={`pointer-events-auto absolute flex overflow-hidden rounded-xl border border-brand-300 bg-[#fffdf4] shadow-[0_18px_42px_rgb(35_31_66/22%)] ${
+        pin.disabledReason ? "opacity-60 grayscale" : ""
+      }`}
       style={{
         left: rect.x,
         top: rect.y,
@@ -79,6 +81,11 @@ export function WorkspacePinCard({
           <p className="mt-3 text-sm font-semibold leading-5 text-[#4d493b]">
             {pin.item.summary}
           </p>
+          {pin.disabledReason ? (
+            <p className="mt-2 text-xs font-bold text-slate-600">
+              Disabled: source text changed
+            </p>
+          ) : null}
           <p className="mt-3 text-sm leading-6 text-[#5d5849]">{pin.item.body}</p>
           {isVisualSuggestion(pin.item) ? (
             <div className="mt-4">

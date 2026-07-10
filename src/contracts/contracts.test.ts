@@ -32,11 +32,12 @@ import { createEmptySuggestionState } from "../domain/suggestions/state";
 const suggestion = {
   id: "suggestion",
   dedupeKey: "suggestion",
-  kind: "snippet" as const,
+  kind: "edit" as const,
   title: "Title",
   summary: "Summary",
   body: "Body",
-  insertText: "Text",
+  sourceText: "Text",
+  newText: "New text",
   sourceLabels: [],
   createdAt: 1,
 };

@@ -8,12 +8,16 @@ import type {
 export type InboxEntry = PersistedInboxEntry & {
   stale: boolean;
   withdrawn: boolean;
+  disabledReason?: "missing" | "ambiguous" | "unsupported";
 };
 export type PinnedInboxEntry = PersistedPinnedEntry & {
   stale: boolean;
   withdrawn: boolean;
+  disabledReason?: "missing" | "ambiguous" | "unsupported";
 };
-export type WorkspacePin = PersistedWorkspacePin;
+export type WorkspacePin = PersistedWorkspacePin & {
+  disabledReason?: "missing" | "ambiguous" | "unsupported";
+};
 export type { WorkspacePinRect } from "../../../domain/suggestions/state";
 
 /**

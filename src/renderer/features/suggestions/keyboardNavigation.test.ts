@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { InboxEntry, PinnedInboxEntry } from "./inbox";
 import { useSuggestionKeyboardNavigation } from "./keyboardNavigation";
-import type { TextSuggestion } from "../../../domain/suggestions/schema";
+import type { EditSuggestion } from "../../../domain/suggestions/schema";
 
 /**
  * What: performs the entry step for this file's workflow.
@@ -12,14 +12,15 @@ import type { TextSuggestion } from "../../../domain/suggestions/schema";
  * Called when: used by keyboardNavigation when that path needs this behavior.
  */
 function entry(id: string): InboxEntry {
-  const item: TextSuggestion = {
+  const item: EditSuggestion = {
     id,
     dedupeKey: id,
-    kind: "snippet",
+    kind: "edit",
     title: id,
     summary: id,
     body: id,
-    insertText: id,
+    sourceText: id,
+    newText: `${id} updated`,
     sourceLabels: [],
     createdAt: 1,
   };

@@ -21,29 +21,17 @@ const common = {
 };
 
 const validByKind = {
-  snippet: { ...common, kind: "snippet", insertText: "Inserted snippet" },
-  fact: { ...common, kind: "fact", insertText: "Inserted fact" },
-  term: { ...common, kind: "term", insertText: "Inserted definition" },
-  outline: {
+  edit: {
     ...common,
-    kind: "outline",
-    nodes: [
-      {
-        id: "section",
-        label: "Section",
-        children: [{ id: "point", label: "Nested point" }],
-      },
-    ],
+    kind: "edit",
+    sourceText: "Current sentence.",
+    newText: "Improved sentence.",
   },
-  layout: {
+  note: { ...common, kind: "note" },
+  diagram: {
     ...common,
-    kind: "layout",
-    nodes: [{ id: "opening", label: "Opening", detail: "Lead with context" }],
-  },
-  mindMap: {
-    ...common,
-    kind: "mindMap",
-    mermaidSource: "mindmap\n  root((Draft))",
+    kind: "diagram",
+    mermaidSource: "flowchart TD\n  Draft[Draft]",
     accessibleDescription: "A map with Draft at its root.",
   },
 } as const satisfies Record<SuggestionItem["kind"], SuggestionItem>;
@@ -68,12 +56,11 @@ describe("suggestion domain schema", () => {
   });
 
   it.each([
-    ["snippet", { insertText: "" }],
-    ["fact", { insertText: "   " }],
-    ["term", { insertText: undefined }],
-    ["outline", { nodes: [] }],
-    ["layout", { nodes: [{ id: "node", label: "" }] }],
-    ["mindMap", { accessibleDescription: "" }],
+    ["edit", { sourceText: "" }],
+    ["edit", { sourceText: "   " }],
+    ["edit", { newText: "x".repeat(20_001) }],
+    ["diagram", { accessibleDescription: "" }],
+    ["diagram", { mermaidSource: "" }],
   ] as const)("rejects an invalid %s payload", (kind, replacement) => {
     expect(
       parseSuggestionItem({ ...validByKind[kind], ...replacement }).success,
@@ -81,48 +68,42 @@ describe("suggestion domain schema", () => {
   });
 
   it("rejects missing common and family fields", () => {
-    const withoutTitle: Partial<SuggestionItem> = { ...validByKind.snippet };
-    const withoutInsertText: Partial<SuggestionItem> = { ...validByKind.snippet };
+    const withoutTitle: Partial<SuggestionItem> = { ...validByKind.edit };
+    const withoutSourceText: Partial<SuggestionItem> = { ...validByKind.edit };
     Reflect.deleteProperty(withoutTitle, "title");
-    Reflect.deleteProperty(withoutInsertText, "insertText");
+    Reflect.deleteProperty(withoutSourceText, "sourceText");
 
     expect(parseSuggestionItem(withoutTitle).success).toBe(false);
-    expect(parseSuggestionItem(withoutInsertText).success).toBe(false);
+    expect(parseSuggestionItem(withoutSourceText).success).toBe(false);
   });
 
   it("rejects cross-family fields, unknown kinds, and extra properties", () => {
     expect(
-      parseSuggestionItem({ ...validByKind.snippet, nodes: validByKind.outline.nodes })
+      parseSuggestionItem({ ...validByKind.note, sourceText: "wrong family" })
         .success,
     ).toBe(false);
     expect(
-      parseSuggestionItem({ ...validByKind.outline, insertText: "wrong family" })
+      parseSuggestionItem({ ...validByKind.edit, mermaidSource: "wrong family" })
         .success,
     ).toBe(false);
-    expect(parseSuggestionItem({ ...validByKind.snippet, kind: "unknown" }).success)
+    expect(parseSuggestionItem({ ...validByKind.edit, kind: "unknown" }).success)
       .toBe(false);
-    expect(parseSuggestionItem({ ...validByKind.mindMap, extra: true }).success)
+    expect(parseSuggestionItem({ ...validByKind.diagram, extra: true }).success)
       .toBe(false);
   });
 
-  it("reports a nested structure path without echoing payload content", () => {
-    const secret = "SENSITIVE NODE CONTENT";
+  it("reports an invalid edit path without echoing payload content", () => {
     const parsed = parseSuggestionItem({
-      ...validByKind.outline,
-      nodes: [
-        {
-          id: "parent",
-          label: "Parent",
-          children: [{ id: "child", label: "", detail: secret }],
-        },
-      ],
+      ...validByKind.edit,
+      sourceText: "",
+      body: "SENSITIVE BODY CONTENT",
     });
 
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
-    expect(parsed.issues.some((issue) => issue.path === "/nodes/0/children/0/label"))
+    expect(parsed.issues.some((issue) => issue.path === "/sourceText"))
       .toBe(true);
-    expect(JSON.stringify(parsed.issues)).not.toContain(secret);
+    expect(JSON.stringify(parsed.issues)).not.toContain("SENSITIVE BODY CONTENT");
   });
 
   it.each([
@@ -130,9 +111,17 @@ describe("suggestion domain schema", () => {
     ["non-finite timestamp", { createdAt: Number.POSITIVE_INFINITY }],
     ["empty source label", { sourceLabels: [""] }],
   ] as const)("rejects %s", (_case, replacement) => {
-    expect(parseSuggestionItem({ ...validByKind.snippet, ...replacement }).success)
+    expect(parseSuggestionItem({ ...validByKind.edit, ...replacement }).success)
       .toBe(false);
   });
+
+  it.each(["snippet", "fact", "term", "outline", "layout", "mindMap"] as const)(
+    "rejects legacy %s suggestions",
+    (kind) => {
+      expect(parseSuggestionItem({ ...common, kind, insertText: "legacy" }).success)
+        .toBe(false);
+    },
+  );
 });
 
 describe("suggestion capabilities", () => {
@@ -140,9 +129,11 @@ describe("suggestion capabilities", () => {
     expect(Object.keys(SUGGESTION_CAPABILITIES)).toEqual(SUGGESTION_KINDS);
     for (const kind of SUGGESTION_KINDS) {
       const capabilities = SUGGESTION_CAPABILITIES[kind];
-      expect(capabilities.supportsPreview).toBe(capabilities.family === "text");
+      expect(capabilities.supportsPreview).toBe(capabilities.family === "edit");
+      expect(capabilities.supportsAccept).toBe(capabilities.family === "edit");
+      expect(capabilities.supportsDisable).toBe(capabilities.family === "edit");
       expect(capabilities.supportsVisualRendering).toBe(
-        capabilities.family !== "text",
+        capabilities.family === "diagram",
       );
       expect(capabilities.supportsWorkspacePlacement).toBe(true);
       expect(capabilities.initialWorkspaceSize.width).toBeGreaterThan(0);
@@ -163,8 +154,8 @@ describe("Pi suggestion tool schema", () => {
   );
 
   it("rejects family drift at both tool and application boundaries", () => {
-    const toolInput = withoutGeneratedFields(validByKind.snippet);
-    const invalid = { ...toolInput, nodes: validByKind.outline.nodes };
+    const toolInput = withoutGeneratedFields(validByKind.edit);
+    const invalid = { ...toolInput, mermaidSource: validByKind.diagram.mermaidSource };
     expect(Check(SuggestionToolInputSchema, invalid)).toBe(false);
     expect(parseSuggestionItem({ ...invalid, id: "generated", createdAt: 1 }).success)
       .toBe(false);

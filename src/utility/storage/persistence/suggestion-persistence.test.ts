@@ -6,14 +6,14 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import type { WorkspaceSnapshot } from "../../../contracts/desktop-bridge";
-import type { TextSuggestion } from "../../../domain/suggestions/schema.js";
+import type { EditSuggestion } from "../../../domain/suggestions/schema.js";
 import { createStorageService, type StorageService } from "../service";
 import { SuggestionRepository } from "./repositories/suggestions";
 import { decideSuggestionCommand } from "../../../domain/suggestions/aggregate";
 
-const item: TextSuggestion = {
-  id: "durable-item", dedupeKey: "durable-item", kind: "snippet", title: "Opening",
-  summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1,
+const item: EditSuggestion = {
+  id: "durable-item", dedupeKey: "durable-item", kind: "edit", title: "Opening",
+  summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
 };
 
 describe("suggestion event history and projections", () => {

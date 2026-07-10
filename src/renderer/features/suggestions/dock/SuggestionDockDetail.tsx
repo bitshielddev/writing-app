@@ -12,6 +12,7 @@ import {
 import type { InboxEntry } from "../inbox";
 import {
   isVisualSuggestion,
+  isEditSuggestion,
   supportsSuggestionPreview,
   supportsWorkspacePlacement,
   type SuggestionItem,
@@ -27,6 +28,7 @@ type SuggestionDockDetailProps = {
   onPinToggle: () => void;
   onPlaceOnWorkspace: (item: SuggestionItem) => void;
   onPreview: (item: SuggestionItem) => void;
+  onAccept: (item: SuggestionItem) => void;
 };
 
 /**
@@ -52,6 +54,126 @@ function SourceLabels({ labels }: { labels: string[] }) {
   );
 }
 
+function EditDiff({ item }: { item: Extract<SuggestionItem, { kind: "edit" }> }) {
+  return (
+    <div className="mt-5 grid gap-3">
+      <section
+        aria-label="Source text"
+        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3"
+      >
+        <h3 className="text-xs font-extrabold tracking-[0.08em] text-red-800 uppercase">
+          Source
+        </h3>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-red-950">
+          {item.sourceText}
+        </p>
+      </section>
+      <section
+        aria-label="New text"
+        className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3"
+      >
+        <h3 className="text-xs font-extrabold tracking-[0.08em] text-emerald-800 uppercase">
+          New
+        </h3>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-emerald-950">
+          {item.newText || "Delete the source text."}
+        </p>
+      </section>
+    </div>
+  );
+}
+
+type DetailActionsProps = {
+  entry: InboxEntry;
+  pinned: boolean;
+  disabled: boolean;
+  previewIsActive: boolean;
+  anotherPreviewIsActive: boolean;
+  onDismiss: () => void;
+  onPinToggle: () => void;
+  onPlaceOnWorkspace: (item: SuggestionItem) => void;
+  onPreview: (item: SuggestionItem) => void;
+  onAccept: (item: SuggestionItem) => void;
+};
+
+function DetailActions({
+  entry,
+  pinned,
+  disabled,
+  previewIsActive,
+  anotherPreviewIsActive,
+  onDismiss,
+  onPinToggle,
+  onPlaceOnWorkspace,
+  onPreview,
+  onAccept,
+}: DetailActionsProps) {
+  const { item } = entry;
+  return (
+    <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#dedbe9] pt-5">
+      <button
+        type="button"
+        className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-[#686577] hover:bg-white hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-45"
+        disabled={previewIsActive}
+        onClick={onDismiss}
+      >
+        <Trash2 className="size-4" aria-hidden="true" />
+        Dismiss
+      </button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-brand-700 hover:bg-white"
+          onClick={onPinToggle}
+        >
+          {pinned ? (
+            <PinOff className="size-4" aria-hidden="true" />
+          ) : (
+            <Pin className="size-4" aria-hidden="true" />
+          )}
+          {pinned ? "Unpin" : "Pin"}
+        </button>
+        {pinned && supportsWorkspacePlacement(item) ? (
+          <button
+            type="button"
+            className="hidden min-h-10 items-center gap-2 rounded-md border border-brand-300 bg-white px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45 xl:inline-flex"
+            disabled={previewIsActive}
+            onClick={() => onPlaceOnWorkspace(item)}
+          >
+            <PanelsTopLeft className="size-4" aria-hidden="true" />
+            Place on workspace
+          </button>
+        ) : null}
+        {supportsSuggestionPreview(item) ? (
+          <>
+            <button
+              type="button"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-brand-300 bg-white px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={entry.withdrawn || disabled || Boolean(previewIsActive || anotherPreviewIsActive)}
+              onClick={() => onPreview(item)}
+            >
+              <PanelRightOpen className="size-4" aria-hidden="true" />
+              {previewIsActive
+                ? "Preview active"
+                : anotherPreviewIsActive
+                  ? "Finish current preview"
+                  : "Preview source"}
+            </button>
+            <button
+              type="button"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow-md shadow-brand-600/15 hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-[#aaa6bd] disabled:shadow-none"
+              disabled={entry.withdrawn || disabled || Boolean(previewIsActive || anotherPreviewIsActive)}
+              onClick={() => onAccept(item)}
+            >
+              Accept edit
+            </button>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /**
  * What: renders the suggestion dock detail component and wires its props into the surrounding UI.
  *
@@ -67,10 +189,12 @@ export function SuggestionDockDetail({
   onPinToggle,
   onPlaceOnWorkspace,
   onPreview,
+  onAccept,
 }: SuggestionDockDetailProps) {
   const { item } = entry;
   const previewIsActive = activePreviewId === item.id;
   const anotherPreviewIsActive = Boolean(activePreviewId && !previewIsActive);
+  const disabled = Boolean(entry.disabledReason);
 
   return (
     <div className="min-h-full px-5 py-5 2xl:px-7 2xl:py-7">
@@ -83,7 +207,7 @@ export function SuggestionDockDetail({
         Back to suggestions
       </button>
 
-      <article className="mx-auto mt-5 max-w-2xl">
+      <article className={`mx-auto mt-5 max-w-2xl ${disabled ? "opacity-65" : ""}`}>
         <KindBadge kind={item.kind} />
         <h2 className="mt-5 text-2xl font-extrabold tracking-[-0.025em] text-[#1a1b22]">
           {item.title}
@@ -100,6 +224,14 @@ export function SuggestionDockDetail({
               remains yours to accept or cancel.
             </p>
           </div>
+        ) : disabled ? (
+          <div className="mt-5 flex gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+            <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <p>
+              This edit is disabled because its source text is no longer uniquely
+              available in the document. You can dismiss it.
+            </p>
+          </div>
         ) : entry.stale ? (
           <div className="mt-5 flex gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
             <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -113,6 +245,8 @@ export function SuggestionDockDetail({
         <div className="mt-6 rounded-xl border border-[#dedbe9] bg-white/75 p-5 text-[0.95rem] leading-7 text-[#393844] shadow-sm shadow-slate-900/5">
           {item.body}
         </div>
+
+        {isEditSuggestion(item) ? <EditDiff item={item} /> : null}
 
         {isVisualSuggestion(item) ? (
           <div className="mt-5">
@@ -130,57 +264,18 @@ export function SuggestionDockDetail({
           </p>
         ) : null}
 
-        <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#dedbe9] pt-5">
-          <button
-            type="button"
-            className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-[#686577] hover:bg-white hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={previewIsActive}
-            onClick={onDismiss}
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-            Dismiss
-          </button>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-brand-700 hover:bg-white"
-              onClick={onPinToggle}
-            >
-              {pinned ? (
-                <PinOff className="size-4" aria-hidden="true" />
-              ) : (
-                <Pin className="size-4" aria-hidden="true" />
-              )}
-              {pinned ? "Unpin" : "Pin"}
-            </button>
-            {pinned && supportsWorkspacePlacement(item) ? (
-              <button
-                type="button"
-                className="hidden min-h-10 items-center gap-2 rounded-md border border-brand-300 bg-white px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45 xl:inline-flex"
-                disabled={previewIsActive}
-                onClick={() => onPlaceOnWorkspace(item)}
-              >
-                <PanelsTopLeft className="size-4" aria-hidden="true" />
-                Place on workspace
-              </button>
-            ) : null}
-            {supportsSuggestionPreview(item) ? (
-              <button
-                type="button"
-                className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow-md shadow-brand-600/15 hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-[#aaa6bd] disabled:shadow-none"
-                disabled={entry.withdrawn || Boolean(activePreviewId)}
-                onClick={() => onPreview(item)}
-              >
-                <PanelRightOpen className="size-4" aria-hidden="true" />
-                {previewIsActive
-                  ? "Preview active"
-                  : anotherPreviewIsActive
-                    ? "Finish current preview"
-                    : "Preview in document"}
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <DetailActions
+          entry={entry}
+          pinned={pinned}
+          disabled={disabled}
+          previewIsActive={previewIsActive}
+          anotherPreviewIsActive={anotherPreviewIsActive}
+          onDismiss={onDismiss}
+          onPinToggle={onPinToggle}
+          onPlaceOnWorkspace={onPlaceOnWorkspace}
+          onPreview={onPreview}
+          onAccept={onAccept}
+        />
       </article>
     </div>
   );

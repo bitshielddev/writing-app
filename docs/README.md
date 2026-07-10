@@ -33,8 +33,8 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 | --- | --- |
 | Editor | Electron hydrates and autosaves the current BlockNote document. |
 | Writing partner | The agent starts stopped on every app launch. A persistent control starts or immediately stops autonomous work. Electron receives committed suggestions from the Pi agent. |
-| Text suggestions | Snippets, facts, and terms can become an editable document preview, then be accepted or cancelled. |
-| Structural suggestions | Outlines and layouts render nested cards; mind maps render through Mermaid. They are references, not insertable previews. |
+| Edit suggestions | Edits target exact source text, can preview the source location, and can be accepted when the source is still unique. |
+| Notes and diagrams | Notes surface reference guidance; diagrams render Mermaid. They are references, not accepted into the draft. |
 | Pins | A suggestion can be frozen into the Pins section. On desktop it can then be placed, moved, resized, stacked, and returned. |
 | Responsive layout | Below `80rem`, navigation and writing partner use modal drawers. At `80rem` and above they become independently collapsible, resizable columns. |
 | Persistence | Electron restores the document, Markdown mirror, sources, suggestion inbox, pins, workspace cards, and Pi session. |

@@ -5,11 +5,11 @@ import type { DesktopBridge } from "../../../contracts/desktop-bridge";
 import { deferred } from "../../../test/desktopBridgeHarness";
 import { createEmptySuggestionState, type PersistedSuggestionState } from "../../../domain/suggestions/state";
 import { useSuggestionController } from "./useSuggestionController";
-import type { TextSuggestion } from "../../../domain/suggestions/schema";
+import type { EditSuggestion } from "../../../domain/suggestions/schema";
 
-const item: TextSuggestion = {
-  id: "one", dedupeKey: "one", kind: "snippet", title: "One",
-  summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1,
+const item: EditSuggestion = {
+  id: "one", dedupeKey: "one", kind: "edit", title: "One",
+  summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
 };
 
 /**

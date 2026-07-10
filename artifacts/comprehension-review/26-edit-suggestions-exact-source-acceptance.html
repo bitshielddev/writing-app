@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Exact-text edit suggestions</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20212a;
+      --muted: #65687a;
+      --paper: #fbfaf7;
+      --panel: #ffffff;
+      --line: #e4dfd6;
+      --brand: #5d4cc4;
+      --brand-soft: #eeeafe;
+      --green: #0f7a4f;
+      --green-soft: #eaf7f0;
+      --red: #9b2d2d;
+      --red-soft: #fff0ed;
+      --amber: #8a5a00;
+      --amber-soft: #fff7df;
+      --code: #171923;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #f1edff 0, transparent 34rem), var(--paper);
+      color: var(--ink);
+      font: 16px/1.65 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .page { max-width: 1120px; margin: 0 auto; padding: 48px 24px 72px; }
+    header { max-width: 820px; margin-bottom: 34px; }
+    .eyebrow { color: var(--brand); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
+    h1 { margin: 8px 0 14px; font-size: clamp(34px, 5vw, 58px); line-height: 1.03; letter-spacing: -.045em; }
+    h2 { margin: 42px 0 14px; font-size: 25px; line-height: 1.2; letter-spacing: -.02em; }
+    h3 { margin: 24px 0 8px; font-size: 17px; }
+    p { margin: 0 0 14px; }
+    a { color: var(--brand); }
+    .lead { font-size: 19px; color: #3e4050; max-width: 760px; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(260px, .85fr); gap: 22px; align-items: start; }
+    .card, .callout, .quiz { background: rgba(255,255,255,.86); border: 1px solid var(--line); border-radius: 20px; padding: 22px; box-shadow: 0 18px 50px rgba(46, 38, 80, .08); }
+    .callout { border-color: #d7cdf9; background: #fbfaff; }
+    .warn { border-color: #ecd69d; background: var(--amber-soft); }
+    .ok { border-color: #b9e4cd; background: var(--green-soft); }
+    .map { display: grid; gap: 10px; margin: 18px 0; }
+    .map div { padding: 12px 14px; border: 1px solid var(--line); background: var(--panel); border-radius: 14px; }
+    .map code { color: var(--brand); }
+    .path { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 8px; }
+    .path span { border: 1px solid #d8d2e9; background: white; border-radius: 999px; padding: 7px 10px; font-size: 13px; font-weight: 700; }
+    pre { margin: 14px 0 20px; padding: 18px; overflow-x: auto; background: var(--code); color: #f7f7fb; border-radius: 16px; font-size: 13px; line-height: 1.55; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: .92em; }
+    mark { background: #fff0a6; color: inherit; padding: 0 .15em; border-radius: 3px; }
+    .small { color: var(--muted); font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 22px; font-size: 14px; }
+    th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 10px 8px; vertical-align: top; }
+    th { color: #45475a; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .diffbox { border-radius: 16px; padding: 16px; border: 1px solid var(--line); }
+    .remove { background: var(--red-soft); border-color: #f0c4bd; }
+    .add { background: var(--green-soft); border-color: #b9e4cd; }
+    .remove strong { color: var(--red); }
+    .add strong { color: var(--green); }
+    details { border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; background: white; margin: 10px 0; }
+    summary { cursor: pointer; font-weight: 800; }
+    .history li { margin-bottom: 9px; }
+    .foot { margin-top: 34px; color: var(--muted); font-size: 14px; }
+    @media (max-width: 860px) { .grid, .split { grid-template-columns: 1fr; } .page { padding: 32px 16px 56px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">Comprehension review</div>
+      <h1>Exact-text edits replace inserted previews</h1>
+      <p class="lead">This staged change turns suggestions from broad content cards into a smaller contract: an agent can propose an <code>edit</code> anchored to current draft text, a <code>note</code>, or a Mermaid <code>diagram</code>. The main behavior to understand is the new edit path: preview focuses the source, accept re-checks the source, then replaces it.</p>
+    </header>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Read the diff as a boundary change first</h2>
+        <p>The domain union in <code>src/domain/suggestions/schema.ts</code> is the highest-leverage part of this change. Legacy kinds such as <code>snippet</code>, <code>fact</code>, <code>term</code>, <code>outline</code>, <code>layout</code>, and <code>mindMap</code> no longer validate as current suggestions. The replacement set is much smaller.</p>
+        <pre><code>export const EditSuggestionSchema = Type.Object(
+  {
+    ...commonSuggestionProperties,
+    kind: Type.Literal("edit"),
+    sourceText: nonEmptyString(20_000),
+    newText: Type.String({ maxLength: 20_000 }),
+  },
+  strictObject,
+);
+
+export const NoteSuggestionSchema = Type.Object({
+  ...commonSuggestionProperties,
+  kind: Type.Literal("note"),
+}, strictObject);
+
+export const DiagramSuggestionSchema = Type.Object({
+  ...commonSuggestionProperties,
+  kind: Type.Literal("diagram"),
+  mermaidSource: nonEmptyString(20_000),
+  accessibleDescription: nonEmptyString(4_000),
+}, strictObject);</code></pre>
+        <p>The capability table is now the behavioral switchboard. Only <code>edit</code> supports preview, accept, and disabled-state calculation. <code>diagram</code> keeps visual rendering. <code>note</code> is reference-only.</p>
+        <pre><code>export const SUGGESTION_CAPABILITIES = {
+  edit: {
+    family: "edit",
+    supportsPreview: true,
+    supportsAccept: true,
+    supportsDisable: true,
+    supportsVisualRendering: false,
+    supportsWorkspacePlacement: true,
+    initialWorkspaceSize: { width: 320, height: 240 },
+  },
+  note: {
+    family: "note",
+    supportsPreview: false,
+    supportsAccept: false,
+    supportsDisable: false,
+    supportsVisualRendering: false,
+    supportsWorkspacePlacement: true,
+    initialWorkspaceSize: { width: 340, height: 240 },
+  },
+  diagram: {
+    family: "diagram",
+    supportsPreview: false,
+    supportsAccept: false,
+    supportsDisable: false,
+    supportsVisualRendering: true,
+    supportsWorkspacePlacement: true,
+    initialWorkspaceSize: { width: 460, height: 340 },
+  },
+};</code></pre>
+      </div>
+      <aside class="callout">
+        <h3>Why this matters</h3>
+        <p>The old preview model inserted a temporary editable block. The new model treats the suggestion as a proposed replacement for exact draft text. That changes where correctness lives: the renderer must prove the source text is still present and unique at the moment of preview or acceptance.</p>
+        <div class="map">
+          <div><code>schema.ts</code><br><span class="small">Defines accepted suggestion shapes and capability flags.</span></div>
+          <div><code>editSuggestions.ts</code><br><span class="small">Finds, previews, disables, and accepts edits against the editor document.</span></div>
+          <div><code>useWorkspaceController.ts</code><br><span class="small">Decorates inbox and pin state with live disabled status.</span></div>
+          <div><code>SuggestionDockDetail.tsx</code><br><span class="small">Shows source/new diff plus Preview source and Accept edit actions.</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card">
+      <h2>The edit path in the renderer</h2>
+      <div class="path">
+        <span>agent publishes edit</span>
+        <span>inbox displays it</span>
+        <span>controller recalculates target</span>
+        <span>preview focuses source</span>
+        <span>accept replaces source</span>
+        <span>inbox resolves accepted</span>
+      </div>
+
+      <h3>1. Matching is exact and document-wide</h3>
+      <p><code>getEditSuggestionStatus</code> walks accepted editor blocks, extracts visible text from string or nested BlockNote-ish content, and counts exact <code>sourceText</code> occurrences. The edit is enabled only if there is one match.</p>
+      <pre><code>export function getEditSuggestionStatus(
+  editor: WritingEditor,
+  item: EditSuggestion,
+): EditSuggestionStatus {
+  const matches: Array&lt;{ block: WritingBlock; start: number; end: number }&gt; = [];
+  for (const block of editor.document) {
+    if (block.type === "suggestionPreview") continue;
+    const text = plainTextFromContent(block.content);
+    let from = 0;
+    while (from &lt;= text.length) {
+      const index = text.indexOf(item.sourceText, from);
+      if (index &lt; 0) break;
+      matches.push({ block, start: index, end: index + item.sourceText.length });
+      from = index + Math.max(item.sourceText.length, 1);
+      if (matches.length &gt; 1) return { enabled: false, reason: "ambiguous" };
+    }
+  }
+
+  if (matches.length !== 1) return { enabled: false, reason: "missing" };
+  const match = matches[0]!;
+  return { enabled: true, blockId: match.block.id, start: match.start, end: match.end };
+}</code></pre>
+      <p>Because the stored anchor is text rather than a block id, moving the target lower in the document should not disable the edit. The new test <code>keeps an edit enabled when matching text moves lower in the document</code> verifies that behavior.</p>
+
+      <h3>2. Preview no longer mutates the draft</h3>
+      <p>Preview focuses the target block and scrolls it into view. It does not call <code>insertBlocks</code>. The visible change detail lives in the dock diff.</p>
+      <pre><code>export function previewEditSuggestion(editor: WritingEditor, item: EditSuggestion): boolean {
+  const status = getEditSuggestionStatus(editor, item);
+  if (!status.enabled) return false;
+  try {
+    editor.setTextCursorPosition(status.blockId, "start");
+  } catch {
+    return false;
+  }
+  window.requestAnimationFrame(() =&gt; {
+    const escaped = globalThis.CSS?.escape?.(status.blockId) ?? status.blockId;
+    document
+      .querySelector(`[data-id="${escaped}"], [data-block-id="${escaped}"]`)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+  return true;
+}</code></pre>
+
+      <h3>3. Accept re-checks before replacing</h3>
+      <p>Acceptance calls the same status function again. That is the key safety property in this diff: if the document changed after the button rendered, the mutation fails closed.</p>
+      <pre><code>export function acceptEditSuggestion(editor: WritingEditor, item: EditSuggestion): boolean {
+  const status = getEditSuggestionStatus(editor, item);
+  if (!status.enabled) return false;
+  const block = editor.document.find((candidate) =&gt; candidate.id === status.blockId);
+  if (!block || block.type === "suggestionPreview") return false;
+  const text = plainTextFromContent(block.content);
+  const nextText = `${text.slice(0, status.start)}${item.newText}${text.slice(status.end)}`;
+  const replacement = { ...block, content: nextText } as unknown as WritingPartialBlock;
+  const result = editor.replaceBlocks([block.id], [replacement]);
+  const acceptedBlock = result.insertedBlocks[0];
+  if (acceptedBlock) {
+    try {
+      editor.setTextCursorPosition(acceptedBlock.id, "end");
+    } catch {
+      // Focus restoration is best-effort; the edit itself has already been applied.
+    }
+  }
+  return true;
+}</code></pre>
+      <p>One consequence is intentional deletion support: <code>newText</code> may be an empty string, so the splice can remove <code>sourceText</code>.</p>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>How disabled status reaches the UI</h2>
+        <p>The inbox reducer types now allow a transient <code>disabledReason</code> on live entries, pinned entries, and workspace pins. The persisted suggestion state is not extended in this diff; the disabled value is derived in the renderer.</p>
+        <pre><code>export type InboxEntry = PersistedInboxEntry &amp; {
+  stale: boolean;
+  withdrawn: boolean;
+  disabledReason?: "missing" | "ambiguous" | "unsupported";
+};</code></pre>
+        <p><code>useWorkspaceController</code> decorates the controller output before returning it to <code>App</code>. That means queue rows, detail views, keyboard handling, and workspace pins all see the same current disabled decision.</p>
+        <pre><code>const decorateInboxEntry = useCallback((entry: InboxEntry): InboxEntry =&gt; {
+  const disabledReason = getSuggestionDisabledReason(editor, entry.item);
+  return disabledReason ? { ...entry, disabledReason } : entry;
+}, [editor]);
+
+const decoratedInbox = useMemo(() =&gt; ({
+  ...inbox,
+  entries: inbox.entries.map(decorateInboxEntry),
+  pinnedEntries: inbox.pinnedEntries.map(decoratePinnedEntry),
+  selectedEntry: inbox.selectedEntry ? decorateInboxEntry(inbox.selectedEntry) : undefined,
+  workspacePins: inbox.workspacePins.map(decorateWorkspacePin),
+}), [decorateInboxEntry, decoratePinnedEntry, decorateWorkspacePin, inbox]);</code></pre>
+      </div>
+      <aside class="warn">
+        <h3>Maintainer note</h3>
+        <p>The type includes <code>"unsupported"</code>, but the changed implementation of <code>getSuggestionDisabledReason</code> only returns <code>missing</code> or <code>ambiguous</code> for edit suggestions, and <code>undefined</code> for non-edits. Treat <code>unsupported</code> as reserved unless another adapter starts returning it.</p>
+        <p>Also, the custom <code>suggestionPreview</code> block and <code>previewEvents</code> module still exist. This diff removes them from the main preview controller path, but it does not delete their implementation.</p>
+      </aside>
+    </section>
+
+    <section class="card">
+      <h2>The dock now teaches the edit before applying it</h2>
+      <p>The detail view adds a compact before/after display for edit suggestions. That matters because preview now focuses location only; it does not create an editable draft block containing the proposed text.</p>
+      <div class="split">
+        <div class="diffbox remove"><strong>Source</strong><p class="small">Rendered from <code>item.sourceText</code>.</p></div>
+        <div class="diffbox add"><strong>New</strong><p class="small">Rendered from <code>item.newText</code>, or "Delete the source text." when empty.</p></div>
+      </div>
+      <pre><code>{isEditSuggestion(item) ? &lt;EditDiff item={item} /&gt; : null}
+
+{supportsSuggestionPreview(item) ? (
+  &lt;&gt;
+    &lt;button disabled={entry.withdrawn || disabled || Boolean(previewIsActive || anotherPreviewIsActive)}&gt;
+      {previewIsActive ? "Preview active" : anotherPreviewIsActive ? "Finish current preview" : "Preview source"}
+    &lt;/button&gt;
+    &lt;button disabled={entry.withdrawn || disabled || Boolean(previewIsActive || anotherPreviewIsActive)}
+      onClick={() =&gt; onAccept(item)}&gt;
+      Accept edit
+    &lt;/button&gt;
+  &lt;/&gt;
+) : null}</code></pre>
+      <p>Disabled edits stay visible, are greyed out in detail/queue/workspace cards, and remain dismissible. Tests now assert this: disabled edits block preview and accept, while <code>Dismiss</code> stays available.</p>
+    </section>
+
+    <section class="card">
+      <h2>Keyboard and controller behavior</h2>
+      <p>The default keymap gains <code>a</code> for <code>suggestion.accept</code>. The existing <code>v</code> preview command changes meaning from "insert text preview" to "focus the source".</p>
+      <table>
+        <thead><tr><th>Command</th><th>New behavior</th><th>Guard</th></tr></thead>
+        <tbody>
+          <tr><td><code>suggestion.preview</code></td><td>Calls <code>onPreview(targetEntry.item)</code>.</td><td>Requires a selected preview-capable suggestion and no <code>disabledReason</code>.</td></tr>
+          <tr><td><code>suggestion.accept</code></td><td>Calls <code>onAccept(targetEntry.item)</code>.</td><td>Uses the same preview-capable guard, which currently means edit-only.</td></tr>
+        </tbody>
+      </table>
+      <p>After a successful accept, <code>usePreviewController</code> marks the document dirty and resolves the suggestion as accepted through the existing inbox command path.</p>
+      <pre><code>const accept = useCallback(
+  (item: SuggestionItem) =&gt; {
+    if (!isEditSuggestion(item)) return false;
+    const didAccept = acceptEditSuggestion(editor, item);
+    if (!didAccept) return false;
+    documentChanged();
+    previewResolved(item.id, "accepted");
+    return true;
+  },
+  [documentChanged, editor, previewResolved],
+);</code></pre>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Tests and documentation changed with the contract</h2>
+        <p>The tests have been retargeted from <code>TextSuggestion</code> and <code>insertText</code> to <code>EditSuggestion</code>, <code>sourceText</code>, and <code>newText</code>. The most useful new coverage is in <code>src/renderer/features/editor/editSuggestions.test.ts</code>:</p>
+        <ul>
+          <li>enabled when the source appears exactly once;</li>
+          <li>disabled when missing;</li>
+          <li>disabled when duplicated;</li>
+          <li>still enabled after text moves to a later block;</li>
+          <li>preview focuses without mutating, accept replaces the source.</li>
+        </ul>
+        <p>I ran the focused suite after generating this review:</p>
+        <pre><code>npm test -- --run \
+  src/domain/suggestions/schema.test.ts \
+  src/renderer/features/editor/editSuggestions.test.ts \
+  src/renderer/features/workspace/useWorkspaceController.test.ts \
+  src/renderer/features/suggestions/dock/SuggestionDock.test.tsx
+
+Test Files  4 passed (4)
+Tests       60 passed (60)</code></pre>
+      </div>
+      <aside class="callout">
+        <h3>History context</h3>
+        <ul class="history">
+          <li><code>a937f24</code> consolidated the suggestion controller, so this change can route accept/preview through one controller surface.</li>
+          <li><code>d34e234</code> finished the source-layout reorganization. The staged diff builds on that layout, with domain code under <code>src/domain</code> and renderer feature code under <code>src/renderer/features</code>.</li>
+          <li><code>567d2f1</code> added broad doc comments. The staged change keeps those comments but changes the underlying suggestion concepts.</li>
+        </ul>
+        <p class="small">Intent beyond these commit messages is inferred from the diff and docs. There is no issue text in the available context.</p>
+      </aside>
+    </section>
+
+    <section class="card">
+      <h2>Invariants and likely failure points</h2>
+      <table>
+        <thead><tr><th>Invariant</th><th>Evidence in changed code</th><th>Risk if broken</th></tr></thead>
+        <tbody>
+          <tr><td>An edit may mutate the document only when <code>sourceText</code> has one exact match.</td><td><code>acceptEditSuggestion</code> calls <code>getEditSuggestionStatus</code> immediately before <code>replaceBlocks</code>.</td><td>Wrong text could be replaced, especially after the user edits the draft.</td></tr>
+          <tr><td>Preview is non-mutating.</td><td><code>previewEditSuggestion</code> only sets cursor and scrolls. App tests assert <code>insertBlocks</code> is not called.</td><td>A user could mistake a temporary preview for saved text if old insertion behavior leaks back in.</td></tr>
+          <tr><td>Reference kinds stay non-accepting.</td><td><code>note</code> and <code>diagram</code> have <code>supportsPreview: false</code> and <code>supportsAccept: false</code>; dock tests assert no preview/accept buttons.</td><td>Notes or diagrams could be routed into text replacement code without <code>sourceText</code>.</td></tr>
+          <tr><td>Disabled status is derived, not persisted.</td><td><code>useWorkspaceController</code> decorates entries and pins with <code>getSuggestionDisabledReason</code>.</td><td>If editor changes do not trigger a React render, the visible disabled state may lag until another state update. The accept path still re-checks before mutation.</td></tr>
+          <tr><td>Legacy suggestions are rejected at the schema boundary.</td><td><code>schema.test.ts</code> now includes cases for <code>snippet</code>, <code>fact</code>, <code>term</code>, <code>outline</code>, <code>layout</code>, and <code>mindMap</code>.</td><td>Older persisted or agent-produced payloads need migration or quarantine behavior outside this diff.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="quiz">
+      <h2>Comprehension check</h2>
+      <details>
+        <summary>1. A user edits the draft so <code>sourceText</code> appears twice. What should preview and accept do?</summary>
+        <p>Both should be unavailable through the decorated UI and keybinding guards because <code>getEditSuggestionStatus</code> returns <code>{ enabled: false, reason: "ambiguous" }</code>. If accept is somehow called anyway, it re-runs the same check and returns <code>false</code> before mutating.</p>
+      </details>
+      <details>
+        <summary>2. Why does this change use <code>sourceText</code> instead of storing a block id?</summary>
+        <p>The code evidence is that matching scans the whole current document and tests assert the edit stays enabled when the matching text moves lower. A block id anchor would be more brittle after insertion, deletion, or reordering. The tradeoff is ambiguity when the same text appears more than once.</p>
+      </details>
+      <details>
+        <summary>3. Which suggestion kinds can be accepted into the draft?</summary>
+        <p>Only <code>edit</code>. The capability metadata gives edit <code>supportsAccept: true</code>; notes and diagrams have it set to false. The UI uses <code>supportsSuggestionPreview</code> for the preview/accept action group, which currently narrows to <code>EditSuggestion</code>.</p>
+      </details>
+      <details>
+        <summary>4. Where would you start debugging if an enabled edit does not disappear after clicking Accept edit?</summary>
+        <p>First check <code>acceptEditSuggestion</code>: did it return true and call <code>replaceBlocks</code>? Then check <code>usePreviewController.accept</code>: it should call <code>documentChanged()</code> and <code>previewResolved(item.id, "accepted")</code>. If the document changed but the suggestion remains, follow the inbox command path behind <code>previewResolved</code>.</p>
+      </details>
+      <details>
+        <summary>5. What case is still risky even though accept re-checks safely?</summary>
+        <p>The visible disabled state is derived during React rendering from the editor document. If the editor mutates without causing the controller to re-render, the button state could be stale. The accept function still protects the document, but the UI could momentarily offer an action that returns false.</p>
+      </details>
+    </section>
+
+    <p class="foot">Generated from the staged working tree diff and recent git history. Important claims above cite changed files or tests; inferred intent is labeled where evidence is limited.</p>
+  </main>
+</body>
+</html>

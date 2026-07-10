@@ -11,6 +11,7 @@ export const APP_COMMAND_IDS = [
   "suggestion.back",
   "suggestion.pin.toggle",
   "suggestion.preview",
+  "suggestion.accept",
   "suggestion.dismiss",
 ] as const;
 
@@ -95,8 +96,14 @@ export const COMMAND_CATALOG = [
   {
     id: "suggestion.preview",
     group: "Suggestions",
-    label: "Preview in document",
-    description: "Insert an eligible text suggestion into the draft.",
+    label: "Preview source",
+    description: "Focus the current source text for an eligible edit.",
+  },
+  {
+    id: "suggestion.accept",
+    group: "Suggestions",
+    label: "Accept edit",
+    description: "Apply the currently targeted edit to the draft.",
   },
   {
     id: "suggestion.dismiss",

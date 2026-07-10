@@ -173,10 +173,10 @@ When changing UI behavior, retain these existing properties:
 - unread state is not color-only (`Unread` is exposed to assistive technology on queue rows);
 - agent errors use readable text;
 - agent lifecycle state and the pending Start/Stop label are exposed as text;
-- a mind map has an accessible description even if rendering fails;
+- a diagram has an accessible description even if rendering fails;
 - workspace cards are named regions with named move, resize, and return controls;
 - custom focus outlines are visible on buttons, links, and inputs;
-- preview accept is unavailable when its content is empty.
+- edit preview and accept actions are unavailable when the source text is disabled.
 
 ## Styling conventions
 

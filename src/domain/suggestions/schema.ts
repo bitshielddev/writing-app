@@ -21,75 +21,32 @@ const commonSuggestionProperties = {
   createdAt: Type.Number(),
 };
 
-export const StructureNodeSchema = Type.Cyclic(
-  {
-    StructureNode: Type.Object(
-      {
-        id: nonEmptyString(200),
-        label: nonEmptyString(1_000),
-        detail: Type.Optional(Type.String({ maxLength: 8_000 })),
-        children: Type.Optional(
-          Type.Array(Type.Ref("StructureNode"), { maxItems: 100 }),
-        ),
-      },
-      strictObject,
-    ),
-  },
-  "StructureNode",
-);
-
-export const StructureNodesSchema = Type.Array(StructureNodeSchema, {
-  minItems: 1,
-  maxItems: 100,
-});
-
 /**
- * What: performs the text suggestion schema step for this file's workflow.
+ * What: performs the edit suggestion schema step for this file's workflow.
  *
  * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
  * Called when: used by schema when that path needs this behavior.
  */
-function textSuggestionSchema<Kind extends "snippet" | "fact" | "term">(
-  kind: Kind,
-) {
-  return Type.Object(
-    {
-      ...commonSuggestionProperties,
-      kind: Type.Literal(kind),
-      insertText: nonEmptyString(20_000),
-    },
-    strictObject,
-  );
-}
-
-/**
- * What: performs the structure suggestion schema step for this file's workflow.
- *
- * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
- * Called when: used by schema when that path needs this behavior.
- */
-function structureSuggestionSchema<Kind extends "outline" | "layout">(
-  kind: Kind,
-) {
-  return Type.Object(
-    {
-      ...commonSuggestionProperties,
-      kind: Type.Literal(kind),
-      nodes: StructureNodesSchema,
-    },
-    strictObject,
-  );
-}
-
-export const SnippetSuggestionSchema = textSuggestionSchema("snippet");
-export const FactSuggestionSchema = textSuggestionSchema("fact");
-export const TermSuggestionSchema = textSuggestionSchema("term");
-export const OutlineSuggestionSchema = structureSuggestionSchema("outline");
-export const LayoutSuggestionSchema = structureSuggestionSchema("layout");
-export const MindMapSuggestionSchema = Type.Object(
+export const EditSuggestionSchema = Type.Object(
   {
     ...commonSuggestionProperties,
-    kind: Type.Literal("mindMap"),
+    kind: Type.Literal("edit"),
+    sourceText: nonEmptyString(20_000),
+    newText: Type.String({ maxLength: 20_000 }),
+  },
+  strictObject,
+);
+export const NoteSuggestionSchema = Type.Object(
+  {
+    ...commonSuggestionProperties,
+    kind: Type.Literal("note"),
+  },
+  strictObject,
+);
+export const DiagramSuggestionSchema = Type.Object(
+  {
+    ...commonSuggestionProperties,
+    kind: Type.Literal("diagram"),
     mermaidSource: nonEmptyString(20_000),
     accessibleDescription: nonEmptyString(4_000),
   },
@@ -97,12 +54,9 @@ export const MindMapSuggestionSchema = Type.Object(
 );
 
 export const CONCRETE_SUGGESTION_SCHEMAS = [
-  SnippetSuggestionSchema,
-  FactSuggestionSchema,
-  TermSuggestionSchema,
-  OutlineSuggestionSchema,
-  LayoutSuggestionSchema,
-  MindMapSuggestionSchema,
+  EditSuggestionSchema,
+  NoteSuggestionSchema,
+  DiagramSuggestionSchema,
 ] as const;
 
 export const SuggestionItemSchema = Type.Union([
@@ -111,26 +65,14 @@ export const SuggestionItemSchema = Type.Union([
 
 export type SuggestionItem = Static<typeof SuggestionItemSchema>;
 export type SuggestionKind = SuggestionItem["kind"];
-export type TextSuggestion = Extract<
-  SuggestionItem,
-  { kind: "snippet" | "fact" | "term" }
->;
-export type TextSuggestionKind = TextSuggestion["kind"];
-export type StructureSuggestion = Extract<
-  SuggestionItem,
-  { kind: "outline" | "layout" }
->;
-export type StructureSuggestionKind = StructureSuggestion["kind"];
-export type MindMapSuggestion = Extract<SuggestionItem, { kind: "mindMap" }>;
-export type StructureNode = Static<typeof StructureNodeSchema>;
+export type EditSuggestion = Extract<SuggestionItem, { kind: "edit" }>;
+export type NoteSuggestion = Extract<SuggestionItem, { kind: "note" }>;
+export type DiagramSuggestion = Extract<SuggestionItem, { kind: "diagram" }>;
 
 export const SUGGESTION_SCHEMAS_BY_KIND = {
-  snippet: SnippetSuggestionSchema,
-  fact: FactSuggestionSchema,
-  term: TermSuggestionSchema,
-  outline: OutlineSuggestionSchema,
-  layout: LayoutSuggestionSchema,
-  mindMap: MindMapSuggestionSchema,
+  edit: EditSuggestionSchema,
+  note: NoteSuggestionSchema,
+  diagram: DiagramSuggestionSchema,
 } as const satisfies Record<SuggestionKind, (typeof CONCRETE_SUGGESTION_SCHEMAS)[number]>;
 
 export type SuggestionValidationIssue = {
@@ -191,16 +133,6 @@ export function isSuggestionItem(value: unknown): value is SuggestionItem {
 }
 
 /**
- * What: returns whether the supplied value matches structure nodes.
- *
- * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
- * Called when: used by the enclosing workflow at the point this named step is required.
- */
-export function isStructureNodes(value: unknown): value is StructureNode[] {
-  return Check(StructureNodesSchema, value);
-}
-
-/**
  * What: formats suggestion validation issues for display, validation output, or diagnostics.
  *
  * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
@@ -215,52 +147,39 @@ export function formatSuggestionValidationIssues(
 }
 
 export type SuggestionCapabilities = {
-  family: "text" | "structure" | "mindMap";
+  family: "edit" | "note" | "diagram";
   supportsPreview: boolean;
+  supportsAccept: boolean;
+  supportsDisable: boolean;
   supportsVisualRendering: boolean;
   supportsWorkspacePlacement: boolean;
   initialWorkspaceSize: { width: number; height: number };
 };
 
 export const SUGGESTION_CAPABILITIES = {
-  snippet: {
-    family: "text",
+  edit: {
+    family: "edit",
     supportsPreview: true,
+    supportsAccept: true,
+    supportsDisable: true,
     supportsVisualRendering: false,
     supportsWorkspacePlacement: true,
     initialWorkspaceSize: { width: 320, height: 240 },
   },
-  fact: {
-    family: "text",
-    supportsPreview: true,
+  note: {
+    family: "note",
+    supportsPreview: false,
+    supportsAccept: false,
+    supportsDisable: false,
     supportsVisualRendering: false,
     supportsWorkspacePlacement: true,
-    initialWorkspaceSize: { width: 320, height: 240 },
+    initialWorkspaceSize: { width: 340, height: 240 },
   },
-  term: {
-    family: "text",
-    supportsPreview: true,
-    supportsVisualRendering: false,
-    supportsWorkspacePlacement: true,
-    initialWorkspaceSize: { width: 320, height: 240 },
-  },
-  outline: {
-    family: "structure",
+  diagram: {
+    family: "diagram",
     supportsPreview: false,
-    supportsVisualRendering: true,
-    supportsWorkspacePlacement: true,
-    initialWorkspaceSize: { width: 380, height: 300 },
-  },
-  layout: {
-    family: "structure",
-    supportsPreview: false,
-    supportsVisualRendering: true,
-    supportsWorkspacePlacement: true,
-    initialWorkspaceSize: { width: 380, height: 300 },
-  },
-  mindMap: {
-    family: "mindMap",
-    supportsPreview: false,
+    supportsAccept: false,
+    supportsDisable: false,
     supportsVisualRendering: true,
     supportsWorkspacePlacement: true,
     initialWorkspaceSize: { width: 460, height: 340 },
@@ -275,7 +194,7 @@ export const SUGGESTION_KINDS = Object.keys(
  * What: returns whether the supplied value matches suggestion kind.
  *
  * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
- * Called when: used by isTextSuggestionKind, isStructureSuggestionKind, isMindMapSuggestionKind and state when that path needs this behavior.
+ * Called when: used by suggestion kind guards and state when that path needs this behavior.
  */
 export function isSuggestionKind(value: unknown): value is SuggestionKind {
   return (
@@ -285,75 +204,43 @@ export function isSuggestionKind(value: unknown): value is SuggestionKind {
 }
 
 /**
- * What: returns whether the supplied value matches text suggestion kind.
+ * What: returns whether the supplied value matches edit suggestion kind.
  *
  * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
  * Called when: used by state when that path needs this behavior.
  */
-export function isTextSuggestionKind(value: unknown): value is TextSuggestionKind {
-  return isSuggestionKind(value) && SUGGESTION_CAPABILITIES[value].family === "text";
+export function isEditSuggestionKind(value: unknown): value is "edit" {
+  return isSuggestionKind(value) && SUGGESTION_CAPABILITIES[value].family === "edit";
 }
 
 /**
- * What: returns whether the supplied value matches structure suggestion kind.
+ * What: returns whether the supplied value matches edit suggestion.
  *
  * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
  * Called when: used by state when that path needs this behavior.
  */
-export function isStructureSuggestionKind(
-  value: unknown,
-): value is StructureSuggestionKind {
-  return (
-    isSuggestionKind(value) &&
-    SUGGESTION_CAPABILITIES[value].family === "structure"
-  );
+export function isEditSuggestion(item: SuggestionItem): item is EditSuggestion {
+  return SUGGESTION_CAPABILITIES[item.kind].family === "edit";
 }
 
 /**
- * What: returns whether the supplied value matches mind map suggestion kind.
- *
- * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
- * Called when: used by the enclosing workflow at the point this named step is required.
- */
-export function isMindMapSuggestionKind(value: unknown): value is "mindMap" {
-  return (
-    isSuggestionKind(value) &&
-    SUGGESTION_CAPABILITIES[value].family === "mindMap"
-  );
-}
-
-/**
- * What: returns whether the supplied value matches text suggestion.
+ * What: returns whether the supplied value matches note suggestion.
  *
  * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
  * Called when: used by state when that path needs this behavior.
  */
-export function isTextSuggestion(item: SuggestionItem): item is TextSuggestion {
-  return SUGGESTION_CAPABILITIES[item.kind].family === "text";
+export function isNoteSuggestion(item: SuggestionItem): item is NoteSuggestion {
+  return SUGGESTION_CAPABILITIES[item.kind].family === "note";
 }
 
 /**
- * What: returns whether the supplied value matches structure suggestion.
+ * What: returns whether the supplied value matches diagram suggestion.
  *
  * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
  * Called when: used by state, SuggestionPresentation and SuggestionVisual when that path needs this behavior.
  */
-export function isStructureSuggestion(
-  item: SuggestionItem,
-): item is StructureSuggestion {
-  return SUGGESTION_CAPABILITIES[item.kind].family === "structure";
-}
-
-/**
- * What: returns whether the supplied value matches mind map suggestion.
- *
- * Why: suggestion state must remain deterministic across storage, agent, and renderer code.
- * Called when: used by state, SuggestionPresentation and SuggestionVisual when that path needs this behavior.
- */
-export function isMindMapSuggestion(
-  item: SuggestionItem,
-): item is MindMapSuggestion {
-  return SUGGESTION_CAPABILITIES[item.kind].family === "mindMap";
+export function isDiagramSuggestion(item: SuggestionItem): item is DiagramSuggestion {
+  return SUGGESTION_CAPABILITIES[item.kind].family === "diagram";
 }
 
 /**
@@ -364,8 +251,12 @@ export function isMindMapSuggestion(
  */
 export function supportsSuggestionPreview(
   item: SuggestionItem,
-): item is TextSuggestion {
+): item is EditSuggestion {
   return SUGGESTION_CAPABILITIES[item.kind].supportsPreview;
+}
+
+export function supportsSuggestionAccept(item: SuggestionItem): item is EditSuggestion {
+  return SUGGESTION_CAPABILITIES[item.kind].supportsAccept;
 }
 
 /**
@@ -376,7 +267,7 @@ export function supportsSuggestionPreview(
  */
 export function isVisualSuggestion(
   item: SuggestionItem,
-): item is StructureSuggestion | MindMapSuggestion {
+): item is DiagramSuggestion {
   return SUGGESTION_CAPABILITIES[item.kind].supportsVisualRendering;
 }
 
@@ -393,24 +284,18 @@ export function supportsWorkspacePlacement(item: SuggestionItem): boolean {
 const TOOL_OMITTED_FIELDS = ["id", "createdAt"] as const;
 export const SuggestionToolInputSchema = Type.Union(
   [
-    Type.Omit(SnippetSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
-    Type.Omit(FactSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
-    Type.Omit(TermSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
-    Type.Omit(OutlineSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
-    Type.Omit(LayoutSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
-    Type.Omit(MindMapSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
+    Type.Omit(EditSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
+    Type.Omit(NoteSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
+    Type.Omit(DiagramSuggestionSchema, TOOL_OMITTED_FIELDS, strictObject),
   ],
 );
 export type SuggestionToolInput = Static<typeof SuggestionToolInputSchema>;
 
 export const SuggestionToolUpdateInputSchema = Type.Union(
   [
-    Type.Omit(SnippetSuggestionSchema, ["createdAt"], strictObject),
-    Type.Omit(FactSuggestionSchema, ["createdAt"], strictObject),
-    Type.Omit(TermSuggestionSchema, ["createdAt"], strictObject),
-    Type.Omit(OutlineSuggestionSchema, ["createdAt"], strictObject),
-    Type.Omit(LayoutSuggestionSchema, ["createdAt"], strictObject),
-    Type.Omit(MindMapSuggestionSchema, ["createdAt"], strictObject),
+    Type.Omit(EditSuggestionSchema, ["createdAt"], strictObject),
+    Type.Omit(NoteSuggestionSchema, ["createdAt"], strictObject),
+    Type.Omit(DiagramSuggestionSchema, ["createdAt"], strictObject),
   ],
 );
 export type SuggestionToolUpdateInput = Static<

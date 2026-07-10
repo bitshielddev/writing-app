@@ -1,14 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { emitPreviewResolution } from "../features/editor/previewEvents";
 import {
   createDocumentSnapshot,
   createSourceSnapshot,
   createWorkspaceSnapshot,
   DesktopBridgeHarness,
 } from "../../test/desktopBridgeHarness";
-import type { TextSuggestion } from "../../domain/suggestions/schema";
+import type { EditSuggestion } from "../../domain/suggestions/schema";
 import { createEmptySuggestionState } from "../../domain/suggestions/state";
 
 const appHarness = vi.hoisted(() => {
@@ -93,14 +92,15 @@ vi.mock("../features/keybindings/useWorkspaceKeybindings", () => ({
 
 import App from "./App";
 
-const suggestion: TextSuggestion = {
+const suggestion: EditSuggestion = {
   id: "suggestion-1",
   dedupeKey: "suggestion-1",
-  kind: "snippet",
+  kind: "edit",
   title: "Clarify the opening",
   summary: "Make the first sentence concrete.",
   body: "The current opening is abstract.",
-  insertText: "A concrete opening.",
+  sourceText: "Opening",
+  newText: "A concrete opening.",
   sourceLabels: ["Research.md"],
   createdAt: 1,
 };
@@ -166,17 +166,11 @@ describe("App desktop boundary", () => {
     expect(screen.getByTestId("document-blocks").textContent).toContain("block-1");
 
     fireEvent.click(screen.getByRole("button", { name: `Open ${suggestion.title}` }));
-    fireEvent.click(screen.getByRole("button", { name: "Preview in document" }));
-    expect(screen.getByRole("button", { name: "Preview active" })).toBeTruthy();
-    expect(appHarness.editor.insertBlocks).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Preview source" }));
+    expect(appHarness.editor.setTextCursorPosition).toHaveBeenCalledWith("block-1", "start");
+    expect(appHarness.editor.insertBlocks).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Pin" }));
-    act(() =>
-      emitPreviewResolution({
-        suggestionId: suggestion.id,
-        outcome: "cancelled",
-      }),
-    );
     fireEvent.click(screen.getByRole("button", { name: "Place on workspace" }));
     expect(screen.getByTestId("workspace-pins").textContent).toContain(
       suggestion.title,

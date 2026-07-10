@@ -230,6 +230,11 @@ export function useSuggestionController(desktop: DesktopBridge) {
     setSelected({ id, entry: presentInboxEntry(entry), stale: false, withdrawn: false });
     if (!entry.viewed) enqueue({ type: "markViewed", suggestionId: id });
   }, [enqueue]);
+  const markViewed = useCallback((id: string) => {
+    const entry = locate(projectionRef.current, id);
+    if (!entry || entry.viewed) return;
+    enqueue({ type: "markViewed", suggestionId: id });
+  }, [enqueue]);
   const back = useCallback(() => setSelected(undefined), []);
   const dismiss = useCallback((id: string) => {
     if (activePreview?.id === id) return;
@@ -307,6 +312,6 @@ export function useSuggestionController(desktop: DesktopBridge) {
     unreadCount: selectUnreadCount(projection),
     select, back, dismiss, pin, unpin, placeOnWorkspace, returnToPins,
     updateWorkspaceGeometry, raiseWorkspacePin, previewStarted, previewResolved,
-    seedHydratedState, onDesktopEvent, status, failureMessage, retry, flush, discard,
+    markViewed, seedHydratedState, onDesktopEvent, status, failureMessage, retry, flush, discard,
   };
 }

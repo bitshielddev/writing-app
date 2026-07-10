@@ -7,15 +7,14 @@ import {
   type PersistedInboxEntry,
 } from "./state";
 import {
-  isMindMapSuggestion,
-  isStructureSuggestion,
-  isStructureSuggestionKind,
+  isDiagramSuggestion,
+  isEditSuggestion,
+  isEditSuggestionKind,
+  isNoteSuggestion,
   isSuggestionKind,
-  isTextSuggestion,
-  isTextSuggestionKind,
   isVisualSuggestion,
+  type EditSuggestion,
   type SuggestionItem,
-  type TextSuggestion,
 } from "./schema";
 
 /**
@@ -25,14 +24,15 @@ import {
  * Called when: used by state when that path needs this behavior.
  */
 function entry(index: number, viewed = false): PersistedInboxEntry {
-  const item: TextSuggestion = {
+  const item: EditSuggestion = {
     id: `item-${index}`,
     dedupeKey: `item-${index}`,
-    kind: "snippet",
+    kind: "edit",
     title: `Item ${index}`,
     summary: "Summary",
     body: "Body",
-    insertText: "Text",
+    sourceText: "Source text",
+    newText: "New text",
     sourceLabels: [],
     createdAt: index,
   };
@@ -80,33 +80,37 @@ describe("shared suggestion state policy", () => {
 });
 
 describe("suggestion kind guards", () => {
-  const text = entry(1).item;
-  const structure: SuggestionItem = {
-    ...text,
-    kind: "outline",
-    nodes: [{ id: "node", label: "Node" }],
+  const edit = entry(1).item;
+  const note: SuggestionItem = {
+    id: "note",
+    dedupeKey: "note",
+    kind: "note",
+    title: "Note",
+    summary: "Summary",
+    body: "Body",
+    sourceLabels: [],
+    createdAt: 2,
   };
-  const mindMap: SuggestionItem = {
-    ...text,
-    kind: "mindMap",
-    mermaidSource: "mindmap\n root((Idea))",
+  const diagram: SuggestionItem = {
+    ...note,
+    kind: "diagram",
+    mermaidSource: "flowchart TD\n Idea[Idea]",
     accessibleDescription: "An idea",
   };
 
   it("recognizes canonical kind families", () => {
-    expect(isSuggestionKind("mindMap")).toBe(true);
+    expect(isSuggestionKind("diagram")).toBe(true);
     expect(isSuggestionKind("unknown")).toBe(false);
-    expect(isTextSuggestionKind("fact")).toBe(true);
-    expect(isTextSuggestionKind("layout")).toBe(false);
-    expect(isStructureSuggestionKind("layout")).toBe(true);
+    expect(isEditSuggestionKind("edit")).toBe(true);
+    expect(isEditSuggestionKind("note")).toBe(false);
   });
 
-  it("narrows suggestion items for text, structure, and visual rendering", () => {
-    expect(isTextSuggestion(text)).toBe(true);
-    expect(isStructureSuggestion(structure)).toBe(true);
-    expect(isMindMapSuggestion(mindMap)).toBe(true);
-    expect(isVisualSuggestion(text)).toBe(false);
-    expect(isVisualSuggestion(structure)).toBe(true);
-    expect(isVisualSuggestion(mindMap)).toBe(true);
+  it("narrows suggestion items for edit, note, diagram, and visual rendering", () => {
+    expect(isEditSuggestion(edit)).toBe(true);
+    expect(isNoteSuggestion(note)).toBe(true);
+    expect(isDiagramSuggestion(diagram)).toBe(true);
+    expect(isVisualSuggestion(edit)).toBe(false);
+    expect(isVisualSuggestion(note)).toBe(false);
+    expect(isVisualSuggestion(diagram)).toBe(true);
   });
 });

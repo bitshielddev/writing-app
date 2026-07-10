@@ -30,6 +30,7 @@ type WorkspaceKeybindingOptions = {
   onPin: (id: string) => void;
   onUnpin: (id: string) => void;
   onPreview: (item: SuggestionItem) => void;
+  onAccept: (item: SuggestionItem) => void;
 };
 
 /**
@@ -52,6 +53,7 @@ export function useWorkspaceKeybindings({
   onPin,
   onUnpin,
   onPreview,
+  onAccept,
 }: WorkspaceKeybindingOptions) {
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -155,11 +157,25 @@ export function useWorkspaceKeybindings({
         if (!supportsSuggestionPreview(targetEntry.item)) {
           return unavailable("This suggestion cannot be previewed in the document");
         }
+        if (targetEntry.disabledReason) {
+          return unavailable("This edit is disabled because its source text changed");
+        }
         if (targetEntry.withdrawn) {
           return unavailable("This suggestion was withdrawn");
         }
         if (activePreviewId) return unavailable("Finish the active preview first");
         onPreview(targetEntry.item);
+        return executed();
+      },
+      "suggestion.accept": () => {
+        if (!targetEntry) return unavailable("No suggestion selected");
+        if (!supportsSuggestionPreview(targetEntry.item)) {
+          return unavailable("This suggestion cannot be accepted into the document");
+        }
+        if (targetEntry.disabledReason) {
+          return unavailable("This edit is disabled because its source text changed");
+        }
+        onAccept(targetEntry.item);
         return executed();
       },
       "suggestion.dismiss": () => {
@@ -183,6 +199,7 @@ export function useWorkspaceKeybindings({
       layout,
       moveSuggestion,
       navigator,
+      onAccept,
       onBack,
       onDismiss,
       onPin,

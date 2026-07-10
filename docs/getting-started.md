@@ -183,9 +183,9 @@ Wayland compositor capability warnings are not, by themselves, evidence that win
 
 [`index.html`](../index.html) loads Inter and Literata from Google Fonts. If the network request is blocked, the UI falls back to system sans-serif and Georgia-style serif fonts. Functionality is unaffected.
 
-### A mind map says “Diagram unavailable”
+### A diagram says “Diagram unavailable”
 
-Mermaid is loaded lazily only when a mind-map visual renders. Invalid Mermaid source or a failed module render activates the accessible text fallback. Inspect [`MermaidDiagram.tsx`](../src/renderer/features/suggestions/dock/MermaidDiagram.tsx) and the `mermaidSource` on the suggestion.
+Mermaid is loaded lazily only when a diagram visual renders. Invalid Mermaid source or a failed module render activates the accessible text fallback. Inspect [`MermaidDiagram.tsx`](../src/renderer/features/suggestions/dock/MermaidDiagram.tsx) and the `mermaidSource` on the suggestion.
 
 ### A workspace pin is missing
 

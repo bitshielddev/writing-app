@@ -32,6 +32,7 @@ type SuggestionDockProps = {
   onUnpin: (id: string) => void;
   onPlaceOnWorkspace: (item: SuggestionItem) => void;
   onPreview: (item: SuggestionItem) => void;
+  onAccept: (item: SuggestionItem) => void;
   onStartAgent: () => void;
   onStopAgent: () => void;
   onRetrySuggestionSave: () => void;
@@ -137,6 +138,7 @@ function DockContent(props: SuggestionDockProps) {
     onUnpin,
     onPlaceOnWorkspace,
     onPreview,
+    onAccept,
   } = props;
   const activity = props.activity ?? [];
   const selectedIsPinned = selectedEntry
@@ -161,6 +163,7 @@ function DockContent(props: SuggestionDockProps) {
         }
         onPlaceOnWorkspace={onPlaceOnWorkspace}
         onPreview={onPreview}
+        onAccept={onAccept}
       />
     );
   }

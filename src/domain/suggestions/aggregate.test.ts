@@ -3,16 +3,16 @@
 import { describe, expect, it } from "vitest";
 
 import { createEmptySuggestionState } from "./state";
-import type { TextSuggestion } from "./schema.js";
+import type { EditSuggestion } from "./schema.js";
 import {
   applySuggestionFact,
   decideSuggestionCommand,
   type SuggestionProjectionView,
 } from "./aggregate";
 
-const item: TextSuggestion = {
-  id: "suggestion-1", dedupeKey: "dedupe-1", kind: "snippet", title: "Opening",
-  summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1,
+const item: EditSuggestion = {
+  id: "suggestion-1", dedupeKey: "dedupe-1", kind: "edit", title: "Opening",
+  summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
 };
 
 describe("command-driven suggestion persistence", () => {

@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { WritingEditor } from "../editor/schema";
-import type { TextSuggestion } from "../../../domain/suggestions/schema";
+import type { EditSuggestion } from "../../../domain/suggestions/schema";
 import {
   DesktopBridgeHarness,
   createSourceSnapshot,
@@ -75,56 +75,52 @@ describe("source and agent services", () => {
 });
 
 describe("preview service", () => {
-  it("places a preview and removes temporary content on teardown", () => {
-    const suggestion: TextSuggestion = {
+  it("previews edit source and accepts by replacing text", () => {
+    const suggestion: EditSuggestion = {
       id: "suggestion",
       dedupeKey: "suggestion",
-      kind: "snippet",
+      kind: "edit",
       title: "Suggestion",
       summary: "Summary",
       body: "Body",
-      insertText: "Suggested text",
+      sourceText: "Suggested text",
+      newText: "Replacement text",
       sourceLabels: [],
       createdAt: 1,
     };
     const state = {
-      document: [{ id: "paragraph", type: "paragraph", props: {} }],
+      document: [{ id: "paragraph", type: "paragraph", props: {}, content: "Suggested text" }],
     };
     const editor = {
       get document() {
         return state.document;
       },
       getTextCursorPosition: vi.fn(() => ({ block: { id: "paragraph" } })),
-      insertBlocks: vi.fn(() => {
-        const preview = {
-          id: "preview",
-          type: "suggestionPreview",
-          props: { suggestionId: "suggestion", targetBlockId: "paragraph" },
-        };
-        state.document.push(preview);
-        return [preview];
+      replaceBlocks: vi.fn((_ids: string[], blocks: typeof state.document) => {
+        state.document = blocks;
+        return { insertedBlocks: blocks, removedBlocks: [] };
       }),
       setTextCursorPosition: vi.fn(),
-      removeBlocks: vi.fn((ids: string[]) => {
-        state.document = state.document.filter((block) => !ids.includes(block.id));
-      }),
     } as unknown as WritingEditor;
-    const previewStarted = vi.fn();
+    const markViewed = vi.fn();
     const previewResolved = vi.fn();
-    const hook = renderHook(
-      ({ activePreviewId }: { activePreviewId?: string }) =>
-        usePreviewController({
-          editor,
-          activePreviewId,
-          previewStarted,
-          previewResolved,
-        }),
-      { initialProps: { activePreviewId: undefined as string | undefined } },
+    const documentChanged = vi.fn();
+    const hook = renderHook(() =>
+      usePreviewController({
+        editor,
+        markViewed,
+        previewResolved,
+        documentChanged,
+      }),
     );
-    act(() => hook.result.current.preview(suggestion));
-    expect(previewStarted).toHaveBeenCalledWith("suggestion");
-    hook.rerender({ activePreviewId: "suggestion" });
-    hook.unmount();
-    expect(editor.removeBlocks).toHaveBeenCalledWith(["preview"]);
+
+    act(() => expect(hook.result.current.preview(suggestion)).toBe(true));
+    expect(markViewed).toHaveBeenCalledWith("suggestion");
+    expect(editor.setTextCursorPosition).toHaveBeenCalledWith("paragraph", "start");
+
+    act(() => expect(hook.result.current.accept(suggestion)).toBe(true));
+    expect(state.document[0]?.content).toBe("Replacement text");
+    expect(documentChanged).toHaveBeenCalledOnce();
+    expect(previewResolved).toHaveBeenCalledWith("suggestion", "accepted");
   });
 });

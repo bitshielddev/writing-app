@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 
-import { subscribeToPreviewResolutions } from "../editor/previewEvents";
+import {
+  acceptEditSuggestion,
+  previewEditSuggestion,
+} from "../editor/editSuggestions";
 import type { WritingEditor } from "../editor/schema";
 import {
-  supportsSuggestionPreview,
+  isEditSuggestion,
   type SuggestionItem,
 } from "../../../domain/suggestions/schema";
 
 type Options = {
   editor: WritingEditor;
-  activePreviewId?: string;
-  previewStarted(id: string): void;
+  markViewed(id: string): void;
   previewResolved(id: string, outcome: "accepted" | "cancelled"): void;
+  documentChanged(): void;
 };
 
 /**
@@ -22,9 +25,9 @@ type Options = {
  */
 export function usePreviewController({
   editor,
-  activePreviewId,
-  previewStarted,
+  markViewed,
   previewResolved,
+  documentChanged,
 }: Options) {
   const [lastActiveBlockId, setLastActiveBlockId] = useState(() => {
     try {
@@ -33,37 +36,11 @@ export function usePreviewController({
       return editor.document.at(-1)?.id;
     }
   });
-  const activePreviewRef = useRef(activePreviewId);
-  useEffect(() => {
-    activePreviewRef.current = activePreviewId;
-  }, [activePreviewId]);
 
   const initialize = useCallback(() => {
     const finalBlock = editor.document.at(-1);
     if (finalBlock) setLastActiveBlockId(finalBlock.id);
   }, [editor]);
-
-  useEffect(
-    () =>
-      subscribeToPreviewResolutions(({ suggestionId, outcome }) => {
-        previewResolved(suggestionId, outcome);
-      }),
-    [previewResolved],
-  );
-
-  useEffect(
-    () => () => {
-      const id = activePreviewRef.current;
-      if (!id) return;
-      const blocks = editor.document.filter(
-        (block) =>
-          block.type === "suggestionPreview" &&
-          block.props.suggestionId === id,
-      );
-      if (blocks.length) editor.removeBlocks(blocks.map((block) => block.id));
-    },
-    [editor],
-  );
 
   const handleSelectionChange = useCallback(() => {
     try {
@@ -75,38 +52,25 @@ export function usePreviewController({
 
   const preview = useCallback(
     (item: SuggestionItem) => {
-      if (activePreviewId || !supportsSuggestionPreview(item)) return;
-      const acceptedBlocks = editor.document.filter(
-        (block) => block.type !== "suggestionPreview",
-      );
-      const referenceBlock =
-        acceptedBlocks.find((block) => block.id === lastActiveBlockId) ??
-        acceptedBlocks.at(-1);
-      if (!referenceBlock) return;
-      const block = editor.insertBlocks(
-        [
-          {
-            type: "suggestionPreview",
-            props: { suggestionId: item.id, targetBlockId: referenceBlock.id },
-            content: item.insertText,
-          },
-        ],
-        referenceBlock,
-        "after",
-      )[0];
-      if (!block) return;
-      previewStarted(item.id);
-      editor.setTextCursorPosition(block.id, "end");
-      window.requestAnimationFrame(() => {
-        document
-          .querySelector(
-            `[data-content-type="suggestionPreview"][data-suggestion-id="${item.id}"]`,
-          )
-          ?.scrollIntoView({ block: "center", behavior: "smooth" });
-      });
+      if (!isEditSuggestion(item)) return false;
+      const didPreview = previewEditSuggestion(editor, item);
+      if (didPreview) markViewed(item.id);
+      return didPreview;
     },
-    [activePreviewId, editor, lastActiveBlockId, previewStarted],
+    [editor, markViewed],
   );
 
-  return { preview, handleSelectionChange, initialize };
+  const accept = useCallback(
+    (item: SuggestionItem) => {
+      if (!isEditSuggestion(item)) return false;
+      const didAccept = acceptEditSuggestion(editor, item);
+      if (!didAccept) return false;
+      documentChanged();
+      previewResolved(item.id, "accepted");
+      return true;
+    },
+    [documentChanged, editor, previewResolved],
+  );
+
+  return { preview, accept, handleSelectionChange, initialize, lastActiveBlockId };
 }

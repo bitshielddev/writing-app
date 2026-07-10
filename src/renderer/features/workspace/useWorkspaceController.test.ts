@@ -1,7 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { emitPreviewResolution } from "../editor/previewEvents";
 import type { WritingEditor } from "../editor/schema";
 import type {
   DesktopBridge,
@@ -42,7 +41,7 @@ function snapshot(): WorkspaceSnapshot {
     streamId: "document:default-document",
     coveredThroughSequence: 0,
     project: { id: "project", name: "Project", revision: 3 },
-    document: documentSnapshot(3, [{ id: "hydrated", type: "paragraph" }]),
+    document: documentSnapshot(3, [{ id: "hydrated", type: "paragraph", content: "Initial" }]),
     sources: [
       {
         id: "source-1",
@@ -244,26 +243,32 @@ describe("workspace controller", () => {
     expect(result.current.agentControlPending).toBeUndefined();
   });
 
-  it("resolves preview lifecycle events through the inbox", async () => {
+  it("accepts an edit by replacing source text and resolving the suggestion", async () => {
     const harness = createHarness();
+    vi.mocked(harness.bridge.executeSuggestionCommand).mockResolvedValue({
+      commandId: "accepted",
+      status: "applied",
+      suggestionRevision: 2,
+      state: { ...createEmptySuggestionState(), seenKeys: { suggestion: true } },
+    });
     const { result } = renderHook(() =>
       useWorkspaceController(harness.bridge, harness.editor),
     );
     await waitFor(() => expect(result.current.runtime.status).toBe("waiting"));
-    const item = { id: "suggestion", dedupeKey: "suggestion", kind: "snippet" as const,
-      title: "Suggestion", summary: "Summary", body: "Body", insertText: "Text",
-      sourceLabels: [], createdAt: 1 };
+    const item = { id: "suggestion", dedupeKey: "suggestion", kind: "edit" as const,
+      title: "Suggestion", summary: "Summary", body: "Body", sourceText: "Initial",
+      newText: "New text", sourceLabels: [], createdAt: 1 };
     act(() => harness.emit({ type: "suggestion.event", suggestionRevision: 1,
       state: { ...createEmptySuggestionState(), entries: [{ item, viewed: true }],
         seenKeys: { suggestion: true } },
       event: { type: "suggestion.added", item } }));
-    act(() => result.current.inbox.previewStarted("suggestion"));
-    expect(result.current.inbox.activePreviewId).toBe("suggestion");
 
-    act(() =>
-      emitPreviewResolution({ suggestionId: "suggestion", outcome: "cancelled" }),
-    );
-    expect(result.current.inbox.activePreviewId).toBeUndefined();
+    act(() => {
+      expect(result.current.handleAcceptSuggestion(item)).toBe(true);
+    });
+
+    expect(harness.editorState.document[0]?.content).toBe("New text");
+    expect(result.current.inbox.entries).toHaveLength(0);
   });
 
   it("cleans up the shared desktop subscription on remount", () => {

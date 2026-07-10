@@ -7,7 +7,7 @@ import {
   selectSortedPinnedEntries,
   selectUnreadCount,
 } from "./inboxReducer";
-import type { TextSuggestion } from "../../../domain/suggestions/schema";
+import type { EditSuggestion } from "../../../domain/suggestions/schema";
 
 /**
  * What: performs the item step for this file's workflow.
@@ -15,9 +15,9 @@ import type { TextSuggestion } from "../../../domain/suggestions/schema";
  * Why: the test needs a focused helper so assertions stay about the behavior under test.
  * Called when: used by inbox when that path needs this behavior.
  */
-const item = (id: string, createdAt: number): TextSuggestion => ({
-  id, dedupeKey: id, kind: "snippet", title: id, summary: "Summary",
-  body: "Body", insertText: "Text", sourceLabels: [], createdAt,
+const item = (id: string, createdAt: number): EditSuggestion => ({
+  id, dedupeKey: id, kind: "edit", title: id, summary: "Summary",
+  body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt,
 });
 
 describe("suggestion presentation selectors", () => {

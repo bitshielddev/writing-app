@@ -83,7 +83,7 @@ function QueueRow({
         keyboardActive
           ? "border-brand-400 ring-2 ring-brand-500/25"
           : "border-[#dedbe9]"
-      }`}
+      } ${entry.disabledReason ? "opacity-60 grayscale" : ""}`}
     >
       {!entry.viewed ? (
         <span
@@ -109,6 +109,11 @@ function QueueRow({
         <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-[#686577]">
           {item.summary}
         </p>
+        {entry.disabledReason ? (
+          <p className="mt-2 text-xs font-semibold text-slate-600">
+            Disabled: source text changed
+          </p>
+        ) : null}
         <div className="mt-3 flex items-center justify-between gap-2">
           <span className="truncate text-xs text-[#8b8798]">
             {item.sourceLabels[0] ?? "From the evolving draft"}

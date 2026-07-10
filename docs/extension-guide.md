@@ -62,7 +62,7 @@ Add new durable data through the storage-process RPC boundary. Hydrate owners at
 Adding a kind affects the discriminated union and every exhaustive presentation or behavior decision.
 
 1. Add the literal to `SUGGESTION_KINDS` and a new union member in [`src/domain/suggestions/schema.ts`](../src/domain/suggestions/schema.ts).
-2. Add it to the relevant canonical kind-family constant and guard when it is text-insertable or structural.
+2. Add it to the relevant capability metadata and guard when it is editable, visual, or otherwise behavior-specific.
 3. Add badge label/icon/tone and visual rendering in [`SuggestionPresentation.tsx`](../src/renderer/features/suggestions/dock/SuggestionPresentation.tsx).
 4. Reuse the canonical guards in the workspace controller, detail view, workspace pins, validation, and agent tooling; do not add local repeated kind checks.
 5. Update focused dock views and workspace presentation only when the new family needs distinct UI.
@@ -71,7 +71,7 @@ Adding a kind affects the discriminated union and every exhaustive presentation 
 8. Add reducer and component tests, plus Mermaid-like failure handling if rendering is asynchronous.
 9. Update the kind table in [Editor and suggestion system](editor-and-suggestions.md).
 
-Kind-family decisions are centralized in `suggestions/types.ts`. If kinds grow substantially, extend that metadata rather than adding scattered conditionals.
+Kind-family decisions are centralized in `SUGGESTION_CAPABILITIES`. If kinds grow substantially, extend that metadata rather than adding scattered conditionals.
 
 ## Add a custom editor block
 
@@ -147,8 +147,8 @@ TypeScript types do not validate network input. A production feed should parse r
 - known event and suggestion kinds;
 - non-empty identity/dedupe fields;
 - timestamps and source-label arrays;
-- kind-specific fields (`insertText`, `nodes`, Mermaid source, description);
-- recursive node depth and total payload size;
+- kind-specific fields (`sourceText`, `newText`, Mermaid source, description);
+- total payload size;
 - Mermaid/source text safety constraints.
 
 Malformed events should become a controlled runtime error or telemetry event, not an exception during React rendering.

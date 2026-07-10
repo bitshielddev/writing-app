@@ -15,6 +15,7 @@ export const DEFAULT_KEYMAP = {
   "suggestion.back": ["b"],
   "suggestion.pin.toggle": ["p"],
   "suggestion.preview": ["v"],
+  "suggestion.accept": ["a"],
   "suggestion.dismiss": ["d", "d"],
 } as const satisfies Keymap;
 

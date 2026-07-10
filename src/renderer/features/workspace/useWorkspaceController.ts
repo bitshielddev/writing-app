@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { WritingEditor } from "../editor/schema";
 import type { DesktopBridge, DesktopEvent, ProcessHealthSnapshot, WorkspaceCatalog, WorkspaceSnapshot } from "../../../contracts/desktop-bridge";
+import { getSuggestionDisabledReason } from "../editor/editSuggestions";
 import { useAgentController } from "../agent/useAgentController";
-import { useSuggestionController } from "../suggestions/inbox";
+import { useSuggestionController, type InboxEntry, type PinnedInboxEntry, type WorkspacePin } from "../suggestions/inbox";
 import { useSuggestionKeyboardNavigation } from "../suggestions/keyboardNavigation";
 import { getInitialWorkspacePinSize } from "../suggestions/workspacePinLayout";
 import {
@@ -76,9 +77,9 @@ export function useWorkspaceController(
   const agent = useAgentController(desktop, scope);
   const preview = usePreviewController({
     editor,
-    activePreviewId: inbox.activePreviewId,
-    previewStarted: inbox.previewStarted,
+    markViewed: inbox.markViewed,
     previewResolved: inbox.previewResolved,
+    documentChanged: document.handleChange,
   });
 
   const initializeDocument = document.initialize;
@@ -248,8 +249,28 @@ export function useWorkspaceController(
     catch (cause) { setSwitchError(cause instanceof Error ? cause.message : String(cause)); }
   }, [desktop]);
 
+  const decorateInboxEntry = useCallback((entry: InboxEntry): InboxEntry => {
+    const disabledReason = getSuggestionDisabledReason(editor, entry.item);
+    return disabledReason ? { ...entry, disabledReason } : entry;
+  }, [editor]);
+  const decoratePinnedEntry = useCallback((entry: PinnedInboxEntry): PinnedInboxEntry => {
+    const disabledReason = getSuggestionDisabledReason(editor, entry.item);
+    return disabledReason ? { ...entry, disabledReason } : entry;
+  }, [editor]);
+  const decorateWorkspacePin = useCallback((pin: WorkspacePin): WorkspacePin => {
+    const disabledReason = getSuggestionDisabledReason(editor, pin.item);
+    return disabledReason ? { ...pin, disabledReason } : pin;
+  }, [editor]);
+  const decoratedInbox = useMemo(() => ({
+    ...inbox,
+    entries: inbox.entries.map(decorateInboxEntry),
+    pinnedEntries: inbox.pinnedEntries.map(decoratePinnedEntry),
+    selectedEntry: inbox.selectedEntry ? decorateInboxEntry(inbox.selectedEntry) : undefined,
+    workspacePins: inbox.workspacePins.map(decorateWorkspacePin),
+  }), [decorateInboxEntry, decoratePinnedEntry, decorateWorkspacePin, inbox]);
+
   return {
-    inbox,
+    inbox: decoratedInbox,
     catalog,
     selectedScope: scope,
     switchPending,
@@ -289,6 +310,7 @@ export function useWorkspaceController(
     handleStartAgent: agent.start,
     handleStopAgent: agent.stop,
     handlePreview: preview.preview,
+    handleAcceptSuggestion: preview.accept,
     handlePlaceOnWorkspace,
   };
 }

@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 
 import { createStorageService, type StorageService } from "./service";
 import type { SourceSnapshot, WorkspaceSnapshot } from "../../contracts/desktop-bridge";
-import type { TextSuggestion } from "../../domain/suggestions/schema.js";
+import type { EditSuggestion } from "../../domain/suggestions/schema.js";
 
 describe("desktop storage service", () => {
   let service: StorageService;
@@ -60,14 +60,15 @@ describe("desktop storage service", () => {
 
   it("persists suggestions and rejects stale mutations", async () => {
     const snapshot = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
-    const item: TextSuggestion = {
+    const item: EditSuggestion = {
       id: "agent-suggestion",
       dedupeKey: "agent-suggestion",
-      kind: "snippet",
+      kind: "edit",
       title: "Tighten the opening",
       summary: "A more direct opening sentence.",
       body: "This removes the introductory hedge.",
-      insertText: "Start with the central claim.",
+      sourceText: "Start with the central claim.",
+      newText: "Lead with the central claim.",
       sourceLabels: ["draft.md"],
       createdAt: 10,
     };
@@ -86,8 +87,8 @@ describe("desktop storage service", () => {
 
   it("deduplicates commands and returns authoritative state on revision conflicts", async () => {
     const snapshot = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
-    const item: TextSuggestion = { id: "command-item", dedupeKey: "command-item", kind: "snippet",
-      title: "Command item", summary: "Summary", body: "Body", insertText: "Text", sourceLabels: [], createdAt: 1 };
+    const item: EditSuggestion = { id: "command-item", dedupeKey: "command-item", kind: "edit",
+      title: "Command item", summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1 };
     await handleStorageRequest("agent.suggestion.create", { item, expectedDocumentRevision: snapshot.document.revision });
     const current = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
     const request = { commandId: "pin-once", documentId: current.document.id,
@@ -117,14 +118,15 @@ describe("desktop storage service", () => {
     };
     expect(seed.documentRevision).toBe(snapshot.document.revision);
 
-    const initialItem: TextSuggestion = {
+    const initialItem: EditSuggestion = {
       id: "rpc-suggestion",
       dedupeKey: "rpc-suggestion",
-      kind: "snippet",
+      kind: "edit",
       title: "Initial title",
       summary: "Summary",
       body: "Body",
-      insertText: "Insert",
+      sourceText: "Insert",
+      newText: "Replacement",
       sourceLabels: [],
       createdAt: 20,
     };
@@ -133,7 +135,7 @@ describe("desktop storage service", () => {
       expectedDocumentRevision: snapshot.document.revision,
     });
     const listed = await handleStorageRequest("agent.suggestions.list") as {
-      live: TextSuggestion[];
+      live: EditSuggestion[];
     };
     const existing = listed.live[0];
     expect(existing).toBeTruthy();
