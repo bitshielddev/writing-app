@@ -4,7 +4,10 @@ import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 import { ScribeLoopState, PersistedScribeLoopStateSchema } from "./domain/loop.js";
-import { parseOrContractError } from "../../contracts/validation.js";
+import {
+  RemoteContractError,
+  parseOrContractError,
+} from "../../contracts/validation.js";
 import { COMPATIBILITY_REGISTRY } from "../../contracts/compatibility.js";
 import {
   StorageOperations,
@@ -130,6 +133,48 @@ function toolResult(value: unknown, isError = false) {
   };
 }
 
+const DOCUMENT_CHANGED_DURING_CYCLE =
+  "The document changed since this agent cycle began. End this response now; Scribe will restart on the current revision.";
+
+/**
+ * What: detects whether a storage error means the active suggestion revision is stale.
+ *
+ * Why: stale writes are expected when the writer edits during an agent cycle, so
+ * the agent should refresh instead of repeatedly retrying the same mutation.
+ */
+function isStaleSuggestionRevision(error: unknown) {
+  return error instanceof RemoteContractError &&
+    error.contract.code === "STALE_SUGGESTION_REVISION";
+}
+
+/**
+ * What: refreshes the loop's latest revision from storage and clears stale reads.
+ *
+ * Why: suggestion mutations are guarded by document revision; when the writer
+ * edits during a cycle, any document read from the old revision must not be
+ * reused for more writes.
+ */
+async function refreshLatestRevision(host: ScribeExtensionHost) {
+  const snapshot = host.loop.snapshot();
+  if (
+    snapshot.activeRevision === undefined ||
+    snapshot.activeDocumentRevision === undefined
+  ) {
+    return false;
+  }
+  const seed = await host.storageCall("agent.seed", {} as never);
+  const changed =
+    seed.projectRevision !== snapshot.activeRevision ||
+    seed.documentRevision !== snapshot.activeDocumentRevision;
+  if (!changed) return false;
+  host.loop.revision(seed.projectRevision, seed.documentRevision);
+  host.documentReadRevision = undefined;
+  host.persist();
+  host.runtime();
+  host.wake();
+  return true;
+}
+
 /**
  * What: performs the execute suggestion mutation step for this file's workflow.
  *
@@ -144,6 +189,9 @@ export async function executeSuggestionMutation(
   const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
   if (expectedDocumentRevision === undefined) {
     return toolResult("No active revision", true);
+  }
+  if (await refreshLatestRevision(host)) {
+    return toolResult(DOCUMENT_CHANGED_DURING_CYCLE, true);
   }
   if (
     (method === "agent.suggestion.create" || method === "agent.suggestion.update") &&
@@ -162,6 +210,11 @@ export async function executeSuggestionMutation(
       } as never),
     );
   } catch (error) {
+    if (isStaleSuggestionRevision(error)) {
+      await refreshLatestRevision(host);
+      host.documentReadRevision = undefined;
+      return toolResult(DOCUMENT_CHANGED_DURING_CYCLE, true);
+    }
     host.wake();
     return toolResult(
       error instanceof Error ? error.message : String(error),

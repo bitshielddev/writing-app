@@ -32,4 +32,39 @@ describe("storage transport", () => {
     await receive({ kind: "rpc", protocolVersion: 1, id: "one" });
     expect(handler).not.toHaveBeenCalled();
   });
+
+  it("does not log stale suggestion revisions as storage failures", async () => {
+    const handler = vi.fn(async () => {
+      throw new Error("STALE_SUGGESTION_REVISION");
+    });
+    const post = vi.fn();
+    const logger = { error: vi.fn() };
+    const receive = createStorageTransport(handler, post, logger);
+
+    await receive({
+      kind: "rpc",
+      protocolVersion: 1,
+      id: "stale",
+      operation: "agent.suggestion.retract",
+      params: {
+        projectId: "project",
+        documentId: "document",
+        id: "suggestion",
+        expectedDocumentRevision: 1,
+      },
+    });
+
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledWith({
+      kind: "rpc.failure",
+      protocolVersion: 1,
+      id: "stale",
+      operation: "agent.suggestion.retract",
+      error: {
+        code: "STALE_SUGGESTION_REVISION",
+        message: "The suggestion targets an older document revision",
+        retryable: true,
+      },
+    });
+  });
 });

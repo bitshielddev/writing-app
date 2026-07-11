@@ -16,6 +16,17 @@ import {
 import type { StorageOperations } from "./application/operations.js";
 
 /**
+ * What: returns whether a failed storage operation should be logged as an error.
+ *
+ * Why: optimistic concurrency conflicts are part of normal cross-process
+ * coordination; callers already receive structured failures and can recover.
+ */
+function shouldLogStorageFailure(error: unknown) {
+  const contract = toContractError(error);
+  return contract.code !== "STALE_SUGGESTION_REVISION";
+}
+
+/**
  * What: creates storage transport with the dependencies and defaults this workflow expects.
  *
  * Why: storage workflows need durable, transactional behavior behind the application contract.
@@ -60,7 +71,9 @@ export function createStorageTransport(
       } as StorageRpcResult);
     } catch (error) {
       if (cancelled.delete(request.id)) return;
-      logger.error(`Storage operation failed: ${request.operation}`, error);
+      if (shouldLogStorageFailure(error)) {
+        logger.error(`Storage operation failed: ${request.operation}`, error);
+      }
       postMessage({
         kind: "rpc.failure",
         protocolVersion: PROTOCOL_VERSION,

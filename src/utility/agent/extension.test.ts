@@ -8,6 +8,7 @@ import {
   type ScribeExtensionHost,
 } from "./extension";
 import { ScribeLoopState } from "./domain/loop";
+import { RemoteContractError } from "../../contracts/validation";
 
 /**
  * What: performs the host step for this file's workflow.
@@ -48,6 +49,18 @@ function successfulStorage() {
     params?: unknown,
   ) => {
     calls(method, params);
+    if (method === "agent.seed") {
+      return {
+        streamId: "document:document",
+        coveredThroughSequence: 1,
+        projectId: "project",
+        projectName: "Project",
+        projectRevision: 4,
+        documentId: "document",
+        documentTitle: "Draft",
+        documentRevision: 7,
+      } as T;
+    }
     return { accepted: true } as T;
   };
   return { calls, storageCall };
@@ -81,16 +94,31 @@ describe("suggestion tool mutation helper", () => {
       { id: "suggestion" },
     );
 
-    expect(calls).toHaveBeenCalledWith("agent.suggestion.retract", {
+    expect(calls).toHaveBeenNthCalledWith(1, "agent.seed", {});
+    expect(calls).toHaveBeenNthCalledWith(2, "agent.suggestion.retract", {
       id: "suggestion",
       expectedDocumentRevision: 7,
     });
     expect(result).toMatchObject({ details: { accepted: true }, isError: false });
   });
 
-  it("returns storage errors and wakes the loop for a newer revision", async () => {
-    const extensionHost = host(async <T>(): Promise<T> => {
-      throw new Error("STALE_SUGGESTION_REVISION");
+  it("refreshes and rejects before mutating when the document revision changed", async () => {
+    const calls = vi.fn();
+    const extensionHost = host(async <T>(method: string, params?: unknown): Promise<T> => {
+      calls(method, params);
+      if (method === "agent.seed") {
+        return {
+          streamId: "document:document",
+          coveredThroughSequence: 2,
+          projectId: "project",
+          projectName: "Project",
+          projectRevision: 5,
+          documentId: "document",
+          documentTitle: "Draft",
+          documentRevision: 8,
+        } as T;
+      }
+      return { accepted: true } as T;
     });
     extensionHost.loop.revision(4, 7);
     extensionHost.loop.start();
@@ -104,9 +132,60 @@ describe("suggestion tool mutation helper", () => {
     );
 
     expect(result).toMatchObject({
-      details: "STALE_SUGGESTION_REVISION",
+      details: "The document changed since this agent cycle began. End this response now; Scribe will restart on the current revision.",
       isError: true,
     });
+    expect(calls).toHaveBeenCalledTimes(1);
+    expect(extensionHost.documentReadRevision).toBeUndefined();
+    expect(extensionHost.persist).toHaveBeenCalledOnce();
+    expect(extensionHost.runtime).toHaveBeenCalledOnce();
+    expect(extensionHost.wake).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes and clears stale reads when storage detects a revision race", async () => {
+    const calls = vi.fn();
+    const extensionHost = host(async <T>(method: string, params?: unknown): Promise<T> => {
+      calls(method, params);
+      if (method === "agent.seed") {
+        const seedRevision = calls.mock.calls.length === 1 ? 7 : 8;
+        return {
+          streamId: "document:document",
+          coveredThroughSequence: seedRevision,
+          projectId: "project",
+          projectName: "Project",
+          projectRevision: seedRevision === 7 ? 4 : 5,
+          documentId: "document",
+          documentTitle: "Draft",
+          documentRevision: seedRevision,
+        } as T;
+      }
+      throw new RemoteContractError({
+        code: "STALE_SUGGESTION_REVISION",
+        message: "The suggestion targets an older document revision",
+        retryable: true,
+      });
+    });
+    extensionHost.loop.revision(4, 7);
+    extensionHost.loop.start();
+    extensionHost.loop.beginCycle();
+    extensionHost.documentReadRevision = 7;
+
+    const result = await executeSuggestionMutation(
+      extensionHost,
+      "agent.suggestion.update",
+      { item: {} },
+    );
+
+    expect(result).toMatchObject({
+      details: "The document changed since this agent cycle began. End this response now; Scribe will restart on the current revision.",
+      isError: true,
+    });
+    expect(calls.mock.calls.map((call) => call[0])).toEqual([
+      "agent.seed",
+      "agent.suggestion.update",
+      "agent.seed",
+    ]);
+    expect(extensionHost.documentReadRevision).toBeUndefined();
     expect(extensionHost.wake).toHaveBeenCalledOnce();
   });
 
@@ -127,7 +206,8 @@ describe("suggestion tool mutation helper", () => {
       details: "Read the current document revision with read_document before creating or updating suggestions.",
       isError: true,
     });
-    expect(calls).not.toHaveBeenCalled();
+    expect(calls).toHaveBeenCalledOnce();
+    expect(calls).toHaveBeenCalledWith("agent.seed", {});
   });
 });
 
