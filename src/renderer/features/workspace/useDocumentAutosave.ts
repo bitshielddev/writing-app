@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WritingEditor } from "../editor/schema";
 import type { DesktopBridge, DesktopEvent, DocumentSnapshot } from "../../../contracts/desktop-bridge";
+import { toJsonCompatibleDocumentBlocks } from "../../../domain/document/json";
 
 export const DOCUMENT_AUTOSAVE_DELAY_MS = 650;
 
@@ -63,11 +64,11 @@ export function useDocumentAutosave(
     if (!readyRef.current || !initializedRef.current || !storageHealthy) return;
     if (!dirtyRef.current) return;
 
-    let blocks: WritingEditor["document"];
+    let blocks: unknown[];
     try {
-      blocks = editor.document.filter(
+      blocks = toJsonCompatibleDocumentBlocks(editor.document.filter(
         (block) => block.type !== "suggestionPreview",
-      );
+      ));
     } catch (cause) {
       if (mountedRef.current) {
         setStatus("failed");

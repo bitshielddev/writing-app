@@ -203,6 +203,29 @@ describe("workspace controller", () => {
       .toEqual([{ id: "saved-before-agent", type: "paragraph", content: "Fresh draft" }]);
   });
 
+  it("surfaces pre-start save failures instead of silently ignoring Start Agent", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const harness = createHarness();
+    vi.mocked(harness.bridge.saveDocument).mockRejectedValueOnce(
+      new Error("revision conflict"),
+    );
+    const { result } = renderHook(() =>
+      useWorkspaceController(harness.bridge, harness.editor),
+    );
+    await waitFor(() => expect(result.current.workspacePhase).toBe("ready"));
+    harness.editorState.document = [
+      { id: "unsaved", type: "paragraph", content: "Unsaved draft" },
+    ];
+
+    act(() => {
+      result.current.handleEditorChange();
+      result.current.handleStartAgent();
+    });
+    await waitFor(() => expect(harness.bridge.saveDocument).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.agentError).toBe("revision conflict"));
+    expect(harness.bridge.startAgent).not.toHaveBeenCalled();
+  });
+
   it("applies source, runtime, and activity desktop events", async () => {
     const harness = createHarness();
     const { result } = renderHook(() =>

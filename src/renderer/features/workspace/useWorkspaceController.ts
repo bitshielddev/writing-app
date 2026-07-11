@@ -32,6 +32,7 @@ export function useWorkspaceController(
     catalogAvailable ? undefined : { projectId: "default-project", documentId: "default-document" });
   const [switchPending, setSwitchPending] = useState(false);
   const [switchError, setSwitchError] = useState<string>();
+  const [agentStartError, setAgentStartError] = useState<string>();
   const [failedSwitch, setFailedSwitch] = useState<{ projectId: string; documentId: string }>();
   const [health, setHealth] = useState<ProcessHealthSnapshot>({
     storage: { state: "starting" }, agent: { state: "starting" },
@@ -131,10 +132,14 @@ export function useWorkspaceController(
   const startAgent = agent.startAndWait;
   const handleStartAgent = useCallback(() => {
     void (async () => {
+      setAgentStartError(undefined);
       try {
         await document.flushForSwitch();
         await startAgent();
       } catch (cause) {
+        setAgentStartError(
+          cause instanceof Error ? cause.message : "The agent could not be started",
+        );
         console.error("Agent start failed", cause);
       }
     })();
@@ -307,7 +312,7 @@ export function useWorkspaceController(
     retryProcess,
     activity: agent.activity,
     agentControlPending: agent.pending,
-    agentError: agent.error ?? agent.runtime.error,
+    agentError: agentStartError ?? agent.error ?? agent.runtime.error,
     suggestionPersistenceStatus: inbox.status,
     suggestionPersistenceError: inbox.failureMessage,
     retrySuggestionSave: inbox.retry,

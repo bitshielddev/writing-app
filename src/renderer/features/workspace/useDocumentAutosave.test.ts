@@ -60,6 +60,43 @@ describe("useDocumentAutosave", () => {
     expect(harness.saveDocument.calls[1]?.args[0].expectedRevision).toBe(4);
   });
 
+  it("normalizes live editor metadata before saving through preload", async () => {
+    vi.useFakeTimers();
+    const harness = new DesktopBridgeHarness();
+    const writingEditor = editor();
+    writingEditor.state.document = [
+      {
+        id: "text",
+        type: "paragraph",
+        props: { textColor: "default", backgroundColor: undefined },
+        content: [
+          { type: "text", text: "Draft", styles: { bold: undefined } },
+          undefined,
+        ],
+      },
+      { id: "preview", type: "suggestionPreview", content: undefined },
+    ] as typeof writingEditor.state.document;
+    const { result } = renderHook(() =>
+      useDocumentAutosave(harness.bridge, writingEditor.value, true),
+    );
+    act(() => result.current.initialize(createDocumentSnapshot({ revision: 3 })));
+
+    act(() => result.current.handleChange());
+    await act(async () => vi.advanceTimersByTime(650));
+
+    expect(harness.saveDocument.calls[0]?.args[0].blocks).toEqual([
+      {
+        id: "text",
+        type: "paragraph",
+        props: { textColor: "default" },
+        content: [
+          { type: "text", text: "Draft", styles: {} },
+          null,
+        ],
+      },
+    ]);
+  });
+
   it("supports explicit flush, suppresses writes before ready, and exposes conflicts", async () => {
     const harness = new DesktopBridgeHarness();
     const writingEditor = editor();
