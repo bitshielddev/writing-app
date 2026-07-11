@@ -180,6 +180,29 @@ describe("workspace controller", () => {
     vi.useRealTimers();
   });
 
+  it("flushes pending editor changes before starting the agent", async () => {
+    const harness = createHarness();
+    const { result } = renderHook(() =>
+      useWorkspaceController(harness.bridge, harness.editor),
+    );
+    await waitFor(() => expect(result.current.workspacePhase).toBe("ready"));
+    harness.editorState.document = [
+      { id: "saved-before-agent", type: "paragraph", content: "Fresh draft" },
+    ];
+
+    act(() => {
+      result.current.handleEditorChange();
+      result.current.handleStartAgent();
+    });
+
+    await waitFor(() => expect(harness.bridge.saveDocument).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(harness.bridge.startAgent).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(harness.bridge.saveDocument).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(harness.bridge.startAgent).mock.invocationCallOrder[0] ?? 0);
+    expect(vi.mocked(harness.bridge.saveDocument).mock.calls[0]?.[0].blocks)
+      .toEqual([{ id: "saved-before-agent", type: "paragraph", content: "Fresh draft" }]);
+  });
+
   it("applies source, runtime, and activity desktop events", async () => {
     const harness = createHarness();
     const { result } = renderHook(() =>

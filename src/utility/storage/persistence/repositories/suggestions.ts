@@ -21,6 +21,7 @@ import {
   type SuggestionCommandEnvelope,
   type SuggestionFact,
 } from "../../../../domain/suggestions/aggregate.js";
+import { suggestionContentDedupeKey } from "../../../../domain/suggestions/dedupe.js";
 import {
   createEmptySuggestionState,
   type PersistedSuggestionState,
@@ -182,6 +183,16 @@ export class SuggestionRepository implements SuggestionStore {
         JSON.stringify(validatedCommand.actor), validatedCommand.command.type, validatedCommand.version,
         JSON.stringify(validatedCommand), validated.status, firstSequence ?? null, resultingSequence,
         errorCode ?? null, validatedCommand.requestedAt, Date.now());
+  }
+
+  hasSeenContentDedupeKey(projectId: string, documentId: string, key: string): boolean {
+    const rows = this.db.prepare(`SELECT payload_json FROM suggestion_event_history
+      WHERE project_id = ? AND document_id = ? AND event_type IN ('suggestion.published', 'suggestion.updated')`)
+      .all(projectId, documentId) as Array<{ payload_json: string }>;
+    return rows.some((row) => {
+      const fact = JSON.parse(row.payload_json) as SuggestionFact;
+      return ("item" in fact) && suggestionContentDedupeKey(fact.item) === key;
+    });
   }
 
   /**

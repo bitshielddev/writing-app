@@ -6,15 +6,20 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import type { WorkspaceSnapshot } from "../../../contracts/desktop-bridge";
-import type { EditSuggestion } from "../../../domain/suggestions/schema.js";
+import type { EditSuggestion, NoteSuggestion } from "../../../domain/suggestions/schema.js";
 import { createStorageService, type StorageService } from "../service";
 import { SuggestionRepository } from "./repositories/suggestions";
 import { decideSuggestionCommand } from "../../../domain/suggestions/aggregate";
+import { suggestionContentDedupeKey } from "../../../domain/suggestions/dedupe.js";
 
 const item: EditSuggestion = {
   id: "durable-item", dedupeKey: "durable-item", kind: "edit", title: "Opening",
   summary: "Summary", body: "Body", sourceDocumentRevision: 1, sourceBlockId: "block-1",
   sourceStart: 0, sourceEnd: 4, sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
+};
+const note: NoteSuggestion = {
+  id: "durable-note", dedupeKey: "agent-note-one", kind: "note", title: "Add context",
+  summary: "Summary", body: "Add a sentence about the archive.", sourceLabels: [], createdAt: 1,
 };
 
 describe("suggestion event history and projections", () => {
@@ -96,5 +101,19 @@ describe("suggestion event history and projections", () => {
       .toThrow("INVALID_SUGGESTION_CHECKPOINT_CHECKSUM");
     const after = await service.handleRequest("hydrate") as WorkspaceSnapshot;
     expect(after.suggestions).toEqual(before.suggestions);
+  });
+
+  it("can detect duplicate suggestion content from durable history", async () => {
+    const initial = await service.handleRequest("hydrate") as WorkspaceSnapshot;
+    await service.handleRequest("agent.suggestion.create", {
+      item: note, expectedDocumentRevision: initial.document.revision,
+    });
+
+    const suggestions = new SuggestionRepository(service.database.db);
+    expect(suggestions.hasSeenContentDedupeKey(
+      initial.project.id,
+      initial.document.id,
+      suggestionContentDedupeKey({ ...note, id: "repeat", dedupeKey: "agent-note-two" }),
+    )).toBe(true);
   });
 });

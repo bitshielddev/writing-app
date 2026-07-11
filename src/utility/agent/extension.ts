@@ -87,6 +87,7 @@ export function restoreScribeLoopEntry(value: unknown): {
 
 export type ScribeExtensionHost = {
   loop: ScribeLoopState;
+  documentReadRevision?: number;
   storageCall<Name extends OperationName<typeof StorageOperations>>(
     operation: Name,
     ...args: OperationArgs<typeof StorageOperations, Name>
@@ -143,6 +144,15 @@ export async function executeSuggestionMutation(
   const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
   if (expectedDocumentRevision === undefined) {
     return toolResult("No active revision", true);
+  }
+  if (
+    (method === "agent.suggestion.create" || method === "agent.suggestion.update") &&
+    host.documentReadRevision !== expectedDocumentRevision
+  ) {
+    return toolResult(
+      "Read the current document revision with read_document before creating or updating suggestions.",
+      true,
+    );
   }
   try {
     return toolResult(
@@ -226,7 +236,9 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
         if (expectedDocumentRevision === undefined) {
           return toolResult("No active revision", true);
         }
-        return toolResult(await host.storageCall("agent.document.read", {} as never));
+        const result = await host.storageCall("agent.document.read", {} as never);
+        host.documentReadRevision = expectedDocumentRevision;
+        return toolResult(result);
       },
     });
     pi.registerTool({

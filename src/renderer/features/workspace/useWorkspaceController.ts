@@ -128,6 +128,17 @@ export function useWorkspaceController(
   const flushWorkspace = useCallback(async () => {
     await Promise.allSettled([document.flushForSwitch(), flushSuggestions()]);
   }, [document, flushSuggestions]);
+  const startAgent = agent.startAndWait;
+  const handleStartAgent = useCallback(() => {
+    void (async () => {
+      try {
+        await document.flushForSwitch();
+        await startAgent();
+      } catch (cause) {
+        console.error("Agent start failed", cause);
+      }
+    })();
+  }, [document, startAgent]);
 
   const [partnerView, setPartnerView] = useState<"suggestions" | "activity">(
     "suggestions",
@@ -307,7 +318,7 @@ export function useWorkspaceController(
     flushDocument: flushWorkspace,
     handleEditorSelectionChange: preview.handleSelectionChange,
     handleUploadSource: source.importSource,
-    handleStartAgent: agent.start,
+    handleStartAgent,
     handleStopAgent: agent.stop,
     handlePreview: preview.preview,
     handleAcceptSuggestion: preview.accept,

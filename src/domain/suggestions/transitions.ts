@@ -1,5 +1,6 @@
 import { trimSuggestionEntries, type PersistedSuggestionState } from "./state";
 import type { SuggestionEvent } from "./schema";
+import { suggestionDedupeKeys } from "./dedupe";
 
 export type DurableSuggestionCommand =
   | { type: "markViewed"; suggestionId: string }
@@ -136,11 +137,13 @@ export function applySuggestionAgentEvent(
   switch (event.type) {
     case "suggestion.state.changed":
       return { status: "unchanged", state: current };
-    case "suggestion.added":
-      if (state.seenKeys[event.item.dedupeKey]) return { status: "rejected", state: current, reason: "Duplicate suggestion" };
-      state.seenKeys[event.item.dedupeKey] = true;
+    case "suggestion.added": {
+      const keys = suggestionDedupeKeys(event.item);
+      if (keys.some((key) => state.seenKeys[key])) return { status: "rejected", state: current, reason: "Duplicate suggestion" };
+      for (const key of keys) state.seenKeys[key] = true;
       state.entries = trimSuggestionEntries([...state.entries, { item: event.item, viewed: false }]);
       return { status: "changed", state };
+    }
     case "suggestion.updated": {
       const entry = state.entries.find((candidate) => candidate.item.id === event.item.id);
       if (!entry) return { status: "rejected", state: current, reason: "Suggestion is not live" };

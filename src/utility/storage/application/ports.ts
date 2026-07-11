@@ -67,6 +67,7 @@ export interface SuggestionStore {
   recordCommandReceipt(command: import("../../../domain/suggestions/aggregate.js").SuggestionCommandEnvelope,
     result: SuggestionCommandResult, firstSequence?: number, resultingSequence?: number,
     errorCode?: string): void;
+  hasSeenContentDedupeKey?(projectId: string, documentId: string, key: string): boolean;
   createCheckpoint(projectId: string, documentId: string, replayDurationMs?: number, force?: boolean): unknown;
   verify?(projectId: string, documentId: string): unknown;
   repair?(projectId: string, documentId: string, backupConfirmed: boolean): unknown;

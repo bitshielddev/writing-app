@@ -230,6 +230,11 @@ describe("App desktop boundary", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Start Agent" }));
     await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(desktop.startAgent.calls).toHaveLength(1);
+    await act(async () => {
       desktop.startAgent.resolve(0, { status: "working", cycleCount: 3 });
       await Promise.resolve();
     });
@@ -294,6 +299,7 @@ describe("App desktop boundary", () => {
     expect(desktop.listenerCount).toBe(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Start Agent" }));
+    await waitFor(() => expect(desktop.startAgent.calls).toHaveLength(1));
     await act(async () => {
       desktop.startAgent.reject(0, new Error("credentials missing"));
       await Promise.resolve();

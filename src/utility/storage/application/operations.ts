@@ -22,6 +22,7 @@ import {
   type SuggestionCommandEnvelope,
   type SuggestionIntent,
 } from "../../../domain/suggestions/aggregate.js";
+import { suggestionContentDedupeKey } from "../../../domain/suggestions/dedupe.js";
 import { plainTextBlocksFromBlocks } from "../../../domain/document/plain-text.js";
 
 type Params<Name extends keyof typeof StorageOperationContracts> = OperationParams<typeof StorageOperationContracts, Name>;
@@ -464,6 +465,19 @@ export class StorageOperations {
         expectedSuggestionRevision: current.revision,
         expectedDocumentRevision: input.expectedDocumentRevision, requestedAt: this.deps.clock.now(),
       };
+      if (intent.type === "publish" &&
+        this.deps.suggestions.hasSeenContentDedupeKey?.(
+          input.projectId,
+          input.documentId,
+          suggestionContentDedupeKey(intent.item),
+        )) {
+        const receipt = { commandId: command.commandId, status: "rejected" as const,
+          suggestionRevision: current.revision, state: current.state,
+          reason: "Duplicate suggestion content" };
+        this.deps.suggestions.recordCommandReceipt(command, receipt, undefined,
+          current.coveredThroughSequence, "SUGGESTION_DUPLICATE_CONTENT");
+        return { accepted: false };
+      }
       const decision = decideSuggestionCommand(current.state, intent);
       if (decision.status !== "changed") {
         const receipt = { commandId: command.commandId, status: "rejected" as const,

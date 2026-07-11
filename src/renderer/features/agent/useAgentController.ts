@@ -170,7 +170,8 @@ export function useAgentController(
     [desktop, scope],
   );
 
-  const start = useCallback(() => void control("start"), [control]);
+  const startAndWait = useCallback(() => control("start"), [control]);
+  const start = useCallback(() => void startAndWait(), [startAndWait]);
   const stop = useCallback(() => void control("stop"), [control]);
   const stopAndWait = useCallback(() => control("stop"), [control]);
   const onDesktopEvent = useCallback((event: DesktopEvent) => {
@@ -196,6 +197,7 @@ export function useAgentController(
     pending,
     error,
     start,
+    startAndWait,
     stop,
     stopAndWait,
     initialize,

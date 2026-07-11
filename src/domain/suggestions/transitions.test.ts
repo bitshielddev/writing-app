@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { createEmptySuggestionState } from "./state";
 import { applySuggestionAgentEvent, applySuggestionCommand, type DurableSuggestionCommand } from "./transitions";
-import type { EditSuggestion } from "./schema";
+import type { EditSuggestion, NoteSuggestion } from "./schema";
 
 const item: EditSuggestion = { id: "one", dedupeKey: "one", kind: "edit", title: "One",
   summary: "Summary", body: "Body", sourceDocumentRevision: 1, sourceBlockId: "block-1",
   sourceStart: 0, sourceEnd: 4, sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1 };
+const note: NoteSuggestion = { id: "note-one", dedupeKey: "agent-note-one", kind: "note",
+  title: "Add context", summary: "Summary", body: "Add a sentence about the archive.",
+  sourceLabels: [], createdAt: 1 };
 
 /**
  * What: performs the changed step for this file's workflow.
@@ -38,7 +41,7 @@ describe("durable suggestion transitions", () => {
   });
 
   it("raises workspace cards and resolves accepted previews", () => {
-    const second = { ...item, id: "two", dedupeKey: "two" };
+    const second = { ...item, id: "two", dedupeKey: "two", newText: "Different new text" };
     let state = applySuggestionAgentEvent(createEmptySuggestionState(), { type: "suggestion.added", item }).state;
     state = applySuggestionAgentEvent(state, { type: "suggestion.added", item: second }).state;
     state = changed(state, { type: "pin", suggestionId: item.id, pinnedAt: 1 });
@@ -57,5 +60,17 @@ describe("durable suggestion transitions", () => {
     expect(applySuggestionAgentEvent(empty, { type: "suggestion.updated", item }).status).toBe("rejected");
     const state = applySuggestionAgentEvent(empty, { type: "suggestion.added", item }).state;
     expect(applySuggestionAgentEvent(state, { type: "suggestion.added", item }).status).toBe("rejected");
+  });
+
+  it("rejects same-content notes even when the agent changes the dedupe key", () => {
+    let state = applySuggestionAgentEvent(createEmptySuggestionState(), {
+      type: "suggestion.added", item: note,
+    }).state;
+    state = changed(state, { type: "dismiss", suggestionId: note.id });
+
+    expect(applySuggestionAgentEvent(state, {
+      type: "suggestion.added",
+      item: { ...note, id: "note-two", dedupeKey: "agent-note-two", createdAt: 2 },
+    })).toMatchObject({ status: "rejected", reason: "Duplicate suggestion" });
   });
 });

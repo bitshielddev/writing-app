@@ -95,6 +95,7 @@ describe("suggestion tool mutation helper", () => {
     extensionHost.loop.revision(4, 7);
     extensionHost.loop.start();
     extensionHost.loop.beginCycle();
+    extensionHost.documentReadRevision = 7;
 
     const result = await executeSuggestionMutation(
       extensionHost,
@@ -107,6 +108,26 @@ describe("suggestion tool mutation helper", () => {
       isError: true,
     });
     expect(extensionHost.wake).toHaveBeenCalledOnce();
+  });
+
+  it("requires reading the active document before creating or updating suggestions", async () => {
+    const { calls, storageCall } = successfulStorage();
+    const extensionHost = host(storageCall);
+    extensionHost.loop.revision(4, 7);
+    extensionHost.loop.start();
+    extensionHost.loop.beginCycle();
+
+    const result = await executeSuggestionMutation(
+      extensionHost,
+      "agent.suggestion.create",
+      { item: {} },
+    );
+
+    expect(result).toMatchObject({
+      details: "Read the current document revision with read_document before creating or updating suggestions.",
+      isError: true,
+    });
+    expect(calls).not.toHaveBeenCalled();
   });
 });
 
@@ -131,6 +152,7 @@ describe("scribe extension document tool", () => {
     const result = await registered.get("read_document")!.execute("tool-call", {});
 
     expect(calls).toHaveBeenCalledWith("agent.document.read", {});
+    expect(extensionHost.documentReadRevision).toBe(7);
     expect(result).toMatchObject({ details: { accepted: true }, isError: false });
   });
 

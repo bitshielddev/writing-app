@@ -268,6 +268,7 @@ async function startAgent(revision: ScribeRevision & { projectId: string; docume
   host.loop.revision(revision.projectRevision, revision.documentRevision);
   if (host.loop.start()) {
     const timestamp = Date.now();
+    host.documentReadRevision = undefined;
     host.persist();
     postRuntime(runtime());
     postActivity({
@@ -294,6 +295,7 @@ async function stopAgent() {
   }
   if (host.loop.stop()) {
     const timestamp = Date.now();
+    host.documentReadRevision = undefined;
     host.persist();
     postRuntime(runtime());
     postActivity({
