@@ -16,7 +16,6 @@ describe("desktop storage service", () => {
   beforeEach(async () => {
     workspaceRoot = await mkdtemp(join(tmpdir(), "scribe-storage-test-"));
     service = createStorageService({ databasePath: ":memory:", workspaceRoot });
-    await service.operations.repairWorkspace();
   });
 
   afterEach(async () => {
@@ -33,29 +32,16 @@ describe("desktop storage service", () => {
   const handleStorageRequest = (method: string, params?: unknown) =>
     service.handleRequest(method, params);
 
-  it("saves block JSON and Markdown before returning the durable revision", async () => {
+  it("saves block JSON before returning the durable revision", async () => {
     const initial = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
     const saved = await handleStorageRequest("document.save", {
       documentId: initial.document.id,
       expectedRevision: initial.document.revision,
-      blocks: [{ type: "paragraph", content: "Persisted draft" }],
-      markdown: "Persisted draft\n",
+      blocks: [{ id: "block-1", type: "paragraph", content: "Persisted draft" }],
     }) as WorkspaceSnapshot["document"];
 
     expect(saved.revision).toBe(initial.document.revision + 1);
-    expect(saved.markdown).toBe("Persisted draft\n");
-    expect(await readFile(service.paths.draftPath, "utf8"))
-      .toBe("Persisted draft\n");
-  });
-
-  it("repairs a damaged draft mirror from SQLite", async () => {
-    const { draftPath } = service.paths;
-    await writeFile(draftPath, "damaged mirror", "utf8");
-    const result = await handleStorageRequest("workspace.repair") as { repaired: boolean };
-    const snapshot = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
-
-    expect(result.repaired).toBe(true);
-    expect(await readFile(draftPath, "utf8")).toBe(snapshot.document.markdown);
+    expect(saved.blocks).toEqual([{ id: "block-1", type: "paragraph", content: "Persisted draft" }]);
   });
 
   it("persists suggestions and rejects stale mutations", async () => {
@@ -67,9 +53,13 @@ describe("desktop storage service", () => {
       title: "Tighten the opening",
       summary: "A more direct opening sentence.",
       body: "This removes the introductory hedge.",
+      sourceDocumentRevision: snapshot.document.revision,
+      sourceBlockId: "block-1",
+      sourceStart: 0,
+      sourceEnd: 29,
       sourceText: "Start with the central claim.",
       newText: "Lead with the central claim.",
-      sourceLabels: ["draft.md"],
+      sourceLabels: [],
       createdAt: 10,
     };
 
@@ -88,7 +78,9 @@ describe("desktop storage service", () => {
   it("deduplicates commands and returns authoritative state on revision conflicts", async () => {
     const snapshot = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
     const item: EditSuggestion = { id: "command-item", dedupeKey: "command-item", kind: "edit",
-      title: "Command item", summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1 };
+      title: "Command item", summary: "Summary", body: "Body",
+      sourceDocumentRevision: snapshot.document.revision, sourceBlockId: "block-1", sourceStart: 0, sourceEnd: 4,
+      sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1 };
     await handleStorageRequest("agent.suggestion.create", { item, expectedDocumentRevision: snapshot.document.revision });
     const current = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
     const request = { commandId: "pin-once", documentId: current.document.id,
@@ -117,6 +109,12 @@ describe("desktop storage service", () => {
       documentRevision: number;
     };
     expect(seed.documentRevision).toBe(snapshot.document.revision);
+    const document = await handleStorageRequest("agent.document.read") as {
+      documentRevision: number;
+      plainTextBlocks: Array<{ id: string; text: string }>;
+    };
+    expect(document.documentRevision).toBe(snapshot.document.revision);
+    expect(document.plainTextBlocks[0]).toMatchObject({ id: "initial-heading", text: "New Page" });
 
     const initialItem: EditSuggestion = {
       id: "rpc-suggestion",
@@ -125,6 +123,10 @@ describe("desktop storage service", () => {
       title: "Initial title",
       summary: "Summary",
       body: "Body",
+      sourceDocumentRevision: snapshot.document.revision,
+      sourceBlockId: "block-1",
+      sourceStart: 0,
+      sourceEnd: 6,
       sourceText: "Insert",
       newText: "Replacement",
       sourceLabels: [],
@@ -194,11 +196,11 @@ describe("desktop storage service", () => {
     const initial = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
     await handleStorageRequest("document.save", {
       documentId: initial.document.id, expectedRevision: initial.document.revision,
-      blocks: [{ type: "paragraph", content: "one" }], markdown: "one\n",
+      blocks: [{ id: "block-1", type: "paragraph", content: "one" }],
     });
     await handleStorageRequest("document.save", {
       documentId: initial.document.id, expectedRevision: initial.document.revision + 1,
-      blocks: [{ type: "paragraph", content: "two" }], markdown: "two\n",
+      blocks: [{ id: "block-1", type: "paragraph", content: "two" }],
     });
 
     const first = await handleStorageRequest("events.replay", {

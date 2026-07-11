@@ -5,6 +5,7 @@ import type {
   AgentActivityInputSchema,
   AgentActivityKindSchema,
   AgentActivitySchema,
+  AgentDocumentReadResultSchema,
   AgentRuntimeSchema,
   AgentStatusSchema,
   DesktopEventSchema,
@@ -25,6 +26,7 @@ export type AgentStatus = Static<typeof AgentStatusSchema>;
 export type AgentRuntime = Static<typeof AgentRuntimeSchema>;
 export type AgentActivityKind = Static<typeof AgentActivityKindSchema>;
 export type AgentActivity = Static<typeof AgentActivitySchema>;
+export type AgentDocumentReadResult = Static<typeof AgentDocumentReadResultSchema>;
 export type AgentActivityInput = Static<typeof AgentActivityInputSchema>;
 export type DocumentSnapshot = Static<typeof DocumentSnapshotSchema>;
 export type SourceSnapshot = Static<typeof SourceSnapshotSchema>;

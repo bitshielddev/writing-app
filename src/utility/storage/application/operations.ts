@@ -22,6 +22,7 @@ import {
   type SuggestionCommandEnvelope,
   type SuggestionIntent,
 } from "../../../domain/suggestions/aggregate.js";
+import { plainTextBlocksFromBlocks } from "../../../domain/document/plain-text.js";
 
 type Params<Name extends keyof typeof StorageOperationContracts> = OperationParams<typeof StorageOperationContracts, Name>;
 type Scope = { projectId: string; documentId: string };
@@ -240,19 +241,6 @@ export class StorageOperations {
    * What: performs the repair workspace step for this file's workflow.
    *
    * Why: storage workflows need durable, transactional behavior behind the application contract.
-   * Called when: used by createStorageRequestHandler, startStorageProcess, service and layers when that path needs this behavior.
-   */
-  async repairWorkspace(input?: Params<"workspace.repair">) {
-    input ??= this.selection();
-    this.assertScope(input);
-    const workspace = this.workspace(input);
-    const result = await workspace.files.repairDraft(
-      this.deps.documents.get(input.projectId, input.documentId).markdown,
-    );
-    return { ...workspace.descriptor, ...result };
-  }
-
-  /**
    * What: saves document through the configured persistence path.
    *
    * Why: storage workflows need durable, transactional behavior behind the application contract.
@@ -277,32 +265,23 @@ export class StorageOperations {
    * Called when: used by saveDocument when that path needs this behavior.
    */
   private async performDocumentSave(input: Params<"document.save">) {
-    const { files } = this.workspace(input);
     const current = this.deps.documents.get(input.projectId, input.documentId);
     assertDocumentRevision(input.expectedRevision, current.revision);
-    if (JSON.stringify(input.blocks) === JSON.stringify(current.blocks) && input.markdown === current.markdown) return current;
-    await files.writeDraft(input.markdown);
-    let saved: DocumentSnapshot;
-    try {
-      saved = this.deps.transactions.run(() => {
-        assertDocumentRevision(input.expectedRevision,
-          this.deps.documents.get(input.projectId, input.documentId).revision);
-        const now = this.deps.clock.now();
-        const document = this.deps.documents.save(
-          input.projectId, input.documentId, input.blocks, input.markdown, now,
-        );
-        this.deps.projects.incrementRevision(input.projectId, now);
-        this.deps.outbox.enqueue(input.projectId, input.documentId, {
-          type: "document.saved", document,
-          projectRevision: this.deps.projects.get(input.projectId).revision,
-        });
-        return document;
+    if (JSON.stringify(input.blocks) === JSON.stringify(current.blocks)) return current;
+    const saved = this.deps.transactions.run(() => {
+      assertDocumentRevision(input.expectedRevision,
+        this.deps.documents.get(input.projectId, input.documentId).revision);
+      const now = this.deps.clock.now();
+      const document = this.deps.documents.save(
+        input.projectId, input.documentId, input.blocks, now,
+      );
+      this.deps.projects.incrementRevision(input.projectId, now);
+      this.deps.outbox.enqueue(input.projectId, input.documentId, {
+        type: "document.saved", document,
+        projectRevision: this.deps.projects.get(input.projectId).revision,
       });
-    } catch (error) {
-      try { await files.repairDraft(this.deps.documents.get(input.projectId, input.documentId).markdown); }
-      catch (repairError) { throw new AggregateError([error, repairError], "Document save failed and draft repair failed", { cause: repairError }); }
-      throw error;
-    }
+      return document;
+    });
     await this.deps.dispatcher.dispatch();
     return saved;
   }
@@ -409,6 +388,20 @@ export class StorageOperations {
     return { streamId, coveredThroughSequence: this.deps.outbox.head(streamId), projectId: project.id,
       projectName: project.name, projectRevision: project.revision, documentId: document.id,
       documentTitle: document.title, documentRevision: document.revision };
+  }
+
+  readAgentDocument(input: Params<"agent.document.read">) {
+    this.assertScope(input);
+    const document = this.deps.documents.get(input.projectId, input.documentId);
+    return {
+      projectId: document.projectId,
+      documentId: document.id,
+      title: document.title,
+      documentRevision: document.revision,
+      schemaVersion: document.schemaVersion,
+      blocks: document.blocks,
+      plainTextBlocks: plainTextBlocksFromBlocks(document.blocks),
+    };
   }
 
   /**
@@ -544,7 +537,7 @@ export class StorageOperations {
    * What: performs the workspace step for this file's workflow.
    *
    * Why: storage workflows need durable, transactional behavior behind the application contract.
-   * Called when: used by deleteProject, deleteDocument, repairWorkspace and performDocumentSave when that path needs this behavior.
+   * Called when: used by deleteProject, deleteDocument and importSource when that path needs this behavior.
    */
   private workspace(scope: Scope) {
     if (this.deps.workspaces) return this.deps.workspaces.forDocument(scope.projectId, scope.documentId);

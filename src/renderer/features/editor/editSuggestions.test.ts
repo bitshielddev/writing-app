@@ -15,6 +15,10 @@ const item: EditSuggestion = {
   title: "Edit",
   summary: "Summary",
   body: "Body",
+  sourceDocumentRevision: 1,
+  sourceBlockId: "block-0",
+  sourceStart: 7,
+  sourceEnd: 18,
   sourceText: "target text",
   newText: "replacement text",
   sourceLabels: [],
@@ -44,7 +48,7 @@ function editorWith(contents: string[]) {
 }
 
 describe("edit suggestion matching", () => {
-  it("enables an edit when the source appears exactly once", () => {
+  it("enables an edit when the anchored range still matches", () => {
     const { editor } = editorWith(["before target text after"]);
 
     expect(getEditSuggestionStatus(editor, item)).toMatchObject({
@@ -53,8 +57,15 @@ describe("edit suggestion matching", () => {
     });
   });
 
-  it("disables an edit when the source is missing", () => {
-    const { editor } = editorWith(["different text"]);
+  it("disables an edit when the anchored block is missing", () => {
+    const { editor } = editorWith(["before target text after"]);
+
+    expect(getEditSuggestionStatus(editor, { ...item, sourceBlockId: "missing" }))
+      .toEqual({ enabled: false, reason: "missing" });
+  });
+
+  it("disables an edit when the anchored text changed", () => {
+    const { editor } = editorWith(["before changed text after"]);
 
     expect(getEditSuggestionStatus(editor, item)).toEqual({
       enabled: false,
@@ -62,18 +73,9 @@ describe("edit suggestion matching", () => {
     });
   });
 
-  it("disables an edit when the source is duplicated", () => {
-    const { editor } = editorWith(["target text", "target text"]);
-
-    expect(getEditSuggestionStatus(editor, item)).toEqual({
-      enabled: false,
-      reason: "ambiguous",
-    });
-  });
-
-  it("keeps an edit enabled when matching text moves lower in the document", () => {
-    const { editor, state } = editorWith(["target text"]);
-    state.document.unshift({ id: "new-block", type: "paragraph", content: "New opening" });
+  it("keeps an edit enabled when the same source text appears elsewhere", () => {
+    const { editor, state } = editorWith(["before target text after"]);
+    state.document.unshift({ id: "new-block", type: "paragraph", content: "target text" });
 
     expect(getEditSuggestionStatus(editor, item)).toMatchObject({
       enabled: true,

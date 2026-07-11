@@ -64,12 +64,10 @@ export function useDocumentAutosave(
     if (!dirtyRef.current) return;
 
     let blocks: WritingEditor["document"];
-    let markdown: string;
     try {
       blocks = editor.document.filter(
         (block) => block.type !== "suggestionPreview",
       );
-      markdown = editor.blocksToMarkdownLossy(blocks);
     } catch (cause) {
       if (mountedRef.current) {
         setStatus("failed");
@@ -95,7 +93,6 @@ export function useDocumentAutosave(
           projectId,
           documentId,
           blocks,
-          markdown,
           expectedRevision: revisionRef.current,
         });
         if (generation !== generationRef.current) return;

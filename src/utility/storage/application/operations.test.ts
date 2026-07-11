@@ -19,21 +19,18 @@ function fixture() {
     id: "document",
     projectId: project.id,
     title: "Draft",
-    blocks: [],
-    markdown: "old\n",
+    blocks: [{ id: "block-1", type: "paragraph", content: "old" }],
     schemaVersion: 1,
     revision: 0,
     updatedAt: 0,
   };
   const events: DurableEventEnvelope[] = [];
-  const repairDraft = vi.fn(async () => ({ repaired: true }));
   const dispatcher = { dispatch: vi.fn(async () => undefined) };
   const deps: StorageOperationDependencies = {
     projectId: project.id,
     documentId: document.id,
     workspace: {
       workspaceRoot: "/workspace",
-      draftPath: "/workspace/draft.md",
       sourcesDirectory: "/workspace/sources",
       piDirectory: "/workspace/.pi",
     },
@@ -47,11 +44,10 @@ function fixture() {
     },
     documents: {
       get: () => structuredClone(document),
-      save: (_projectId, _id, blocks, markdown, updatedAt) => {
+      save: (_projectId, _id, blocks, updatedAt) => {
         document = {
           ...document,
           blocks,
-          markdown,
           updatedAt,
           revision: document.revision + 1,
         };
@@ -96,15 +92,13 @@ function fixture() {
     },
     dispatcher,
     files: {
-      writeDraft: vi.fn(async () => undefined),
-      repairDraft,
       copySource: vi.fn(),
       removeSource: vi.fn(),
     },
     clock: { now: () => 42 },
     identities: { next: () => "generated-id" },
   };
-  return { deps, dispatcher, events, repairDraft, getDocument: () => document };
+  return { deps, dispatcher, events, getDocument: () => document };
 }
 
 describe("storage application operations", () => {
@@ -115,8 +109,7 @@ describe("storage application operations", () => {
     const saved = await operations.saveDocument({
       documentId: "document",
       expectedRevision: 0,
-      blocks: [{ type: "paragraph", content: "new" }],
-      markdown: "new\n",
+      blocks: [{ id: "block-1", type: "paragraph", content: "new" }],
     });
 
     expect(saved).toMatchObject({ revision: 1, updatedAt: 42 });
@@ -134,12 +127,10 @@ describe("storage application operations", () => {
       documentId: "document",
       expectedRevision: 9,
       blocks: [],
-      markdown: "stale\n",
     })).rejects.toThrow("DOCUMENT_REVISION_CONFLICT");
-    expect(context.deps.files.writeDraft).not.toHaveBeenCalled();
   });
 
-  it("compensates the draft mirror when persistence fails", async () => {
+  it("does not publish a save event when persistence fails", async () => {
     const context = fixture();
     context.deps.documents.save = () => { throw new Error("database unavailable"); };
     const operations = new StorageOperations(context.deps);
@@ -148,9 +139,23 @@ describe("storage application operations", () => {
       documentId: "document",
       expectedRevision: 0,
       blocks: [],
-      markdown: "new\n",
     })).rejects.toThrow("database unavailable");
-    expect(context.repairDraft).toHaveBeenCalledWith(context.getDocument().markdown);
     expect(context.events).toEqual([]);
+  });
+
+  it("reads persisted document blocks for the agent with plain text anchors", () => {
+    const context = fixture();
+    const operations = new StorageOperations(context.deps);
+
+    expect(operations.readAgentDocument({ projectId: "project", documentId: "document" }))
+      .toEqual({
+        projectId: "project",
+        documentId: "document",
+        title: "Draft",
+        documentRevision: 0,
+        schemaVersion: 1,
+        blocks: [{ id: "block-1", type: "paragraph", content: "old" }],
+        plainTextBlocks: [{ id: "block-1", type: "paragraph", text: "old" }],
+      });
   });
 });

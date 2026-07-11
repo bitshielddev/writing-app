@@ -82,7 +82,6 @@ export const RPC_DEADLINES_MS = {
 function deadlineFor(operation: string) {
   if (operation === "agent.start" || operation === "agent.stop") return RPC_DEADLINES_MS.agentControl;
   if (operation === "hydrate" || operation === "events.replay" || operation === "health.ping") return RPC_DEADLINES_MS.read;
-  if (operation === "workspace.repair") return RPC_DEADLINES_MS.startup;
   return RPC_DEADLINES_MS.mutation;
 }
 

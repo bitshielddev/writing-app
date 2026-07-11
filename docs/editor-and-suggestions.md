@@ -1,6 +1,6 @@
 # Editor and suggestion system
 
-This is the core interaction model: Electron emits committed projection events, the suggestion controller reconciles them with optimistic writer commands, and edit suggestions can target exact source text in the current document.
+This is the core interaction model: Electron emits committed projection events, the suggestion controller reconciles them with optimistic writer commands, and edit suggestions target exact ranges in persisted BlockNote blocks.
 
 ## Domain model
 
@@ -10,7 +10,7 @@ Suggestion value schemas and kind guards are in [`src/domain/suggestions/schema.
 
 | Kind | Type | Extra data | Preview behavior | Visual treatment |
 | --- | --- | --- | --- | --- |
-| `edit` | `EditSuggestion` | `sourceText`, `newText` | Focuses the current source text; accept replaces it. | Source/new text diff |
+| `edit` | `EditSuggestion` | source revision, block id/range, `sourceText`, `newText` | Focuses the current source range; accept replaces it. | Source/new text diff |
 | `note` | `NoteSuggestion` | none beyond common fields | No preview or accept action. | Text detail |
 | `diagram` | `DiagramSuggestion` | Mermaid source and accessible description | No preview or accept action. | Lazy-rendered Mermaid diagram |
 
@@ -91,7 +91,7 @@ Pinned suggestions are cloned through `structuredClone`. Suggestion data is also
 
 ## Edit lifecycle
 
-Only `edit` suggestions expose preview and accept actions. The edit is attached to exact `sourceText`, not to a stored block id or position. The renderer recalculates the current target from accepted document blocks whenever suggestion presentation is derived.
+Only `edit` suggestions expose preview and accept actions. The edit is attached to one persisted document revision, BlockNote block id, and plain-text range. `sourceText` remains a safety check and display value.
 
 ```mermaid
 sequenceDiagram
@@ -103,7 +103,7 @@ sequenceDiagram
 
     User->>Dock: Preview source
     Dock->>App: onPreview(item)
-    App->>App: find unique exact sourceText match
+    App->>App: validate block id/range still matches sourceText
     alt Enabled
         App->>Editor: focus target block
         App->>Inbox: mark viewed
@@ -111,9 +111,9 @@ sequenceDiagram
         App-->>Dock: leave edit visible and disabled
     end
     User->>Dock: Accept edit
-    App->>App: re-check unique exact sourceText match
+    App->>App: re-check block id/range still matches sourceText
     alt Enabled
-        App->>Editor: replace sourceText with newText
+        App->>Editor: replace anchored source range with newText
         App->>Inbox: preview.resolved(accepted)
         Inbox->>Inbox: remove suggestion
     else Disabled
@@ -123,17 +123,17 @@ sequenceDiagram
 
 ### Anchoring and disabled state
 
-An edit is enabled only when `sourceText` appears exactly once in accepted document block text. It is disabled when:
+An edit is enabled only when its anchored block exists and `plainText.slice(sourceStart, sourceEnd) === sourceText`. It is disabled when:
 
-- `sourceText` no longer appears;
-- `sourceText` appears more than once;
+- the source block no longer exists;
+- the anchored range no longer matches `sourceText`;
 - the target cannot be represented by the current editor adapter.
 
-Disabled edits stay visible, are greyed out, and remain dismissible. They cannot be previewed or accepted. Because the target is recalculated from current text, inserting content above the target does not disable the edit.
+Disabled edits stay visible, are greyed out, and remain dismissible. They cannot be previewed or accepted. Because the target is block/range anchored, the same text appearing elsewhere does not make an edit ambiguous.
 
 ### Accept behavior
 
-Accepting an edit re-checks the target immediately before mutation. If it is still enabled, the editor replaces the current exact `sourceText` with `newText`, marks the document dirty for autosave, and removes the suggestion through the existing accepted-preview command path. `newText` may be empty, which expresses deletion.
+Accepting an edit re-checks the target immediately before mutation. If it is still enabled, the editor replaces the current anchored range with `newText`, marks the document dirty for autosave, and removes the suggestion through the existing accepted-preview command path. `newText` may be empty, which expresses deletion.
 
 ## Pins and workspace cards
 

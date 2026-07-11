@@ -2,6 +2,7 @@ import { Type, type Static } from "typebox";
 import { Check, Errors } from "typebox/schema";
 
 const strictObject = { additionalProperties: false } as const;
+const revision = Type.Integer({ minimum: 0 });
 /**
  * What: performs the non empty string step for this file's workflow.
  *
@@ -31,6 +32,10 @@ export const EditSuggestionSchema = Type.Object(
   {
     ...commonSuggestionProperties,
     kind: Type.Literal("edit"),
+    sourceDocumentRevision: revision,
+    sourceBlockId: nonEmptyString(200),
+    sourceStart: Type.Integer({ minimum: 0 }),
+    sourceEnd: Type.Integer({ minimum: 0 }),
     sourceText: nonEmptyString(20_000),
     newText: Type.String({ maxLength: 20_000 }),
   },

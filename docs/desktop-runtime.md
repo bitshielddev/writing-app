@@ -12,18 +12,17 @@ Electron resolves `<userData>` with `app.getPath("userData")`; it is outside the
 
 ```text
 <userData>/projects/default-project/
-  draft.md
   sources/<readable-collision-safe-name>.md
   .pi/sessions/*.jsonl
 ```
 
-Accepted BlockNote blocks and the lossy Markdown export are saved together in SQLite at `<userData>/scribe.sqlite3`. Storage atomically replaces `draft.md` before it commits and publishes the new revision. Startup repairs a missing or damaged mirror from SQLite before the agent is woken.
+Accepted BlockNote blocks are saved in SQLite at `<userData>/scribe.sqlite3`. Storage publishes a committed document revision only after those blocks are persisted. The agent reads the same durable BlockNote revision through Scribe's read-only `read_document` tool rather than through a generated draft file.
 
 Source import accepts only `.md` and `.markdown`. The renderer asks Electron main to open a native file picker from the sidebar's **Upload Sources** action, then storage validates the complete file as UTF-8 and copies it without extraction or truncation. Existing names receive a readable suffix such as `notes (2).md`.
 
 The copied file is only one part of the import. Storage also records source metadata in SQLite, increments the project revision, queues a `source.imported` event, and wakes the agent with the latest document revision. Directly copying files into `sources/` bypasses those steps, so normal source ingestion should go through the Electron import flow.
 
-The fresh schema persists projects, versioned block JSON plus Markdown, source metadata, suggestion command receipts, immutable suggestion facts, a rebuildable current projection, derived checkpoints, the committed delivery stream, and quarantined incompatible JSON. Suggestion history is retained indefinitely. Checkpoints are created after 500 facts or a replay longer than two seconds and only the newest ten per document are retained. Temporary `suggestionPreview` blocks remain excluded from autosave.
+The fresh schema persists projects, versioned block JSON, source metadata, suggestion command receipts, immutable suggestion facts, a rebuildable current projection, derived checkpoints, the committed delivery stream, and quarantined incompatible JSON. Suggestion history is retained indefinitely. Checkpoints are created after 500 facts or a replay longer than two seconds and only the newest ten per document are retained. Temporary `suggestionPreview` blocks remain excluded from autosave.
 
 Suggestion maintenance reports event count and bytes, checkpoint coverage, replay duration, projection mismatch, and database size without logging suggestion content. Verification stops and quarantines on gaps, unknown versions, invalid payloads, or bad checksums. Repair requires a successfully verified database backup before replacing the current projection.
 
@@ -39,9 +38,9 @@ Pi uses native global files under `<userData>/pi/`:
 
 Standard provider environment variables are also supported. Invalid settings, auth, or model files—or no usable model/credential pair—leave the runtime `offline` and expose a diagnostic in the writing-partner panel.
 
-`SessionManager.continueRecent()` targets the project-specific `.pi/sessions` directory. `DefaultResourceLoader` trusts the app-managed workspace, preserves Pi's default system prompt, appends Scribe's read-only/suggestion instructions, and registers the bundled Scribe extension factory. External extension tools are disabled. The exact active tool set is `read`, `grep`, `find`, `ls`, and Scribe's list/create/update/retract/wait tools; `bash`, `write`, and `edit` are excluded.
+`SessionManager.continueRecent()` targets the project-specific `.pi/sessions` directory. `DefaultResourceLoader` trusts the app-managed workspace, preserves Pi's default system prompt, appends Scribe's read-only/suggestion instructions, and registers the bundled Scribe extension factory. External extension tools are disabled. The exact active tool set is `read`, `grep`, `find`, `ls`, and Scribe's read-document/list/create/update/retract/wait tools; `bash`, `write`, and `edit` are excluded.
 
-The agent process runs with `cwd` set to the managed project workspace. Its visible project files are `draft.md`, imported files under `sources/`, and its `.pi/sessions` history. The source repository, renderer bundle, and arbitrary filesystem locations are not used as writing context unless a future feature explicitly imports or exposes them.
+The agent process runs with `cwd` set to the managed project workspace. Its visible project files are imported files under `sources/` and its `.pi/sessions` history; the active draft is available only through `read_document`. The source repository, renderer bundle, and arbitrary filesystem locations are not used as writing context unless a future feature explicitly imports or exposes them.
 
 ## Autonomous loop
 
@@ -63,9 +62,9 @@ Hydration includes the current launch's ring, so renderer reload retains diagnos
 
 ## Startup and failure behaviour
 
-Storage is started first, inspects and opens the database, creates/repairs the workspace mirror, and reports readiness with its protocol name, exact version, build, and operation set. Main validates the complete handshake before sending requests. It then initializes Pi and applies the same check to the agent process, registers renderer IPC, creates the window, and delivers the current revision without starting a model cycle. Utility process startup failure is fatal; provider/tool failures put the enabled autonomous loop to sleep in `error` until a newer project revision arrives or the writer stops and starts it.
+Storage is started first, inspects and opens the database, bootstraps the selected workspace, and reports readiness with its protocol name, exact version, build, and operation set. Main validates the complete handshake before sending requests. It then initializes Pi and applies the same check to the agent process, registers renderer IPC, creates the window, and delivers the current revision without starting a model cycle. Utility process startup failure is fatal; provider/tool failures put the enabled autonomous loop to sleep in `error` until a newer project revision arrives or the writer stops and starts it.
 
-Database startup creates the version 1 schema only for an empty database and validates current files before use. This is an early alpha: incompatible files stop startup and developers delete the local database to recreate it. The generic migration and backup framework remains for a future release boundary, but there is no migration path into this baseline.
+Database startup creates the current schema only for an empty database and validates current files before use. This is an early alpha: incompatible files stop startup and developers delete the local database to recreate it. The generic migration and backup framework remains for a future release boundary, but there is no migration path into this baseline.
 
 Production loads `dist/index.html` through `BrowserWindow.loadFile`; Vite therefore uses `base: "./"`. Development loads `VITE_DEV_SERVER_URL` in Electron and exposes DevTools through the development menu. Context isolation remains enabled and Node integration disabled.
 

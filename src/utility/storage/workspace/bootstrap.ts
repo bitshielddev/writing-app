@@ -28,8 +28,8 @@ export function bootstrapWorkspace(
   ).run(projectId, "AI-assisted drafts", now, now);
   db.prepare(
     `INSERT OR IGNORE INTO documents
-      (id, project_id, title, blocks_json, markdown, schema_version, revision, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      (id, project_id, title, blocks_json, schema_version, revision, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
   ).run(
     documentId,
     projectId,
@@ -37,10 +37,9 @@ export function bootstrapWorkspace(
     encodeVersionedJson(
       COMPATIBILITY_REGISTRY.documentBlocks.name,
       COMPATIBILITY_REGISTRY.documentBlocks.currentVersion,
-      [{ type: "heading", props: { level: 1 }, content: "New Page" }],
+      [{ id: "initial-heading", type: "heading", props: { level: 1 }, content: "New Page" }],
       "blocks",
     ),
-    "# New Page\n",
     DOCUMENT_SCHEMA_VERSION,
     now,
     now,

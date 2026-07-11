@@ -5,7 +5,6 @@ export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-
 
 export type StoragePaths = {
   workspaceRoot: string;
-  draftPath: string;
   sourcesDirectory: string;
   piDirectory: string;
 };
@@ -37,7 +36,6 @@ export function createStoragePaths(
 ): StoragePaths {
   if (!projectId && !documentId) {
     return { workspaceRoot: applicationWorkspaceRoot,
-      draftPath: join(applicationWorkspaceRoot, "draft.md"),
       sourcesDirectory: join(applicationWorkspaceRoot, "sources"),
       piDirectory: join(applicationWorkspaceRoot, ".pi") };
   }
@@ -53,7 +51,6 @@ export function createStoragePaths(
   );
   return {
     workspaceRoot,
-    draftPath: join(workspaceRoot, "draft.md"),
     sourcesDirectory: join(workspaceRoot, "sources"),
     piDirectory: join(workspaceRoot, ".pi"),
   };

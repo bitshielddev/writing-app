@@ -415,7 +415,6 @@ async function start() {
     recover: async (process) => {
       const catalog = await process.call("workspace.catalog");
       selectedScope = catalog.selection;
-      await process.call("workspace.repair", selectedScope);
       await process.call("hydrate", selectedScope);
     },
     classifyRetryable: retryable,

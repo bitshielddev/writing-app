@@ -227,7 +227,7 @@ async function drain() {
   });
   try {
     await activeSession.prompt(
-      `Review the durable Scribe project revision ${cycle.projectRevision} (draft revision ${cycle.documentRevision}). Read draft.md and relevant Markdown files in sources/. Manage only concrete, high-value suggestions. If no useful work remains for this revision, call wait_for_changes.`,
+      `Review the durable Scribe project revision ${cycle.projectRevision} (document revision ${cycle.documentRevision}). Call read_document for the current BlockNote document and read relevant Markdown files in sources/. Manage only concrete, high-value suggestions. If no useful work remains for this revision, call wait_for_changes.`,
     );
     if (!host.loop.isEnabled()) return;
     const continueRunning = host.loop.finishCycle();

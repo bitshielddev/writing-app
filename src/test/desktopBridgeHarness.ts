@@ -85,7 +85,6 @@ export function createDocumentSnapshot(
     projectId: "project-1",
     title: "Draft",
     blocks: [{ id: "block-1", type: "paragraph", content: "Opening" }],
-    markdown: "Opening\n",
     schemaVersion: 1,
     revision: 3,
     updatedAt: 1,

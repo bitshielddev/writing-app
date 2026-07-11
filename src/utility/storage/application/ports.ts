@@ -100,8 +100,6 @@ export interface EventDispatcher {
 
 export type CopiedSource = { filename: string; destination: string; bytes: number };
 export interface WorkspaceFiles {
-  writeDraft(markdown: string): Promise<void>;
-  repairDraft(markdown: string): Promise<{ repaired: boolean }>;
   copySource(sourcePath: string): Promise<CopiedSource>;
   removeSource(path: string): Promise<void>;
   removeWorkspace?(): Promise<void>;
@@ -121,7 +119,6 @@ export interface IdentityGenerator {
 
 export type WorkspaceDescriptor = {
   workspaceRoot: string;
-  draftPath: string;
   sourcesDirectory: string;
   piDirectory: string;
 };

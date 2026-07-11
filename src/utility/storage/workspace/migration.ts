@@ -33,7 +33,6 @@ export function migrateLegacyWorkspaceFiles(
       projectId,
       documentId,
       pending: [
-        { from: join(legacyRoot, "draft.md"), to: target.draftPath },
         { from: join(legacyRoot, "sources"), to: target.sourcesDirectory },
         { from: join(legacyRoot, ".pi"), to: target.piDirectory },
       ].filter((move) => existsSync(move.from)),

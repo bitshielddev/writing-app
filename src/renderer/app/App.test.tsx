@@ -24,9 +24,6 @@ const appHarness = vi.hoisted(() => {
       state.document = [...blocks];
       return { insertedBlocks: blocks, removedBlocks: [] };
     }),
-    blocksToMarkdownLossy: vi.fn((blocks: typeof state.document) =>
-      blocks.map((block) => String(block.content ?? block.id)).join("\n"),
-    ),
     insertBlocks: vi.fn(
       (blocks: typeof state.document, reference: { id: string }) => {
         const inserted = blocks.map((block, index) => ({
@@ -99,6 +96,10 @@ const suggestion: EditSuggestion = {
   title: "Clarify the opening",
   summary: "Make the first sentence concrete.",
   body: "The current opening is abstract.",
+  sourceDocumentRevision: 1,
+  sourceBlockId: "block-1",
+  sourceStart: 0,
+  sourceEnd: 7,
   sourceText: "Opening",
   newText: "A concrete opening.",
   sourceLabels: ["Research.md"],

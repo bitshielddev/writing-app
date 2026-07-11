@@ -54,7 +54,6 @@ describe("preload bridge contract", () => {
     const saveInput = {
       ...scope,
       blocks: [],
-      markdown: "Draft",
       expectedRevision: 2,
     };
     const suggestionCommand = { commandId: "command", ...scope,

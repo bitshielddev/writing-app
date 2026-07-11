@@ -40,7 +40,6 @@ export const saveDocumentParams = Type.Object(
     projectId: identifier,
     documentId: identifier,
     blocks: DocumentBlocksSchema,
-    markdown: text(10_000_000),
     expectedRevision: revision,
   },
   strict,

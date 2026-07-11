@@ -119,16 +119,35 @@ export const AgentActivitySchema = Type.Object(
 export const DocumentBlocksSchema = Type.Unsafe<unknown[]>(
   Type.Array(JsonValueRuntimeSchema, { maxItems: 100_000 }),
 );
+export const PlainTextBlockSchema = Type.Object(
+  {
+    id: identifier,
+    type: identifier,
+    text: text(100_000),
+  },
+  strict,
+);
 export const DocumentSnapshotSchema = Type.Object(
   {
     id: identifier,
     projectId: identifier,
     title: text(1_000),
     blocks: DocumentBlocksSchema,
-    markdown: text(10_000_000),
     schemaVersion: Type.Integer({ minimum: 1 }),
     revision,
     updatedAt: timestamp,
+  },
+  strict,
+);
+export const AgentDocumentReadResultSchema = Type.Object(
+  {
+    projectId: identifier,
+    documentId: identifier,
+    title: text(1_000),
+    documentRevision: revision,
+    schemaVersion: Type.Integer({ minimum: 1 }),
+    blocks: DocumentBlocksSchema,
+    plainTextBlocks: Type.Array(PlainTextBlockSchema, { maxItems: 100_000 }),
   },
   strict,
 );

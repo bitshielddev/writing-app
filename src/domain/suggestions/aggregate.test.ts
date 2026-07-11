@@ -12,7 +12,8 @@ import {
 
 const item: EditSuggestion = {
   id: "suggestion-1", dedupeKey: "dedupe-1", kind: "edit", title: "Opening",
-  summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
+  summary: "Summary", body: "Body", sourceDocumentRevision: 1, sourceBlockId: "block-1",
+  sourceStart: 0, sourceEnd: 4, sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
 };
 
 describe("command-driven suggestion persistence", () => {

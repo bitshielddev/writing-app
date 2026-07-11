@@ -6,17 +6,19 @@ describe("storage transport", () => {
   it("correlates successful and failed request envelopes", async () => {
     const handler = vi.fn(async (method: string) => {
       if (method === "source.import") throw new Error("handler failed");
-      return { workspaceRoot: "/w", draftPath: "/w/draft.md", sourcesDirectory: "/w/sources", piDirectory: "/w/.pi", repaired: false };
+      return { projectId: "project", documentId: "document", title: "Draft",
+        documentRevision: 1, schemaVersion: 1, blocks: [], plainTextBlocks: [] };
     });
     const post = vi.fn();
     const receive = createStorageTransport(handler, post, { error: vi.fn() });
 
     const scope = { projectId: "project", documentId: "document" };
-    await receive({ kind: "rpc", protocolVersion: 1, id: "one", operation: "workspace.repair", params: scope });
+    await receive({ kind: "rpc", protocolVersion: 1, id: "one", operation: "agent.document.read", params: scope });
     await receive({ kind: "rpc", protocolVersion: 1, id: "two", operation: "source.import", params: { ...scope, path: "/source.md" } });
 
     expect(post.mock.calls.map((call) => call[0])).toEqual([
-      { kind: "rpc.success", protocolVersion: 1, id: "one", operation: "workspace.repair", result: { workspaceRoot: "/w", draftPath: "/w/draft.md", sourcesDirectory: "/w/sources", piDirectory: "/w/.pi", repaired: false } },
+      { kind: "rpc.success", protocolVersion: 1, id: "one", operation: "agent.document.read", result: { projectId: "project", documentId: "document", title: "Draft",
+        documentRevision: 1, schemaVersion: 1, blocks: [], plainTextBlocks: [] } },
       { kind: "rpc.failure", protocolVersion: 1, id: "two", operation: "source.import", error: { code: "INTERNAL_ERROR", message: "The operation could not be completed", retryable: false } },
     ]);
   });

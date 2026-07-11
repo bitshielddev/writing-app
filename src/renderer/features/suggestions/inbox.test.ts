@@ -17,7 +17,8 @@ import type { EditSuggestion } from "../../../domain/suggestions/schema";
  */
 const item = (id: string, createdAt: number): EditSuggestion => ({
   id, dedupeKey: id, kind: "edit", title: id, summary: "Summary",
-  body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt,
+  body: "Body", sourceDocumentRevision: 1, sourceBlockId: id,
+  sourceStart: 0, sourceEnd: 4, sourceText: "Text", newText: "New text", sourceLabels: [], createdAt,
 });
 
 describe("suggestion presentation selectors", () => {

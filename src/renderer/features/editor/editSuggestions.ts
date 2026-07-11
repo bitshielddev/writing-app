@@ -3,7 +3,8 @@ import {
   type EditSuggestion,
   type SuggestionItem,
 } from "../../../domain/suggestions/schema";
-import type { WritingBlock, WritingEditor, WritingPartialBlock } from "./schema";
+import { plainTextFromContent } from "../../../domain/document/plain-text";
+import type { WritingEditor, WritingPartialBlock } from "./schema";
 
 export type EditSuggestionStatus =
   | { enabled: true; blockId: string; start: number; end: number }
@@ -12,23 +13,6 @@ export type EditSuggestionDisabledReason = Extract<
   EditSuggestionStatus,
   { enabled: false }
 >["reason"];
-
-/**
- * What: extracts visible text from BlockNote-ish content values.
- *
- * Why: edit suggestions are anchored to exact current document text.
- * Called when: used by edit suggestion status, preview, and accept behavior.
- */
-export function plainTextFromContent(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.map(plainTextFromContent).join("");
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    if (typeof record.text === "string") return record.text;
-    if ("content" in record) return plainTextFromContent(record.content);
-  }
-  return "";
-}
 
 /**
  * What: determines whether an edit suggestion still has one exact target.
@@ -40,27 +24,21 @@ export function getEditSuggestionStatus(
   editor: WritingEditor,
   item: EditSuggestion,
 ): EditSuggestionStatus {
-  const matches: Array<{ block: WritingBlock; start: number; end: number }> = [];
-  for (const block of editor.document) {
-    if (block.type === "suggestionPreview") continue;
-    const text = plainTextFromContent(block.content);
-    let from = 0;
-    while (from <= text.length) {
-      const index = text.indexOf(item.sourceText, from);
-      if (index < 0) break;
-      matches.push({ block, start: index, end: index + item.sourceText.length });
-      from = index + Math.max(item.sourceText.length, 1);
-      if (matches.length > 1) return { enabled: false, reason: "ambiguous" };
-    }
+  const match = editor.document.find((block) =>
+    block.type !== "suggestionPreview" && block.id === item.sourceBlockId);
+  if (!match) return { enabled: false, reason: "missing" };
+  const text = plainTextFromContent(match.content);
+  if (item.sourceEnd < item.sourceStart || item.sourceEnd > text.length) {
+    return { enabled: false, reason: "missing" };
   }
-
-  if (matches.length !== 1) return { enabled: false, reason: "missing" };
-  const match = matches[0]!;
+  if (text.slice(item.sourceStart, item.sourceEnd) !== item.sourceText) {
+    return { enabled: false, reason: "missing" };
+  }
   return {
     enabled: true,
-    blockId: match.block.id,
-    start: match.start,
-    end: match.end,
+    blockId: match.id,
+    start: item.sourceStart,
+    end: item.sourceEnd,
   };
 }
 

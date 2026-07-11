@@ -9,7 +9,8 @@ import type { EditSuggestion } from "../../../domain/suggestions/schema";
 
 const item: EditSuggestion = {
   id: "one", dedupeKey: "one", kind: "edit", title: "One",
-  summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
+  summary: "Summary", body: "Body", sourceDocumentRevision: 1, sourceBlockId: "block-1",
+  sourceStart: 0, sourceEnd: 4, sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
 };
 
 /**

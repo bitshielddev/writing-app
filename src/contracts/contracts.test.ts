@@ -38,6 +38,10 @@ const suggestion = {
   title: "Title",
   summary: "Summary",
   body: "Body",
+  sourceDocumentRevision: 1,
+  sourceBlockId: "block-1",
+  sourceStart: 0,
+  sourceEnd: 4,
   sourceText: "Text",
   newText: "New text",
   sourceLabels: [],
@@ -57,6 +61,15 @@ const command = { commandId: "command", ...scope, expectedSuggestionRevision: 0,
 const commandResult = { commandId: "command", status: "unchanged" as const, suggestionRevision: 0, state };
 const replayResult = { streamId: workspace.streamId, events: [], headSequence: 0,
   hasMore: false, historyAvailable: true };
+const documentRead = {
+  projectId: document.projectId,
+  documentId: document.id,
+  title: document.title,
+  documentRevision: document.revision,
+  schemaVersion: document.schemaVersion,
+  blocks: document.blocks,
+  plainTextBlocks: [{ id: "block-1", type: "paragraph", text: "Opening" }],
+};
 
 const rendererFixtures = {
   "events.subscribe": { params: undefined, result: { consumerId: "consumer" } },
@@ -75,7 +88,7 @@ const rendererFixtures = {
     result: { streamId: workspace.streamId, acknowledgedSequence: 0 } },
   "agent.start": { params: scope, result: { status: "working", cycleCount: 1 } },
   "agent.stop": { params: scope, result: { status: "stopped", cycleCount: 1 } },
-  "document.save": { params: { ...scope, blocks: [], markdown: "", expectedRevision: 0 }, result: document },
+  "document.save": { params: { ...scope, blocks: [], expectedRevision: 0 }, result: document },
   "suggestions.command": { params: command, result: commandResult },
   "source.import": { params: scope, result: source },
   "process.retry": { params: { process: "storage" as const }, result: health },
@@ -96,13 +109,13 @@ const storageFixtures = {
   "events.replay": rendererFixtures["events.replay"],
   "events.acknowledge": { params: { consumerId: "consumer", ...scope, streamId: workspace.streamId, sequence: 0 },
     result: { streamId: workspace.streamId, acknowledgedSequence: 0 } },
-  "workspace.repair": { params: scope, result: { workspaceRoot: "/w", draftPath: "/w/draft.md", sourcesDirectory: "/w/sources", piDirectory: "/w/.pi", repaired: false } },
   "document.save": rendererFixtures["document.save"],
   "suggestions.command": rendererFixtures["suggestions.command"],
   "source.import": { params: { ...scope, path: "/source.md" }, result: source },
   "agent.seed": { params: scope, result: { streamId: workspace.streamId,
     coveredThroughSequence: 0, projectId: "project", projectName: "Project",
     projectRevision: 1, documentId: "document", documentTitle: "Draft", documentRevision: 1 } },
+  "agent.document.read": { params: scope, result: documentRead },
   "agent.suggestions.list": { params: scope, result: { live: [suggestion], pinned: [], workspace: [] } },
   "agent.suggestion.create": { params: { ...scope, item: suggestion, expectedDocumentRevision: 1 }, result: accepted },
   "agent.suggestion.update": { params: { ...scope, item: suggestion, expectedDocumentRevision: 1 }, result: accepted },
@@ -148,11 +161,11 @@ describe("process contract inventory", () => {
       "hydrate",
       "events.replay",
       "events.acknowledge",
-      "workspace.repair",
       "document.save",
       "suggestions.command",
       "source.import",
       "agent.seed",
+      "agent.document.read",
       "agent.suggestions.list",
       "agent.suggestion.create",
       "agent.suggestion.update",
@@ -248,19 +261,18 @@ describe("process contract inventory", () => {
   });
 
   it("reports safe bounded validation details without echoing rejected data", () => {
-    const secret = "document-content-that-must-not-escape";
+    const secret = { secret: "document-content-that-must-not-escape" };
     let message = "";
     try {
       parseOrContractError(StorageOperations["document.save"].params, {
         documentId: "document",
-        blocks: [],
-        markdown: secret,
+        blocks: [secret],
       }, "test.document-save");
     } catch (error) {
       message = JSON.stringify(error);
     }
     expect(message).toContain("test.document-save");
-    expect(message).not.toContain(secret);
+    expect(message).not.toContain(secret.secret);
   });
 
   it("maps domain failures to stable structured errors", () => {

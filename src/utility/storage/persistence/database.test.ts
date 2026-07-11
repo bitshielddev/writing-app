@@ -97,11 +97,11 @@ describe("database lifecycle", () => {
     db.close();
   });
 
-  it("rejects an older test schema as newer than the v1 baseline", async () => {
+  it("rejects an older test schema as unsupported without changing it", async () => {
     const path = await createFixture();
     const before = await readFile(path);
     expect(() => openApplicationDatabase(path)).toThrowError(
-      expect.objectContaining<Partial<DatabaseStartupError>>({ code: "DATABASE_TOO_NEW" }),
+      expect.objectContaining<Partial<DatabaseStartupError>>({ code: "DATABASE_CORRUPT" }),
     );
     expect(await readFile(path)).toEqual(before);
   });
@@ -223,8 +223,8 @@ describe("database lifecycle", () => {
     createCurrentDatabase(invalid);
     invalid.exec("PRAGMA foreign_keys = OFF");
     invalid.exec(`INSERT INTO documents
-      (id, project_id, title, blocks_json, markdown, schema_version, revision, created_at, updated_at)
-      VALUES ('orphan', 'missing', 'Orphan', '[]', '', 1, 0, 1, 1)`);
+      (id, project_id, title, blocks_json, schema_version, revision, created_at, updated_at)
+      VALUES ('orphan', 'missing', 'Orphan', '[]', 1, 0, 1, 1)`);
     invalid.close();
     expect(() => openApplicationDatabase(invalidPath)).toThrowError(
       expect.objectContaining<Partial<DatabaseStartupError>>({ code: "DATABASE_CORRUPT" }),

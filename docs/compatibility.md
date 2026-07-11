@@ -6,7 +6,7 @@ Scribe versions each durable JSON format independently from SQLite and requires 
 
 | Boundary | Format/protocol name | Current | Minimum readable | Minimum migratable | Newer-version behaviour |
 | --- | --- | ---: | ---: | ---: | --- |
-| SQLite | `scribe.sqlite` | 5 | 2 | 2 | Open only for inspection, reject startup, preserve the file. |
+| SQLite | `scribe.sqlite` | 6 | 6 | 6 | Open only for inspection, reject startup, preserve the file. |
 | Block document | `scribe.blocks` | 1 | 0 | 0 | Preserve and quarantine; do not overwrite; document hydration is unavailable. |
 | Suggestion command result | `scribe.suggestion-command-result` | 1 | 0 | 0 | Preserve and quarantine; reject the command lookup. |
 | Suggestion fact | `suggestion_event_history.event_version` | 1 | — | — | Preserve and quarantine; stop projection at that sequence. Later facts are not applied. |
@@ -21,7 +21,7 @@ Version 0 means the legacy unwrapped JSON shipped before explicit envelopes. Suc
 
 The `durable_json_quarantine` table records the original JSON text, format name, record identity, detected version, stable error code, and timestamp. A unique format/identity pair prevents duplicate records. Active reads never cast quarantined content into runtime state. Normal logs and errors identify the feature and record but do not include its content.
 
-The Markdown `draft.md` mirror remains recovery material when block JSON cannot be read. An unsupported format error tells the caller which feature is unavailable, identifies the database quarantine location, and requires a newer application. Unknown Pi entries not owned by Scribe are left entirely to Pi and are not modified.
+Block JSON is the canonical draft data. An unsupported format error tells the caller which feature is unavailable, identifies the database quarantine location, and requires a newer application. Unknown Pi entries not owned by Scribe are left entirely to Pi and are not modified.
 
 ## Process readiness
 

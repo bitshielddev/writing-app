@@ -14,7 +14,6 @@ CREATE TABLE documents (
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   blocks_json TEXT NOT NULL,
-  markdown TEXT NOT NULL,
   schema_version INTEGER NOT NULL,
   revision INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
@@ -47,7 +46,7 @@ CREATE TABLE event_outbox (
 INSERT INTO projects VALUES ('fixture-project', 'Fixture project', 4, 1000, 2000);
 INSERT INTO documents VALUES (
   'fixture-document', 'fixture-project', 'Preserved draft',
-  '[{"type":"paragraph","content":"Keep me"}]', 'Keep me' || char(10), 1, 3, 1000, 2000
+  '[{"type":"paragraph","content":"Keep me"}]', 1, 3, 1000, 2000
 );
 INSERT INTO sources VALUES (
   'fixture-source', 'fixture-project', 'notes.md', '/fixture/notes.md', 12, 1000, 2000

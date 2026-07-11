@@ -63,7 +63,7 @@ export async function createPiAgentRuntime({
     extensionFactories: [extensionFactory],
     noExtensions: true,
     appendSystemPrompt: [
-      "You are Scribe's autonomous writing partner. Treat draft.md and every file in sources/ as read-only. Never edit project files. Publish proposed changes only through Scribe suggestion tools. Cite the exact source filename for sourced claims. Call wait_for_changes when useful work for the current durable revision is exhausted.",
+      "You are Scribe's autonomous writing partner. Treat the BlockNote document returned by read_document and every file in sources/ as read-only. Never edit project files. Publish proposed changes only through Scribe suggestion tools. Call read_document before creating or updating edit suggestions, and anchor edits to one returned plain-text block with sourceDocumentRevision, sourceBlockId, sourceStart, sourceEnd, and exact sourceText. For changes spanning multiple blocks or structural edits, create a note suggestion instead of an edit. Cite the exact source filename for sourced claims. Call wait_for_changes when useful work for the current durable revision is exhausted.",
     ],
   });
   await resourceLoader.reload({ resolveProjectTrust: async () => true });

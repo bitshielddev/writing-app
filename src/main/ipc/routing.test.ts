@@ -126,7 +126,7 @@ describe("main IPC routing", () => {
 
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.startAgent, scope);
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.stopAgent, scope);
-    const saveInput = { ...scope, blocks: [], markdown: "", expectedRevision: 0 };
+    const saveInput = { ...scope, blocks: [], expectedRevision: 0 };
     await harness.invoke(DESKTOP_INVOKE_CHANNELS.saveDocument, saveInput);
     const command = { commandId: "command", ...scope, expectedSuggestionRevision: 0,
       command: { type: "dismiss", suggestionId: "suggestion" } };

@@ -1,7 +1,6 @@
 import { constants } from "node:fs";
-import { randomUUID } from "node:crypto";
 import { basename, extname, join, parse } from "node:path";
-import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
 
 import type { StoragePaths } from "./config.js";
 import type { CopiedSource, WorkspaceFiles } from "../application/ports.js";
@@ -13,46 +12,11 @@ export class NodeWorkspaceFiles implements WorkspaceFiles {
    * What: performs the ensure directories step for this file's workflow.
    *
    * Why: storage workflows need durable, transactional behavior behind the application contract.
-   * Called when: used by repairDraft and createWorkspaceFiles when that path needs this behavior.
+   * Called when: used by copySource and createWorkspaceFiles when that path needs this behavior.
    */
   async ensureDirectories() {
     await mkdir(this.paths.sourcesDirectory, { recursive: true });
     await mkdir(this.paths.piDirectory, { recursive: true });
-  }
-
-  /**
-   * What: performs the write draft step for this file's workflow.
-   *
-   * Why: storage workflows need durable, transactional behavior behind the application contract.
-   * Called when: used by ports, performDocumentSave, fixture and operations when that path needs this behavior.
-   */
-  async writeDraft(markdown: string) {
-    const temporary = join(this.paths.workspaceRoot, `.draft-${randomUUID()}.tmp`);
-    try {
-      await writeFile(temporary, markdown, "utf8");
-      await rename(temporary, this.paths.draftPath);
-    } finally {
-      await rm(temporary, { force: true });
-    }
-  }
-
-  /**
-   * What: performs the repair draft step for this file's workflow.
-   *
-   * Why: storage workflows need durable, transactional behavior behind the application contract.
-   * Called when: used by ports, repairWorkspace, performDocumentSave and fixture when that path needs this behavior.
-   */
-  async repairDraft(markdown: string) {
-    await this.ensureDirectories();
-    let current: string | undefined;
-    try {
-      current = await readFile(this.paths.draftPath, "utf8");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    }
-    const repaired = current !== markdown;
-    if (repaired) await this.writeDraft(markdown);
-    return { repaired };
   }
 
   /**

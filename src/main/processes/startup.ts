@@ -39,7 +39,6 @@ export async function startDesktop({
   const storage = spawnStorage();
   await storage.ready;
   const catalog = await storage.call("workspace.catalog");
-  await storage.call("workspace.repair", catalog.selection);
 
   const agent = spawnAgent(catalog.selection);
   await agent.ready;

@@ -35,11 +35,11 @@ Version the payload if a server will persist or process it independently.
 
 ## Extend persistence
 
-The desktop runtime separates SQLite document/suggestion data, managed Markdown files, Pi-native configuration, project session JSONL, and launch-scoped activity. Preserve those ownership boundaries rather than replacing them with one opaque React-state blob.
+The desktop runtime separates SQLite document/suggestion data, imported source files, Pi-native configuration, project session JSONL, and launch-scoped activity. Preserve those ownership boundaries rather than replacing them with one opaque React-state blob.
 
 ### Document data
 
-Document saves contain BlockNote's serializable model and `blocksToMarkdownLossy()` output. Storage atomically refreshes `draft.md` before publishing the committed revision. Preserve that ordering and startup repair path.
+Document saves contain BlockNote's serializable model only. The agent reads the same persisted blocks through `read_document`, including derived plain-text block anchors for edit suggestions.
 
 Temporary `suggestionPreview` blocks are excluded from the saved accepted document. If preview recovery is added later, store it as a separate draft concept.
 

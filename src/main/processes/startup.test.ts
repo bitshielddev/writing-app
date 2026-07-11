@@ -25,10 +25,6 @@ function processHarness(ready: Promise<void>, calls: string[], name: string) {
       if (method === "workspace.catalog") {
         return { selection: { projectId: "project", documentId: "document" } };
       }
-      if (method === "workspace.repair") {
-        return { workspaceRoot: "/w", draftPath: "/w/draft.md", sourcesDirectory: "/w/sources",
-          piDirectory: "/w/.pi", repaired: false };
-      }
       if (method === "agent.seed") {
         return { streamId: "document:document", coveredThroughSequence: 0,
           projectRevision: 7, documentRevision: 3 };
@@ -43,7 +39,7 @@ function processHarness(ready: Promise<void>, calls: string[], name: string) {
 }
 
 describe("desktop startup", () => {
-  it("orders readiness, repair, IPC, window creation, and initial revision", async () => {
+  it("orders readiness, IPC, window creation, and initial revision", async () => {
     const calls: string[] = [];
     const storageReady = deferred<void>();
     const agentReady = deferred<void>();
@@ -73,7 +69,6 @@ describe("desktop startup", () => {
     expect(calls).toEqual([
       "spawn.storage",
       "storage.call:workspace.catalog",
-      "storage.call:workspace.repair",
       "spawn.agent",
     ]);
     agentReady.resolve();
@@ -82,7 +77,6 @@ describe("desktop startup", () => {
     expect(calls).toEqual([
       "spawn.storage",
       "storage.call:workspace.catalog",
-      "storage.call:workspace.repair",
       "spawn.agent",
       "register.ipc",
       "install.menu",

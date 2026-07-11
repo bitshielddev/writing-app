@@ -108,13 +108,11 @@ describe("project and document identities", () => {
     const legacy = join(root, "projects", "default-project");
     await mkdir(join(legacy, "sources"), { recursive: true });
     await mkdir(join(legacy, ".pi", "sessions"), { recursive: true });
-    await writeFile(join(legacy, "draft.md"), "legacy draft\n");
     await writeFile(join(legacy, "sources", "notes.md"), "legacy source\n");
     await writeFile(join(legacy, ".pi", "sessions", "checkpoint.json"), "{}");
 
     const migrated = createStorageService({ databasePath, workspaceRoot: root });
     services.push(migrated);
-    expect(await readFile(migrated.paths.draftPath, "utf8")).toBe("legacy draft\n");
     expect(await readFile(join(migrated.paths.sourcesDirectory, "notes.md"), "utf8"))
       .toBe("legacy source\n");
     expect(await readFile(join(migrated.paths.piDirectory, "sessions", "checkpoint.json"), "utf8"))

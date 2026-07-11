@@ -29,6 +29,7 @@ export const SCRIBE_LOOP_ENTRY = "scribe.loop-state";
 export const SCRIBE_REVISION_EVENT = "scribe.project-revision";
 export const SCRIBE_TOOL_NAMES = [
   "list_suggestions",
+  "read_document",
   "create_suggestion",
   "update_suggestion",
   "retract_suggestion",
@@ -216,9 +217,22 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
       execute: async () => toolResult(await host.storageCall("agent.suggestions.list", {} as never)),
     });
     pi.registerTool({
+      name: "read_document",
+      label: "Read document",
+      description: "Read the current persisted BlockNote document revision and plain-text block anchors.",
+      parameters: Type.Object({}),
+      execute: async () => {
+        const expectedDocumentRevision = host.loop.snapshot().activeDocumentRevision;
+        if (expectedDocumentRevision === undefined) {
+          return toolResult("No active revision", true);
+        }
+        return toolResult(await host.storageCall("agent.document.read", {} as never));
+      },
+    });
+    pi.registerTool({
       name: "create_suggestion",
       label: "Create suggestion",
-      description: "Publish a proposed draft change without editing draft.md.",
+      description: "Publish a proposed draft change without editing project files.",
       parameters: SuggestionToolInputSchema,
       execute: async (_id, params) => {
         const item = toSuggestion(params as SuggestionToolInput);
@@ -232,7 +246,7 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
     pi.registerTool({
       name: "update_suggestion",
       label: "Update suggestion",
-      description: "Refine an existing live suggestion without editing draft.md.",
+      description: "Refine an existing live suggestion without editing project files.",
       parameters: SuggestionToolUpdateInputSchema,
       execute: async (_id, params) => {
         const input = params as SuggestionToolUpdateInput;

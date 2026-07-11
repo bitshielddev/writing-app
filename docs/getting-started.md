@@ -50,14 +50,13 @@ The running app owns this tree:
     auth.json
     models.json
   projects/default-project/
-    draft.md
     sources/
       <imported-source>.md
     .pi/sessions/
       *.jsonl
 ```
 
-The source checkout is not the writing project workspace. Electron creates and repairs `draft.md`, stores the source list and suggestions in `scribe.sqlite3`, and resumes Pi sessions from the project-specific `.pi/sessions/` directory.
+The source checkout is not the writing project workspace. Electron stores BlockNote document blocks, the source list, and suggestions in `scribe.sqlite3`, copies imported files under `sources/`, and resumes Pi sessions from the project-specific `.pi/sessions/` directory.
 
 ## What to expect after startup
 
@@ -80,7 +79,7 @@ Launch the app once before configuring Pi so Electron creates `<userData>/`. The
 
 Credentials can either live in Pi's native `<userData>/pi/auth.json` file or be supplied as standard provider environment variables, such as `ANTHROPIC_API_KEY`, before starting Electron. Custom providers and model aliases belong in `<userData>/pi/models.json`.
 
-Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline, Start Agent is unavailable, and the reason appears in the Activity tab. A configured agent remains stopped until the writer starts it. It reads `draft.md` plus Markdown files in `sources/`, but it cannot edit them directly; it publishes suggestions through Scribe's suggestion tools.
+Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline, Start Agent is unavailable, and the reason appears in the Activity tab. A configured agent remains stopped until the writer starts it. It reads the active BlockNote document through Scribe's read-only `read_document` tool plus Markdown files in `sources/`, but it cannot edit them directly; it publishes suggestions through Scribe's suggestion tools.
 
 ## Import writing sources
 

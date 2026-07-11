@@ -13,7 +13,8 @@ import { decideSuggestionCommand } from "../../../domain/suggestions/aggregate";
 
 const item: EditSuggestion = {
   id: "durable-item", dedupeKey: "durable-item", kind: "edit", title: "Opening",
-  summary: "Summary", body: "Body", sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
+  summary: "Summary", body: "Body", sourceDocumentRevision: 1, sourceBlockId: "block-1",
+  sourceStart: 0, sourceEnd: 4, sourceText: "Text", newText: "New text", sourceLabels: [], createdAt: 1,
 };
 
 describe("suggestion event history and projections", () => {

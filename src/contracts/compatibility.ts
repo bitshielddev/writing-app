@@ -1,9 +1,9 @@
 export const COMPATIBILITY_REGISTRY = {
   database: {
     name: "scribe.sqlite",
-    currentVersion: 5,
-    minimumReadableVersion: 2,
-    minimumMigratableVersion: 2,
+    currentVersion: 6,
+    minimumReadableVersion: 6,
+    minimumMigratableVersion: 6,
     newerVersionBehavior: "reject-read-only",
   },
   documentBlocks: {

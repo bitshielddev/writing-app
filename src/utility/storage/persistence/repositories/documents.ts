@@ -38,7 +38,7 @@ export class DocumentRepository implements DocumentStore {
    * What: performs the get step for this file's workflow.
    *
    * Why: storage workflows need durable, transactional behavior behind the application contract.
-   * Called when: used by ports, hydrate, repairWorkspace and performDocumentSave when that path needs this behavior.
+   * Called when: used by ports, hydrate and performDocumentSave when that path needs this behavior.
    */
   get(projectId: string, id: string): DocumentSnapshot {
     if (id === undefined) {
@@ -48,11 +48,11 @@ export class DocumentRepository implements DocumentStore {
       projectId = owner.project_id;
     }
     const row = this.db.prepare(
-      `SELECT id, project_id, title, blocks_json, markdown, schema_version, revision, updated_at
+      `SELECT id, project_id, title, blocks_json, schema_version, revision, updated_at
        FROM documents WHERE project_id = ? AND id = ?`,
     ).get(projectId, id) as {
       id: string; project_id: string; title: string; blocks_json: string;
-      markdown: string; schema_version: number; revision: number; updated_at: number;
+      schema_version: number; revision: number; updated_at: number;
     } | undefined;
     if (!row) throw new Error(`Document not found: ${id}`);
     const policy = COMPATIBILITY_REGISTRY.documentBlocks;
@@ -79,7 +79,6 @@ export class DocumentRepository implements DocumentStore {
       projectId: row.project_id,
       title: row.title,
       blocks,
-      markdown: row.markdown,
       schemaVersion: row.schema_version,
       revision: row.revision,
       updatedAt: row.updated_at,
@@ -93,10 +92,10 @@ export class DocumentRepository implements DocumentStore {
    * Called when: used by ports, createProject and createDocument when that path needs this behavior.
    */
   create(projectId: string, id: string, title: string, now: number) {
-    const blocks = [{ type: "heading", props: { level: 1 }, content: "New Page" }];
+    const blocks = [{ id: "initial-heading", type: "heading", props: { level: 1 }, content: "New Page" }];
     this.db.prepare(`INSERT INTO documents
-      (id, project_id, title, blocks_json, markdown, schema_version, revision, created_at, updated_at)
-      VALUES (?, ?, ?, ?, '# New Page\n', ?, 0, ?, ?)`)
+      (id, project_id, title, blocks_json, schema_version, revision, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?)`)
       .run(id, projectId, title, encodeVersionedJson(
         COMPATIBILITY_REGISTRY.documentBlocks.name,
         COMPATIBILITY_REGISTRY.documentBlocks.currentVersion,
@@ -161,10 +160,9 @@ export class DocumentRepository implements DocumentStore {
    * Why: storage workflows need durable, transactional behavior behind the application contract.
    * Called when: used by ports, performDocumentSave, fixture and operations when that path needs this behavior.
    */
-  save(projectId: string, id: string | unknown[], blocks: unknown[] | string, markdown: string | number, updatedAt?: number) {
+  save(projectId: string, id: string | unknown[], blocks: unknown[] | number, updatedAt?: number) {
     if (updatedAt === undefined) {
-      updatedAt = markdown as number;
-      markdown = blocks as string;
+      updatedAt = blocks as number;
       blocks = id as unknown[];
       id = projectId;
       const owner = this.db.prepare("SELECT project_id FROM documents WHERE id = ?").get(id as string) as { project_id: string } | undefined;
@@ -177,14 +175,14 @@ export class DocumentRepository implements DocumentStore {
       "persisted.document-blocks.write",
     );
     const result = this.db.prepare(
-      `UPDATE documents SET blocks_json = ?, markdown = ?, revision = revision + 1, updated_at = ?
+      `UPDATE documents SET blocks_json = ?, revision = revision + 1, updated_at = ?
        WHERE project_id = ? AND id = ?`,
     ).run(encodeVersionedJson(
       COMPATIBILITY_REGISTRY.documentBlocks.name,
       COMPATIBILITY_REGISTRY.documentBlocks.currentVersion,
       validatedBlocks,
       "blocks",
-    ), markdown as string, updatedAt, projectId, id as string);
+    ), updatedAt, projectId, id as string);
     if (result.changes !== 1) throw new Error(`Document not found: ${id}`);
     return this.get(projectId, id as string);
   }

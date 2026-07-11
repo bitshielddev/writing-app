@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createScribeExtension,
   executeSuggestionMutation,
   type ScribeExtensionHost,
 } from "./extension";
@@ -106,5 +107,50 @@ describe("suggestion tool mutation helper", () => {
       isError: true,
     });
     expect(extensionHost.wake).toHaveBeenCalledOnce();
+  });
+});
+
+describe("scribe extension document tool", () => {
+  it("reads the active persisted document through storage", async () => {
+    const { calls, storageCall } = successfulStorage();
+    const extensionHost = host(storageCall);
+    extensionHost.loop.revision(4, 7);
+    extensionHost.loop.start();
+    extensionHost.loop.beginCycle();
+    const registered = new Map<string, { execute: (id: string, params: Record<string, unknown>) => Promise<unknown> }>();
+    const pi = {
+      on: vi.fn(),
+      events: { on: vi.fn() },
+      setSessionName: vi.fn(),
+      registerTool: vi.fn((tool: { name: string; execute: (id: string, params: Record<string, unknown>) => Promise<unknown> }) => {
+        registered.set(tool.name, tool);
+      }),
+    };
+
+    createScribeExtension(extensionHost)(pi as never);
+    const result = await registered.get("read_document")!.execute("tool-call", {});
+
+    expect(calls).toHaveBeenCalledWith("agent.document.read", {});
+    expect(result).toMatchObject({ details: { accepted: true }, isError: false });
+  });
+
+  it("rejects document reads without an active revision", async () => {
+    const { calls, storageCall } = successfulStorage();
+    const extensionHost = host(storageCall);
+    const registered = new Map<string, { execute: (id: string, params: Record<string, unknown>) => Promise<unknown> }>();
+    const pi = {
+      on: vi.fn(),
+      events: { on: vi.fn() },
+      setSessionName: vi.fn(),
+      registerTool: vi.fn((tool: { name: string; execute: (id: string, params: Record<string, unknown>) => Promise<unknown> }) => {
+        registered.set(tool.name, tool);
+      }),
+    };
+
+    createScribeExtension(extensionHost)(pi as never);
+    const result = await registered.get("read_document")!.execute("tool-call", {});
+
+    expect(result).toMatchObject({ details: "No active revision", isError: true });
+    expect(calls).not.toHaveBeenCalled();
   });
 });

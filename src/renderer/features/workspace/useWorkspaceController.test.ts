@@ -23,7 +23,6 @@ function documentSnapshot(revision: number, blocks: unknown[]): DocumentSnapshot
     projectId: "project",
     title: "Draft",
     blocks,
-    markdown: "Draft",
     schemaVersion: 1,
     revision,
     updatedAt: revision,
@@ -83,9 +82,6 @@ function createHarness() {
       editorState.document = blocks as typeof editorState.document;
       return { insertedBlocks: editorState.document, removedBlocks: [] };
     }),
-    blocksToMarkdownLossy: vi.fn((blocks) =>
-      blocks.map((block: { id: string }) => block.id).join("\n"),
-    ),
     insertBlocks: vi.fn(() => [{ id: "preview", type: "suggestionPreview" }]),
     setTextCursorPosition: vi.fn(),
   } as unknown as WritingEditor;
@@ -258,7 +254,8 @@ describe("workspace controller", () => {
     );
     await waitFor(() => expect(result.current.runtime.status).toBe("waiting"));
     const item = { id: "suggestion", dedupeKey: "suggestion", kind: "edit" as const,
-      title: "Suggestion", summary: "Summary", body: "Body", sourceText: "Initial",
+      title: "Suggestion", summary: "Summary", body: "Body",
+      sourceDocumentRevision: 3, sourceBlockId: "hydrated", sourceStart: 0, sourceEnd: 7, sourceText: "Initial",
       newText: "New text", sourceLabels: [], createdAt: 1 };
     act(() => harness.emit({ type: "suggestion.event", suggestionRevision: 1,
       state: { ...createEmptySuggestionState(), entries: [{ item, viewed: true }],

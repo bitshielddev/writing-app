@@ -69,7 +69,6 @@ export async function startStorageProcess(
     throw startupError;
   }
 
-  await service.operations.repairWorkspace(service.operations.catalog().selection);
   const receive = createStorageTransport(
     service.handleRequest,
     (message) => process.parentPort?.postMessage(message),

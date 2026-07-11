@@ -112,11 +112,11 @@ export function createStorageRequestHandler(operations: StorageOperations) {
     hydrate: (params) => operations.hydrate(paramsFor<"hydrate">(params)),
     "events.replay": (params) => operations.replayEvents(paramsFor<"events.replay">(params)),
     "events.acknowledge": (params) => operations.acknowledgeEvents(paramsFor<"events.acknowledge">(params)),
-    "workspace.repair": (params) => operations.repairWorkspace(paramsFor<"workspace.repair">(params)),
     "document.save": (params) => operations.saveDocument(paramsFor<"document.save">(params)),
     "suggestions.command": (params) => operations.executeSuggestionCommand(paramsFor<"suggestions.command">(params)),
     "source.import": (params) => operations.importSource(paramsFor<"source.import">(params)),
     "agent.seed": (params) => operations.getObservationSeed(paramsFor<"agent.seed">(params)),
+    "agent.document.read": (params) => operations.readAgentDocument(paramsFor<"agent.document.read">(params)),
     "agent.suggestions.list": (params) => operations.listSuggestions(paramsFor<"agent.suggestions.list">(params)),
     "agent.suggestion.create": (params) => operations.createSuggestion(paramsFor<"agent.suggestion.create">(params)),
     "agent.suggestion.update": (params) => operations.updateSuggestion(paramsFor<"agent.suggestion.update">(params)),
@@ -129,9 +129,9 @@ export function createStorageRequestHandler(operations: StorageOperations) {
     }
     const name = method as StorageRpcMethod;
     const scopedOperations = new Set([
-      "hydrate", "events.replay", "events.acknowledge", "workspace.repair",
+      "hydrate", "events.replay", "events.acknowledge",
       "document.save", "suggestions.command", "source.import", "agent.seed",
-      "agent.suggestions.list", "agent.suggestion.create", "agent.suggestion.update",
+      "agent.document.read", "agent.suggestions.list", "agent.suggestion.create", "agent.suggestion.update",
       "agent.suggestion.retract",
     ]);
     if (scopedOperations.has(name)) {

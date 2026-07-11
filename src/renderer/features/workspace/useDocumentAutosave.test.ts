@@ -22,7 +22,6 @@ function editor() {
     get document() {
       return state.document;
     },
-    blocksToMarkdownLossy: vi.fn(() => "strict markdown"),
   } as unknown as WritingEditor;
   return { state, value };
 }
@@ -30,7 +29,7 @@ function editor() {
 afterEach(() => vi.useRealTimers());
 
 describe("useDocumentAutosave", () => {
-  it("debounces, excludes previews, serializes, and advances revisions", async () => {
+  it("debounces, excludes previews, saves blocks, and advances revisions", async () => {
     vi.useFakeTimers();
     const harness = new DesktopBridgeHarness();
     const writingEditor = editor();
@@ -46,7 +45,6 @@ describe("useDocumentAutosave", () => {
     await act(async () => vi.advanceTimersByTime(1));
     expect(harness.saveDocument.calls[0]?.args[0]).toMatchObject({
       expectedRevision: 3,
-      markdown: "strict markdown",
       blocks: [{ id: "text", type: "paragraph" }],
     });
 

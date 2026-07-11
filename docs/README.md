@@ -11,7 +11,7 @@ ScribeAI is an Electron writing workspace with a React renderer. The current imp
 - an inbox for reading, dismissing, pinning, and previewing suggestions;
 - desktop workspace cards for keeping references over the editor;
 - responsive navigation and writing-partner panels;
-- SQLite document, Markdown mirror, source, and suggestion persistence;
+- SQLite document, source, and suggestion persistence;
 - a durable Pi coding-agent session with writer-controlled autonomous work and launch-scoped activity diagnostics.
 
 Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources, and restores the workspace and Pi session after restart. Development uses the same runtime with Vite renderer HMR and DevTools.
@@ -33,11 +33,11 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 | --- | --- |
 | Editor | Electron hydrates and autosaves the current BlockNote document. |
 | Writing partner | The agent starts stopped on every app launch. A persistent control starts or immediately stops autonomous work. Electron receives committed suggestions from the Pi agent. |
-| Edit suggestions | Edits target exact source text, can preview the source location, and can be accepted when the source is still unique. |
+| Edit suggestions | Edits target an exact source range in a persisted BlockNote block, can preview the source location, and can be accepted when that range still matches. |
 | Notes and diagrams | Notes surface reference guidance; diagrams render Mermaid. They are references, not accepted into the draft. |
 | Pins | A suggestion can be frozen into the Pins section. On desktop it can then be placed, moved, resized, stacked, and returned. |
 | Responsive layout | Below `80rem`, navigation and writing partner use modal drawers. At `80rem` and above they become independently collapsible, resizable columns. |
-| Persistence | Electron restores the document, Markdown mirror, sources, suggestion inbox, pins, workspace cards, and Pi session. |
+| Persistence | Electron restores the document, sources, suggestion inbox, pins, workspace cards, and Pi session. |
 | Sources | Electron imports complete UTF-8 `.md` and `.markdown` files through **Upload Sources** into the managed project workspace. |
 | Static controls | Navigation destinations, document tabs, New Document, history, export, share, and overflow actions have no application behavior yet. |
 

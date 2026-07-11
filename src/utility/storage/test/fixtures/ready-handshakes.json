@@ -4,7 +4,7 @@
     "protocolName": "scribe.storage",
     "protocolVersion": 1,
     "buildIdentifier": "0.1.0",
-    "operations": ["hydrate", "workspace.repair", "document.save", "source.import", "suggestions.command", "events.replay", "events.acknowledge", "agent.seed", "agent.suggestions.list", "agent.suggestion.create", "agent.suggestion.update", "agent.suggestion.retract"]
+    "operations": ["hydrate", "document.save", "source.import", "suggestions.command", "events.replay", "events.acknowledge", "agent.seed", "agent.document.read", "agent.suggestions.list", "agent.suggestion.create", "agent.suggestion.update", "agent.suggestion.retract"]
   },
   "futureStorageV2": {
     "kind": "ready",

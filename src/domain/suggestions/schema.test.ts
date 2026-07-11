@@ -24,6 +24,10 @@ const validByKind = {
   edit: {
     ...common,
     kind: "edit",
+    sourceDocumentRevision: 1,
+    sourceBlockId: "block-1",
+    sourceStart: 0,
+    sourceEnd: 17,
     sourceText: "Current sentence.",
     newText: "Improved sentence.",
   },

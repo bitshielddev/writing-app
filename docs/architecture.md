@@ -4,7 +4,7 @@
 
 Projects and documents use immutable application-generated UUIDs. Mutable names and titles are display labels only. Every persistence and agent operation carries `{ projectId, documentId }`; repositories verify that the document belongs to the project before reading or writing.
 
-Document files live at `projects/<project-id>/documents/<document-id>/`, including `draft.md`, `sources/`, and `.pi/sessions/`. SQLite schema version 1 scopes sources, suggestion projections, command receipts, immutable suggestion history, checkpoints, event streams, and consumer cursors to the document. The selected identities are persisted in the singleton workspace settings row and validated on startup. During alpha, incompatible database versions are intentionally not migrated; delete the local database to recreate the current schema.
+Document workspace files live at `projects/<project-id>/documents/<document-id>/`, including `sources/` and `.pi/sessions/`. The accepted draft itself is persisted as BlockNote block JSON in SQLite. SQLite schema version 6 scopes sources, suggestion projections, command receipts, immutable suggestion history, checkpoints, event streams, and consumer cursors to the document. The selected identities are persisted in the singleton workspace settings row and validated on startup. During alpha, incompatible database versions are intentionally not migrated; delete the local database to recreate the current schema.
 
 The renderer treats a selected document as a keyed session. A switch flushes document and suggestion queues, stops the old agent, removes preview state, selects and hydrates the target, and only then enables the target state. Async controllers compare their captured session identity before applying completions. The main process replaces the document-specific Pi process on selection so its working directory and session history cannot cross document boundaries.
 
@@ -67,7 +67,7 @@ The workspace controller owns one desktop event subscription. It routes suggesti
 | Hydration, autosave queue, sources, last text cursor | `useWorkspaceController` | Current page; durable values cross the desktop bridge |
 | Workspace panels, drawers, and column widths | `useWorkspaceLayout` | Panel state is in-memory; widths use `localStorage` |
 | Keyboard sequence and suggestion target | Keybinding and suggestion navigation hooks | Current page only |
-| Documents, Markdown mirror, sources, suggestions | SQLite/storage process | Electron application data and managed project workspace |
+| Documents, imported sources, suggestions | SQLite/storage process | Electron application data and managed project workspace |
 | Agent model/auth configuration | Pi coding-agent | Native `settings.json`, `auth.json`, and `models.json` under `<userData>/pi`; environment credentials also resolve |
 | Agent session/loop state | Pi `SessionManager` and Scribe extension | Project-scoped `.pi/sessions` JSONL |
 | Agent start/stop state | Agent utility process | Current launch only; every app launch starts stopped |
