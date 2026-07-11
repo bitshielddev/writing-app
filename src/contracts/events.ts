@@ -3,7 +3,6 @@ import { Type } from "typebox";
 import {
   identifier,
   JsonValueRuntimeSchema,
-  JsonValueSchema,
   revision,
   strict,
   text,
@@ -100,8 +99,8 @@ export const ProcessHealthSchema = Type.Union([
 ]);
 export const ProcessHealthSnapshotSchema = Type.Object({ storage: ProcessHealthSchema, agent: ProcessHealthSchema }, strict);
 export const AgentActivityKindSchema = Type.Union([
-  Type.Literal("lifecycle"), Type.Literal("message"), Type.Literal("reasoning"),
-  Type.Literal("tool"), Type.Literal("provider"), Type.Literal("loop"), Type.Literal("error"),
+  Type.Literal("lifecycle"), Type.Literal("message"), Type.Literal("tool"),
+  Type.Literal("loop"), Type.Literal("error"),
 ]);
 const activityProperties = {
   id: identifier,
@@ -109,7 +108,6 @@ const activityProperties = {
   timestamp,
   title: text(500),
   text: Type.Optional(text(100_000)),
-  payload: Type.Optional(JsonValueSchema),
   status: Type.Optional(AgentStatusSchema),
 };
 export const AgentActivityInputSchema = Type.Object(activityProperties, strict);

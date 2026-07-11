@@ -7,6 +7,8 @@ import {
   StorageRpcRequestSchema,
 } from "./process-messages";
 import {
+  AgentActivityInputSchema,
+  AgentActivitySchema,
   DESKTOP_EVENT_TYPES,
   DesktopEventSchema,
 } from "./events";
@@ -220,6 +222,29 @@ describe("process contract inventory", () => {
       kind: "rpc", protocolVersion: 1, id: "request", operation: "unknown", params: undefined,
     })).toBe(false);
     expect(Check(DesktopEventSchema, { type: "unknown" })).toBe(false);
+  });
+
+  it("rejects raw and debug-only agent activity fields", () => {
+    const activity = {
+      id: "activity",
+      kind: "message",
+      timestamp: 1,
+      title: "Message",
+    };
+    expect(Check(AgentActivityInputSchema, activity)).toBe(true);
+    expect(Check(AgentActivitySchema, { ...activity, updatedAt: 2 })).toBe(true);
+    expect(Check(AgentActivityInputSchema, {
+      ...activity,
+      payload: { raw: true },
+    })).toBe(false);
+    expect(Check(AgentActivityInputSchema, {
+      ...activity,
+      kind: "reasoning",
+    })).toBe(false);
+    expect(Check(AgentActivityInputSchema, {
+      ...activity,
+      kind: "provider",
+    })).toBe(false);
   });
 
   it("reports safe bounded validation details without echoing rejected data", () => {

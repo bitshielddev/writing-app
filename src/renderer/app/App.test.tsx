@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createDocumentSnapshot,
@@ -149,6 +149,10 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("App desktop boundary", () => {
   it("hydrates visible state and completes a deterministic application workflow", async () => {
     const desktop = new DesktopBridgeHarness();
@@ -254,6 +258,10 @@ describe("App desktop boundary", () => {
     });
     expect(screen.getByText("Waiting for changes")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+    });
     expect(screen.getAllByText("Reviewed the opening")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Suggestions" }));
 

@@ -202,30 +202,10 @@ export function createScribeExtension(host: ScribeExtensionHost): ExtensionFacto
           timestamp: Date.now(),
           title: "Project revision received",
           text: `Revision ${revision.projectRevision}`,
-          payload: revision,
           status: "working",
         });
         host.wake();
       }
-    });
-
-    pi.on("before_provider_request", (event) => {
-      host.activity({
-        id: `provider:request:${Date.now()}`,
-        kind: "provider",
-        timestamp: Date.now(),
-        title: "Provider request",
-        payload: event.payload,
-      });
-    });
-    pi.on("after_provider_response", (event) => {
-      host.activity({
-        id: `provider:response:${Date.now()}`,
-        kind: "provider",
-        timestamp: Date.now(),
-        title: `Provider response ${event.status}`,
-        payload: event,
-      });
     });
 
     pi.registerTool({

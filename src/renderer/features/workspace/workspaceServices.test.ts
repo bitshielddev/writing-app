@@ -69,8 +69,43 @@ describe("source and agent services", () => {
         title: "Newest activity",
       },
     }));
+    await waitFor(() => expect(result.current.activity[0]?.id).toBe("activity-1"));
     expect(result.current.activity).toHaveLength(AGENT_ACTIVITY_LIMIT);
     expect(result.current.activity[0]?.id).toBe("activity-1");
+  });
+
+  it("batches agent activity events before updating renderer state", async () => {
+    const harness = new DesktopBridgeHarness();
+    const scope = { projectId: "project-1", documentId: "document-1" };
+    const { result } = renderHook(() => useAgentController(harness.bridge, scope));
+    act(() => result.current.initialize({ status: "working", cycleCount: 1 }, []));
+
+    act(() => {
+      result.current.onDesktopEvent({
+        type: "agent.activity",
+        activity: {
+          id: "first",
+          kind: "message",
+          timestamp: 1,
+          updatedAt: 1,
+          title: "First",
+        },
+      });
+      result.current.onDesktopEvent({
+        type: "agent.activity",
+        activity: {
+          id: "second",
+          kind: "tool",
+          timestamp: 2,
+          updatedAt: 2,
+          title: "Second",
+        },
+      });
+    });
+
+    expect(result.current.activity).toEqual([]);
+    await waitFor(() => expect(result.current.activity.map((item) => item.id))
+      .toEqual(["first", "second"]));
   });
 });
 

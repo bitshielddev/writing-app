@@ -12,7 +12,6 @@ import { ScribeLoopState } from "./domain/loop.js";
 import { classifyEventSequence } from "../../domain/events/sequence.js";
 import type { AgentSessionPort } from "./application/session-port.js";
 import { createPiAgentRuntime, createPiEventBus } from "./pi/runtime.js";
-import { safeActivityPayload } from "../../domain/activity/payload.js";
 import type { AgentActivity, AgentRuntime } from "../../contracts/desktop-bridge.js";
 import {
   PROTOCOL_VERSION,
@@ -93,13 +92,10 @@ function postRuntime(value: AgentRuntime) {
  * Called when: used by index, reportLoopPause, drain and startAgent when that path needs this behavior.
  */
 function postActivity(value: Omit<AgentActivity, "updatedAt">) {
-  const activity = value.payload === undefined
-    ? value
-    : { ...value, payload: safeActivityPayload(value.payload) };
   process.parentPort?.postMessage(parseOrContractError(AgentActivityMessageSchema, {
     kind: "agent.activity",
     protocolVersion: PROTOCOL_VERSION,
-    activity,
+    activity: value,
   }, "agent.outgoing.activity"));
 }
 
@@ -187,7 +183,6 @@ function reportLoopPause() {
     text: capped
       ? "Five consecutive cycles completed without a yield or newer revision."
       : `Yielded project revision ${state.yieldedRevision}.`,
-    payload: state,
     status: state.status,
   });
 }
@@ -228,7 +223,6 @@ async function drain() {
     timestamp: Date.now(),
     title: `Autonomous cycle ${cycle.cycleCount}`,
     text: `Reviewing project revision ${cycle.projectRevision}`,
-    payload: cycle,
     status: "working",
   });
   try {
@@ -252,7 +246,6 @@ async function drain() {
       timestamp: Date.now(),
       title: "Agent cycle failed",
       text: message,
-      payload: error instanceof Error ? { message: error.message } : error,
       status: "error",
     });
   } finally {

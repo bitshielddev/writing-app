@@ -221,9 +221,11 @@ describe("workspace controller", () => {
 
     expect(result.current.sources[0]?.id).toBe("source-2");
     expect(result.current.runtime.status).toBe("working");
-    expect(result.current.activity).toEqual([
-      { ...activity, updatedAt: 2, title: "Updated title" },
-    ]);
+    await waitFor(() =>
+      expect(result.current.activity).toEqual([
+        { ...activity, updatedAt: 2, title: "Updated title" },
+      ]),
+    );
   });
 
   it("reports control failures without changing runtime authority", async () => {

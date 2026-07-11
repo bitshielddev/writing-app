@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent activity becomes signal-only</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f4ef;
+      --paper: #fffdf8;
+      --ink: #1f2328;
+      --muted: #656d76;
+      --line: #ddd5c7;
+      --soft: #f0e8db;
+      --code: #18212f;
+      --code-bg: #f8fafc;
+      --accent: #6f4fd8;
+      --accent-soft: #ece6ff;
+      --warn: #8a5b12;
+      --warn-bg: #fff4d7;
+      --ok: #216e4e;
+      --ok-bg: #def7ec;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #efe7ff 0, transparent 30rem), var(--bg);
+      color: var(--ink);
+      font: 16px/1.65 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 44px 0 72px;
+    }
+    header.hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr);
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 28px;
+    }
+    h1 {
+      margin: 0;
+      max-width: 780px;
+      font-size: clamp(2.1rem, 4vw, 4rem);
+      line-height: 1.02;
+      letter-spacing: -0.05em;
+    }
+    .lede {
+      max-width: 730px;
+      margin: 18px 0 0;
+      color: #3f4652;
+      font-size: 1.08rem;
+    }
+    .meta, .card, .callout, .quiz, .path {
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 248, .86);
+      border-radius: 22px;
+      box-shadow: 0 16px 44px rgba(31, 35, 40, .06);
+    }
+    .meta { padding: 18px; }
+    .meta p { margin: 0 0 10px; color: var(--muted); font-size: .92rem; }
+    .meta code { font-size: .82rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 24px 0;
+    }
+    .card { padding: 20px; }
+    .card h3, .callout h3, .quiz h2, section h2 { margin-top: 0; line-height: 1.18; }
+    .card h3 { font-size: 1rem; margin-bottom: 8px; }
+    .card p, .callout p { margin: 0; color: #47505d; }
+    section {
+      margin-top: 30px;
+      padding: 28px;
+      border-radius: 28px;
+      background: rgba(255, 253, 248, .7);
+      border: 1px solid rgba(221, 213, 199, .75);
+    }
+    section h2 { font-size: 1.55rem; letter-spacing: -0.02em; }
+    .two {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+    pre {
+      overflow: auto;
+      margin: 16px 0 0;
+      padding: 16px;
+      border-radius: 16px;
+      background: var(--code-bg);
+      border: 1px solid #d8dee8;
+      color: var(--code);
+      font: 13px/1.5 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .hl { display: inline; background: #fff1a8; border-radius: 4px; padding: 0 2px; }
+    .path {
+      padding: 18px;
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 118px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .step b {
+      color: var(--accent);
+      font-size: .82rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .callout {
+      padding: 20px;
+      margin: 18px 0;
+    }
+    .callout.warn { background: var(--warn-bg); border-color: #f0cf86; }
+    .callout.ok { background: var(--ok-bg); border-color: #a4dec2; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: .95rem;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 12px 10px;
+    }
+    th { color: #3f4652; font-size: .82rem; text-transform: uppercase; letter-spacing: .07em; }
+    ul { padding-left: 1.2rem; }
+    li + li { margin-top: .45rem; }
+    .pillrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .pill {
+      border: 1px solid #d5caed;
+      background: var(--accent-soft);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: .82rem;
+      color: #483098;
+    }
+    .quiz {
+      padding: 28px;
+      margin-top: 30px;
+    }
+    details {
+      border-top: 1px solid var(--line);
+      padding: 14px 0;
+    }
+    details:first-of-type { border-top: 0; }
+    summary { cursor: pointer; font-weight: 700; }
+    details p { margin: 10px 0 0; color: #47505d; }
+    .small { color: var(--muted); font-size: .92rem; }
+    @media (max-width: 860px) {
+      header.hero, .two, .grid { grid-template-columns: 1fr; }
+      .step { grid-template-columns: 1fr; }
+      main { width: min(100vw - 20px, 1120px); padding-top: 24px; }
+      section, .quiz { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div>
+      <h1>Agent activity becomes signal-only</h1>
+      <p class="lede">This change removes raw diagnostic payloads from the agent activity channel, reduces the set of activity kinds, and makes renderer activity updates asynchronous in small batches. The activity UI now shows curated status, titles, and text only.</p>
+    </div>
+    <aside class="meta">
+      <p>Review target: current working tree diff</p>
+      <p>Nearby history checked: <code>d9d9eba</code>, <code>567d2f1</code>, <code>d34e234</code>, <code>0cf94c8</code>, <code>a937f24</code></p>
+      <p>Relevant changed files: 14, centered on contracts, agent event conversion, diagnostics, and renderer activity state.</p>
+    </aside>
+  </header>
+
+  <div class="grid" aria-label="change summary cards">
+    <article class="card">
+      <h3>Boundary tightened</h3>
+      <p><code>AgentActivity</code> no longer accepts <code>payload</code>, <code>reasoning</code>, or <code>provider</code>. Strict contract validation now rejects those fields and variants.</p>
+    </article>
+    <article class="card">
+      <h3>Producers emit fewer rows</h3>
+      <p>Streaming message updates and tool start/update events no longer become activity rows. Final message/tool events still produce user-visible milestones.</p>
+    </article>
+    <article class="card">
+      <h3>Renderer batches activity</h3>
+      <p>Desktop activity events are queued and flushed by animation frame or timer fallback, so consumers must expect a short delay before state changes.</p>
+    </article>
+  </div>
+
+  <section>
+    <h2>The boundary changed first</h2>
+    <p>The central behavior is visible in <code>src/contracts/events.ts</code>. Activity has become a narrow, display-oriented object: an id, kind, timestamps, title, optional text, and optional status. There is no generic JSON payload slot.</p>
+    <pre><code>export const AgentActivityKindSchema = Type.Union([
+  Type.Literal("lifecycle"), Type.Literal("message"), Type.Literal("tool"),
+  Type.Literal("loop"), Type.Literal("error"),
+]);
+const activityProperties = {
+  id: identifier,
+  kind: AgentActivityKindSchema,
+  timestamp,
+  title: text(500),
+  text: Type.Optional(text(100_000)),
+  status: Type.Optional(AgentStatusSchema),
+};
+export const AgentActivityInputSchema = Type.Object(activityProperties, strict);
+export const AgentActivitySchema = Type.Object(
+  { ...activityProperties, updatedAt: timestamp },
+  strict,
+);</code></pre>
+    <p>The test added in <code>src/contracts/contracts.test.ts</code> makes the contract intent explicit. The valid activity passes, while extra raw fields and the removed variants fail:</p>
+    <pre><code>expect(Check(AgentActivityInputSchema, activity)).toBe(true);
+expect(Check(AgentActivitySchema, { ...activity, updatedAt: 2 })).toBe(true);
+expect(Check(AgentActivityInputSchema, {
+  ...activity,
+  payload: { raw: true },
+})).toBe(false);
+expect(Check(AgentActivityInputSchema, {
+  ...activity,
+  kind: "reasoning",
+})).toBe(false);
+expect(Check(AgentActivityInputSchema, {
+  ...activity,
+  kind: "provider",
+})).toBe(false);</code></pre>
+    <div class="callout ok">
+      <h3>Maintenance invariant</h3>
+      <p>Any new activity field must be added to the contract before it can cross the agent process, main process, or renderer boundary. Because these schemas use <code>strict</code>, adding a field only at a producer will be rejected rather than ignored.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The old safety valve is gone, by design of this diff</h2>
+    <p>Previously, arbitrary payloads were allowed but passed through <code>safeActivityPayload</code>, which recursively redacted sensitive keys and capped serialized size. This diff deletes both <code>src/domain/activity/payload.ts</code> and <code>payload.test.ts</code>. The code no longer tries to make raw payloads safe; it prevents them from being activity data.</p>
+    <div class="two">
+      <div>
+        <h3>Before</h3>
+        <pre><code>add(input: Omit&lt;AgentActivity, "updatedAt" | "payload"&gt; &amp; { payload?: unknown }) {
+  const activity: AgentActivity = {
+    ...input,
+    updatedAt: Date.now(),
+    ...(input.payload === undefined ? {} : { payload: safeActivityPayload(input.payload) }),
+  };
+}</code></pre>
+      </div>
+      <div>
+        <h3>Now</h3>
+        <pre><code>add(input: Omit&lt;AgentActivity, "updatedAt"&gt;) {
+  const activity: AgentActivity = {
+    ...input,
+    updatedAt: Date.now(),
+  };
+}</code></pre>
+      </div>
+    </div>
+    <p>The same simplification happens in <code>src/utility/agent/index.ts</code>: <code>postActivity</code> now sends the supplied activity through the outgoing contract as-is. The guardrail has moved from redaction logic to schema shape plus producer discipline.</p>
+    <div class="callout warn">
+      <h3>Risk to watch</h3>
+      <p>If a future diagnostic needs raw provider data, the activity channel is now the wrong place for it. Reintroducing a generic payload field would bypass the main premise of this change unless it also recreates a careful redaction and size policy.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Follow one agent event through the new path</h2>
+    <p>The Pi session adapter still converts session events into <code>AgentActivityInput</code>, but the converter now filters much more aggressively.</p>
+    <div class="path">
+      <div class="step"><b>Pi event</b><span><code>message_update</code>, <code>message_end</code>, <code>tool_execution_end</code>, lifecycle events, and similar session events arrive from Pi.</span></div>
+      <div class="step"><b>Conversion</b><span><code>activitiesFromSessionEvent</code> emits only final message text, provider errors as <code>error</code>, final tool completions/failures, and lifecycle rows.</span></div>
+      <div class="step"><b>Process boundary</b><span><code>postActivity</code> validates against <code>AgentActivityMessageSchema</code>. No payload shape exists in the contract.</span></div>
+      <div class="step"><b>Main process</b><span><code>ActivityRing.add</code> adds <code>updatedAt</code>, upserts by id, keeps at most 500 items, and snapshots for hydration.</span></div>
+      <div class="step"><b>Renderer</b><span><code>useAgentController</code> queues live activity events and flushes them to React state in a batch.</span></div>
+    </div>
+    <pre><code>function observeMessage(event: MessageEvent): ActivityInput[] {
+  if (event.type !== "message_end") return [];
+  const parts = messageParts(event.message);
+  const key = `${parts.role}:${parts.timestamp}`;
+  const activities: ActivityInput[] = [];
+  if (parts.text) {
+    activities.push({
+      id: `message:${key}`,
+      kind: "message",
+      timestamp: parts.timestamp,
+      title: `${parts.role} message`,
+      text: parts.text,
+    });
+  }
+  if (parts.error) {
+    activities.push({
+      id: `error:${key}`,
+      kind: "error",
+      timestamp: parts.timestamp,
+      title: "Provider error",
+      text: parts.error,
+      status: "error",
+    });
+  }
+  return activities;
+}</code></pre>
+    <p>Two details matter for debugging later: <code>message_update</code> returns no activity, and <code>thinking</code> parts are no longer read by <code>messageParts</code>. If a developer expects model reasoning to appear in the UI, the current code path does not support that.</p>
+    <pre><code>function observeToolActivity(event: ToolEvent, now: number): ActivityInput[] {
+  if (event.type !== "tool_execution_end") return [];
+  const failed = Boolean((event as { isError?: boolean }).isError);
+  return [
+    {
+      id: `tool:${event.toolCallId}`,
+      kind: "tool",
+      timestamp: now,
+      title: `${event.toolName} ${failed ? "failed" : "completed"}`,
+      ...(failed ? { status: "error" as const } : {}),
+    },
+  ];
+}</code></pre>
+    <p>For tools, only the final event is visible. Failed tools get <code>status: "error"</code>, but the raw <code>result</code> is deliberately not copied into <code>text</code> or <code>payload</code>.</p>
+  </section>
+
+  <section>
+    <h2>What disappeared from the UI</h2>
+    <p><code>AgentActivityList</code> used to render a collapsible <code>Raw payload</code> block whenever <code>item.payload</code> existed. That block is removed. The visible activity row is now limited to kind, time, title, and optional text.</p>
+    <pre><code>{item.text ? (
+  &lt;p className="mt-1.5 whitespace-pre-wrap break-words text-xs leading-5 text-[#5d5b6d]"&gt;
+    {item.text}
+  &lt;/p&gt;
+) : null}</code></pre>
+    <p>This matches the contract change: the renderer no longer has a payload field to inspect. Any debugging workflow that relied on expanding raw provider requests or tool results in the Activity tab will need another source of diagnostics.</p>
+  </section>
+
+  <section>
+    <h2>The renderer no longer updates activity synchronously</h2>
+    <p>The activity feed still uses the same upsert semantics, including the 500-item cap, but live desktop events now pass through a queue. This reduces render churn when the agent emits bursts of milestones.</p>
+    <pre><code>function upsertMany(items: AgentActivity[], activities: AgentActivity[]) {
+  return activities.reduce(upsert, items);
+}
+
+const activityQueueRef = useRef&lt;AgentActivity[]&gt;([]);
+const activityFrameRef = useRef&lt;number | undefined&gt;(undefined);
+const activityFallbackRef = useRef&lt;ReturnType&lt;typeof setTimeout&gt; | undefined&gt;(undefined);</code></pre>
+    <pre><code>const scheduleActivityFlush = useCallback(() =&gt; {
+  if (
+    activityFrameRef.current !== undefined ||
+    activityFallbackRef.current !== undefined
+  ) return;
+  if (
+    typeof window !== "undefined" &amp;&amp;
+    typeof window.requestAnimationFrame === "function"
+  ) {
+    activityFrameRef.current = window.requestAnimationFrame(flushActivity);
+    activityFallbackRef.current = setTimeout(flushActivity, 100);
+    return;
+  }
+  activityFallbackRef.current = setTimeout(flushActivity, 0);
+}, [flushActivity]);</code></pre>
+    <p>There are two timing paths. In a browser-like environment, the preferred path is <code>requestAnimationFrame</code>, with a 100ms timeout as a backup. Without animation frames, a zero-delay timeout is used. <code>initialize</code> and unmount both clear the queue and cancel any pending flush, so stale live activity should not land after a new hydration or after the hook is disposed.</p>
+    <pre><code>const onDesktopEvent = useCallback((event: DesktopEvent) =&gt; {
+  if (event.type === "agent.runtime") setRuntime(event.runtime);
+  if (event.type === "agent.activity") {
+    activityQueueRef.current.push(event.activity);
+    scheduleActivityFlush();
+  }
+}, [scheduleActivityFlush]);</code></pre>
+    <div class="callout warn">
+      <h3>Testing and maintenance implication</h3>
+      <p>Code that calls <code>onDesktopEvent</code> and immediately reads <code>activity</code> will now see the old state. The updated tests use <code>waitFor</code> or timer advancement for this reason.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tests describe the new contract rather than the old redaction story</h2>
+    <table>
+      <thead>
+        <tr><th>Area</th><th>Evidence in changed tests</th><th>Behavior asserted</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Contracts</td>
+          <td><code>contracts.test.ts</code></td>
+          <td>Payload, <code>reasoning</code>, and <code>provider</code> are rejected by schema validation.</td>
+        </tr>
+        <tr>
+          <td>Pi activity conversion</td>
+          <td><code>pi/activity.test.ts</code></td>
+          <td>Streaming message updates produce no rows. Final messages keep text and provider errors. Tool starts produce no rows; tool ends produce completion or failure rows without payload.</td>
+        </tr>
+        <tr>
+          <td>Renderer batching</td>
+          <td><code>workspaceServices.test.ts</code>, <code>useWorkspaceController.test.ts</code>, <code>App.test.tsx</code></td>
+          <td>Activity updates may require waiting for a scheduled flush. A new test verifies two queued events appear together after the batch flush.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="small">This review did not run the test suite; the test impact above is inferred from the changed test files.</p>
+  </section>
+
+  <section>
+    <h2>How this fits the recent commit history</h2>
+    <p>The nearby history suggests this area was recently reorganized rather than long-settled. <code>0cf94c8</code> introduced <code>src/domain/activity/payload.ts</code> during source layout work, and <code>567d2f1</code> later added doc comments across many files, including that payload helper. The current diff removes the helper entirely and adjusts every reachable producer/consumer to match the narrower contract. The latest commit <code>d9d9eba</code> focuses on suggestion kinds, so it does not explain this activity-channel change directly.</p>
+    <div class="pillrow" aria-label="files touched">
+      <span class="pill">src/contracts/events.ts</span>
+      <span class="pill">src/utility/agent/pi/activity.ts</span>
+      <span class="pill">src/utility/agent/index.ts</span>
+      <span class="pill">src/main/diagnostics/activity.ts</span>
+      <span class="pill">src/renderer/features/agent/useAgentController.ts</span>
+      <span class="pill">src/renderer/features/agent/AgentActivityList.tsx</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Future maintainer notes</h2>
+    <ul>
+      <li>Do not add <code>payload</code> to an activity object and expect it to be ignored. The strict schema should reject it at the process contract.</li>
+      <li>If activity appears late in a test or UI trace, inspect the queue and flush path in <code>useAgentController</code> before looking for a lost desktop event.</li>
+      <li>If a tool failure needs human-readable details, add safe, bounded <code>text</code> at the producer. Do not copy raw tool results into activity.</li>
+      <li>Duplicate activity ids still update existing rows. In a batch, later items with the same id will win through <code>activities.reduce(upsert, items)</code>.</li>
+      <li>Hydration through <code>initialize</code> is still immediate and trims history to <code>AGENT_ACTIVITY_LIMIT</code>. Live events are the async path.</li>
+    </ul>
+  </section>
+
+  <article class="quiz">
+    <h2>Comprehension check</h2>
+    <details>
+      <summary>1. A Pi <code>message_update</code> event contains text and an error. What activity rows are produced?</summary>
+      <p>None. <code>observeMessage</code> returns early unless <code>event.type === "message_end"</code>. The test named "ignores streaming message updates" asserts this.</p>
+    </details>
+    <details>
+      <summary>2. Why was <code>safeActivityPayload</code> removed instead of kept as a final sanitizer?</summary>
+      <p>The changed contract no longer has a payload field. The new safety model is to keep raw/debug data out of agent activity entirely, then use strict schemas to reject extra fields.</p>
+    </details>
+    <details>
+      <summary>3. What would likely break if a test expected <code>result.current.activity</code> to change immediately after <code>onDesktopEvent</code>?</summary>
+      <p>The assertion could read stale state. Live activity is queued and flushed on an animation frame or timer, so tests need <code>waitFor</code>, timer advancement, or another async boundary.</p>
+    </details>
+    <details>
+      <summary>4. A tool execution ends with <code>isError: true</code> and a large raw result. Which parts reach the activity UI?</summary>
+      <p>The row has kind <code>tool</code>, a title like <code>read failed</code>, and <code>status: "error"</code>. The raw result is not included as <code>payload</code> or <code>text</code>.</p>
+    </details>
+    <details>
+      <summary>5. Where would you start debugging if provider request details no longer appear under "Raw payload"?</summary>
+      <p>Start with the intentional removals: provider request/response listeners were deleted from <code>createScribeExtension</code>, <code>provider</code> is no longer an activity kind, and <code>AgentActivityList</code> no longer renders raw payload details.</p>
+    </details>
+  </article>
+</main>
+</body>
+</html>

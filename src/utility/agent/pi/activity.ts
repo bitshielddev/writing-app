@@ -22,20 +22,6 @@ type ToolEvent = Extract<
 >;
 
 /**
- * What: performs the serializable step for this file's workflow.
- *
- * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
- * Called when: used by observeLifecycle, observeMessage and observeToolActivity when that path needs this behavior.
- */
-function serializable(value: unknown): unknown {
-  try {
-    return JSON.parse(JSON.stringify(value)) as unknown;
-  } catch {
-    return { unavailable: true };
-  }
-}
-
-/**
  * What: performs the message parts step for this file's workflow.
  *
  * Why: agent workflows need coordinated runtime, storage, and activity reporting behavior.
@@ -45,7 +31,7 @@ function messageParts(message: unknown) {
   const record = message as {
     role?: string;
     timestamp?: number;
-    content?: string | Array<{ type?: string; text?: string; thinking?: string }>;
+    content?: string | Array<{ type?: string; text?: string }>;
     errorMessage?: string;
   };
   const content = typeof record.content === "string" ? [] : (record.content ?? []);
@@ -59,10 +45,6 @@ function messageParts(message: unknown) {
             .filter((part) => part.type === "text")
             .map((part) => part.text ?? "")
             .join(""),
-    reasoning: content
-      .filter((part) => part.type === "thinking")
-      .map((part) => part.thinking ?? "")
-      .join(""),
     error: record.errorMessage,
   };
 }
@@ -81,7 +63,6 @@ function observeLifecycle(event: LifecycleEvent, now: number): ActivityInput[] {
       timestamp: now,
       title:
         event.type === "agent_start" ? "Agent cycle started" : "Agent cycle ended",
-      payload: serializable(event),
     },
   ];
 }
@@ -93,6 +74,7 @@ function observeLifecycle(event: LifecycleEvent, now: number): ActivityInput[] {
  * Called when: used by activitiesFromSessionEvent when that path needs this behavior.
  */
 function observeMessage(event: MessageEvent): ActivityInput[] {
+  if (event.type !== "message_end") return [];
   const parts = messageParts(event.message);
   const key = `${parts.role}:${parts.timestamp}`;
   const activities: ActivityInput[] = [];
@@ -103,17 +85,6 @@ function observeMessage(event: MessageEvent): ActivityInput[] {
       timestamp: parts.timestamp,
       title: `${parts.role} message`,
       text: parts.text,
-      payload: serializable(event),
-    });
-  }
-  if (parts.reasoning) {
-    activities.push({
-      id: `reasoning:${key}`,
-      kind: "reasoning",
-      timestamp: parts.timestamp,
-      title: "Model reasoning",
-      text: parts.reasoning,
-      payload: serializable(event),
     });
   }
   if (parts.error) {
@@ -123,7 +94,6 @@ function observeMessage(event: MessageEvent): ActivityInput[] {
       timestamp: parts.timestamp,
       title: "Provider error",
       text: parts.error,
-      payload: serializable(event),
       status: "error",
     });
   }
@@ -137,15 +107,15 @@ function observeMessage(event: MessageEvent): ActivityInput[] {
  * Called when: used by activitiesFromSessionEvent when that path needs this behavior.
  */
 function observeToolActivity(event: ToolEvent, now: number): ActivityInput[] {
+  if (event.type !== "tool_execution_end") return [];
+  const failed = Boolean((event as { isError?: boolean }).isError);
   return [
     {
       id: `tool:${event.toolCallId}`,
       kind: "tool",
       timestamp: now,
-      title: `${event.toolName} ${
-        event.type === "tool_execution_end" ? "completed" : "running"
-      }`,
-      payload: serializable(event),
+      title: `${event.toolName} ${failed ? "failed" : "completed"}`,
+      ...(failed ? { status: "error" as const } : {}),
     },
   ];
 }

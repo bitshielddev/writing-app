@@ -55,16 +55,6 @@ export function AgentActivityList({
                 {item.text}
               </p>
             ) : null}
-            {item.payload !== undefined ? (
-              <details className="mt-2 text-xs text-[#686577]">
-                <summary className="cursor-pointer font-semibold">
-                  Raw payload
-                </summary>
-                <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded bg-[#efedf7] p-2">
-                  {JSON.stringify(item.payload, null, 2)}
-                </pre>
-              </details>
-            ) : null}
           </li>
         ))}
         {!items.length ? (

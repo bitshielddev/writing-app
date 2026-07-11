@@ -32,6 +32,16 @@ function upsert(items: AgentActivity[], activity: AgentActivity) {
   next[index] = activity;
   return next;
 }
+
+/**
+ * What: applies several activity updates in one bounded state transition.
+ *
+ * Why: agent milestones can still arrive in bursts and should not force one React render per event.
+ * Called when: used by useAgentController when flushing queued desktop activity.
+ */
+function upsertMany(items: AgentActivity[], activities: AgentActivity[]) {
+  return activities.reduce(upsert, items);
+}
 /**
  * What: returns whether the supplied value matches current scope.
  *
@@ -67,6 +77,49 @@ export function useAgentController(
   const pendingRef = useRef(false);
   const generationRef = useRef(0);
   const scopeRef = useRef(scope);
+  const activityQueueRef = useRef<AgentActivity[]>([]);
+  const activityFrameRef = useRef<number | undefined>(undefined);
+  const activityFallbackRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const cancelActivityFlush = useCallback(() => {
+    if (
+      activityFrameRef.current !== undefined &&
+      typeof window !== "undefined" &&
+      typeof window.cancelAnimationFrame === "function"
+    ) {
+      window.cancelAnimationFrame(activityFrameRef.current);
+    }
+    if (activityFallbackRef.current !== undefined) {
+      clearTimeout(activityFallbackRef.current);
+    }
+    activityFrameRef.current = undefined;
+    activityFallbackRef.current = undefined;
+  }, []);
+
+  const flushActivity = useCallback(() => {
+    cancelActivityFlush();
+    const queued = activityQueueRef.current;
+    if (!queued.length) return;
+    activityQueueRef.current = [];
+    setActivity((current) => upsertMany(current, queued));
+  }, [cancelActivityFlush]);
+
+  const scheduleActivityFlush = useCallback(() => {
+    if (
+      activityFrameRef.current !== undefined ||
+      activityFallbackRef.current !== undefined
+    ) return;
+    if (
+      typeof window !== "undefined" &&
+      typeof window.requestAnimationFrame === "function"
+    ) {
+      activityFrameRef.current = window.requestAnimationFrame(flushActivity);
+      activityFallbackRef.current = setTimeout(flushActivity, 100);
+      return;
+    }
+    activityFallbackRef.current = setTimeout(flushActivity, 0);
+  }, [flushActivity]);
+
   useEffect(() => {
     scopeRef.current = scope;
     generationRef.current += 1;
@@ -75,12 +128,14 @@ export function useAgentController(
 
   const initialize = useCallback(
     (nextRuntime: AgentRuntime, nextActivity: AgentActivity[]) => {
+      activityQueueRef.current = [];
+      cancelActivityFlush();
       setRuntime(nextRuntime);
       setActivity(nextActivity.slice(-AGENT_ACTIVITY_LIMIT));
       setError(undefined);
       setPending(undefined);
     },
-    [],
+    [cancelActivityFlush],
   );
 
   const control = useCallback(
@@ -121,16 +176,19 @@ export function useAgentController(
   const onDesktopEvent = useCallback((event: DesktopEvent) => {
     if (event.type === "agent.runtime") setRuntime(event.runtime);
     if (event.type === "agent.activity") {
-      setActivity((current) => upsert(current, event.activity));
+      activityQueueRef.current.push(event.activity);
+      scheduleActivityFlush();
     }
-  }, []);
+  }, [scheduleActivityFlush]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      activityQueueRef.current = [];
+      cancelActivityFlush();
     };
-  }, []);
+  }, [cancelActivityFlush]);
 
   return {
     runtime,
