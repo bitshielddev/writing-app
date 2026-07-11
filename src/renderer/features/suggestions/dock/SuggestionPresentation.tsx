@@ -4,6 +4,8 @@ import {
   StickyNote,
   type LucideIcon,
 } from "lucide-react";
+import { marked } from "marked";
+import { useMemo } from "react";
 
 import {
   isDiagramSuggestion,
@@ -24,6 +26,77 @@ const kindPresentation: Record<SuggestionKind, KindPresentation> = {
   diagram: { label: "Diagram", icon: Network, tone: "text-fuchsia-800 bg-fuchsia-100" },
 };
 
+const ALLOWED_MARKDOWN_TAGS = new Set([
+  "a",
+  "blockquote",
+  "br",
+  "code",
+  "del",
+  "em",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "li",
+  "ol",
+  "p",
+  "pre",
+  "strong",
+  "table",
+  "tbody",
+  "td",
+  "th",
+  "thead",
+  "tr",
+  "ul",
+]);
+
+const URL_ATTRIBUTES = new Set(["href", "src"]);
+const SAFE_URL_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
+
+function sanitizeMarkdownHtml(html: string) {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+
+  for (const element of Array.from(template.content.querySelectorAll("*"))) {
+    const tagName = element.tagName.toLowerCase();
+    if (!ALLOWED_MARKDOWN_TAGS.has(tagName)) {
+      element.replaceWith(...Array.from(element.childNodes));
+      continue;
+    }
+
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.name.toLowerCase();
+      if (name.startsWith("on")) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+      if (tagName === "a" && name === "href") {
+        try {
+          const url = new URL(attribute.value, window.location.href);
+          if (!SAFE_URL_PROTOCOLS.has(url.protocol)) element.removeAttribute(attribute.name);
+        } catch {
+          element.removeAttribute(attribute.name);
+        }
+        continue;
+      }
+      if (tagName === "a" && (name === "target" || name === "rel")) continue;
+      if (URL_ATTRIBUTES.has(name)) element.removeAttribute(attribute.name);
+      else element.removeAttribute(attribute.name);
+    }
+
+    if (tagName === "a" && element.getAttribute("href")) {
+      element.setAttribute("target", "_blank");
+      element.setAttribute("rel", "noreferrer");
+    }
+  }
+
+  return template.innerHTML;
+}
+
 /**
  * What: renders the kind badge component and wires its props into the surrounding UI.
  *
@@ -40,6 +113,30 @@ export function KindBadge({ kind }: { kind: SuggestionKind }) {
       <Icon className="size-3.5" aria-hidden="true" />
       {presentation.label}
     </span>
+  );
+}
+
+export function SuggestionMarkdown({
+  markdown,
+  className = "",
+}: {
+  markdown: string;
+  className?: string;
+}) {
+  const html = useMemo(() => {
+    const rawHtml = marked.parse(markdown, {
+      async: false,
+      breaks: true,
+      gfm: true,
+    });
+    return sanitizeMarkdownHtml(rawHtml);
+  }, [markdown]);
+
+  return (
+    <div
+      className={`suggestion-markdown ${className}`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 

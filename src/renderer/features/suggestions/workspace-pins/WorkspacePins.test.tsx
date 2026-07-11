@@ -42,10 +42,12 @@ const pin: WorkspacePin = {
  * Called when: used by WorkspacePins when that path needs this behavior.
  */
 function Harness({
+  activePin = pin,
   onGeometryChange,
   onRaise,
   onReturnToPins,
 }: {
+  activePin?: WorkspacePin;
   onGeometryChange: (id: string, rect: WorkspacePinRect) => void;
   onRaise: (id: string) => void;
   onReturnToPins: (id: string) => void;
@@ -55,7 +57,7 @@ function Harness({
     <div ref={canvasRef}>
       <WorkspacePins
         canvasRef={canvasRef}
-        pins={[pin]}
+        pins={[activePin]}
         onGeometryChange={onGeometryChange}
         onRaise={onRaise}
         onReturnToPins={onReturnToPins}
@@ -93,6 +95,34 @@ describe("WorkspacePins", () => {
       screen.getByRole("button", { name: `Return ${item.title} to pins` }),
     );
     expect(onReturnToPins).toHaveBeenCalledWith(item.id);
+  });
+
+  it("renders markdown content in workspace pins", async () => {
+    render(
+      <Harness
+        activePin={{
+          ...pin,
+          item: {
+            ...item,
+            body: [
+              "### Keep nearby",
+              "",
+              "- **Contrast** the opening",
+              "- Use `draft.md` as the source",
+            ].join("\n"),
+          },
+        }}
+        onGeometryChange={vi.fn()}
+        onRaise={vi.fn()}
+        onReturnToPins={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Keep nearby" }))
+      .toBeTruthy();
+    expect(screen.getByText("Contrast")).toBeTruthy();
+    expect(screen.getByText("draft.md")).toBeTruthy();
+    expect(screen.queryByText("**Contrast** the opening")).toBeNull();
   });
 
   it("supports keyboard movement and resizing", async () => {

@@ -17,7 +17,11 @@ import {
   supportsWorkspacePlacement,
   type SuggestionItem,
 } from "../../../../domain/suggestions/schema";
-import { KindBadge, SuggestionVisual } from "./SuggestionPresentation";
+import {
+  KindBadge,
+  SuggestionMarkdown,
+  SuggestionVisual,
+} from "./SuggestionPresentation";
 
 type SuggestionDockDetailProps = {
   entry: InboxEntry;
@@ -243,7 +247,7 @@ export function SuggestionDockDetail({
         ) : null}
 
         <div className="mt-6 rounded-xl border border-[#dedbe9] bg-white/75 p-5 text-[0.95rem] leading-7 text-[#393844] shadow-sm shadow-slate-900/5">
-          {item.body}
+          <SuggestionMarkdown markdown={item.body} />
         </div>
 
         {isEditSuggestion(item) ? <EditDiff item={item} /> : null}

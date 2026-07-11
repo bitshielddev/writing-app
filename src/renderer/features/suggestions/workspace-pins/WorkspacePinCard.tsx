@@ -4,7 +4,11 @@ import type { ComponentProps } from "react";
 import type { WorkspacePin } from "../inboxReducer";
 import type { WorkspacePinRect } from "../../../../domain/suggestions/state";
 import { isVisualSuggestion } from "../../../../domain/suggestions/schema";
-import { KindBadge, SuggestionVisual } from "../dock/SuggestionPresentation";
+import {
+  KindBadge,
+  SuggestionMarkdown,
+  SuggestionVisual,
+} from "../dock/SuggestionPresentation";
 
 type HandleProps = Pick<
   ComponentProps<"button">,
@@ -86,7 +90,10 @@ export function WorkspacePinCard({
               Disabled: source text changed
             </p>
           ) : null}
-          <p className="mt-3 text-sm leading-6 text-[#5d5849]">{pin.item.body}</p>
+          <SuggestionMarkdown
+            markdown={pin.item.body}
+            className="mt-3 text-sm leading-6 text-[#5d5849]"
+          />
           {isVisualSuggestion(pin.item) ? (
             <div className="mt-4">
               <SuggestionVisual item={pin.item} />

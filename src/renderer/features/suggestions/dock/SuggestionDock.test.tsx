@@ -43,7 +43,13 @@ const note: SuggestionItem = {
   kind: "note",
   title: "Reference note",
   summary: "A note summary.",
-  body: "Useful context that is not accepted into the draft.",
+  body: [
+    "## Context",
+    "",
+    "- **Important** finding",
+    "- Keep `draft.md` aligned",
+    "- [Unsafe link](javascript:alert(1))",
+  ].join("\n"),
   sourceLabels: [],
   createdAt: 2,
 };
@@ -280,6 +286,25 @@ describe("SuggestionDock", () => {
     expect(screen.queryByRole("button", { name: "Preview source" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Accept edit" })).toBeNull();
     cleanup();
+  });
+
+  it("renders note body markdown in detail without exposing raw punctuation", () => {
+    renderDock({
+      selectedEntry: {
+        item: note,
+        viewed: true,
+        stale: false,
+        withdrawn: false,
+      },
+    });
+
+    expect(screen.getByRole("heading", { name: "Context" })).toBeTruthy();
+    expect(screen.getByText("Important")).toBeTruthy();
+    expect(screen.getByText("draft.md")).toBeTruthy();
+    expect(screen.queryByText("**Important** finding")).toBeNull();
+    expect(screen.queryByText("- **Important** finding")).toBeNull();
+    expect(screen.getByText("Unsafe link").closest("a")?.hasAttribute("href"))
+      .toBe(false);
   });
 
   it("pins from the queue and renders pins in a separate section", async () => {
