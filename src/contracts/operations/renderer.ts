@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { identifier, operation, strict, type OperationName } from "../base";
 import {
   AgentRuntimeSchema,
-  DocumentSnapshotSchema,
+  DocumentSaveReceiptSchema,
   ProcessHealthSnapshotSchema,
   SourceSnapshotSchema,
   SuggestionCommandRequestSchema,
@@ -48,7 +48,7 @@ export const RendererOperations = {
   "events.acknowledge": operation(rendererAcknowledgeParams, acknowledgeResult),
   "agent.start": operation(documentScope, AgentRuntimeSchema),
   "agent.stop": operation(documentScope, AgentRuntimeSchema),
-  "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
+  "document.save": operation(saveDocumentParams, DocumentSaveReceiptSchema),
   "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
   "source.import": operation(documentScope, Type.Union([SourceSnapshotSchema, Type.Undefined()])),
   "process.retry": operation(Type.Object({ process: Type.Union([Type.Literal("storage"), Type.Literal("agent")]) }, strict), ProcessHealthSnapshotSchema),

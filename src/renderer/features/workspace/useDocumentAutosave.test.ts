@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { WritingEditor } from "../editor/schema";
-import { DesktopBridgeHarness, createDocumentSnapshot } from "../../../test/desktopBridgeHarness";
+import { DesktopBridgeHarness, createDocumentSaveReceipt, createDocumentSnapshot } from "../../../test/desktopBridgeHarness";
 import { useDocumentAutosave } from "./useDocumentAutosave";
 
 /**
@@ -52,7 +52,7 @@ describe("useDocumentAutosave", () => {
     await act(async () => vi.advanceTimersByTime(650));
     expect(harness.saveDocument.calls).toHaveLength(1);
     await act(async () => {
-      harness.saveDocument.resolve(0, createDocumentSnapshot({ revision: 4 }));
+      harness.saveDocument.resolve(0, createDocumentSaveReceipt({ documentRevision: 4 }));
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -135,7 +135,7 @@ describe("useDocumentAutosave", () => {
     await act(async () => vi.advanceTimersByTime(650));
     expect(harness.saveDocument.calls).toHaveLength(1);
     await act(async () => {
-      harness.saveDocument.resolve(0, createDocumentSnapshot({ revision: 2 }));
+      harness.saveDocument.resolve(0, createDocumentSaveReceipt({ documentRevision: 2 }));
       await Promise.resolve();
       await Promise.resolve();
     });

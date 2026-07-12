@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { createStorageService, type StorageService } from "./service";
-import type { SourceSnapshot, WorkspaceSnapshot } from "../../contracts/desktop-bridge";
+import type { DocumentSaveReceipt, SourceSnapshot, WorkspaceSnapshot } from "../../contracts/desktop-bridge";
 import type { EditSuggestion } from "../../domain/suggestions/schema.js";
 
 describe("desktop storage service", () => {
@@ -38,10 +38,11 @@ describe("desktop storage service", () => {
       documentId: initial.document.id,
       expectedRevision: initial.document.revision,
       blocks: [{ id: "block-1", type: "paragraph", content: "Persisted draft" }],
-    }) as WorkspaceSnapshot["document"];
+    }) as DocumentSaveReceipt;
 
-    expect(saved.revision).toBe(initial.document.revision + 1);
-    expect(saved.blocks).toEqual([{ id: "block-1", type: "paragraph", content: "Persisted draft" }]);
+    expect(saved.documentRevision).toBe(initial.document.revision + 1);
+    const hydrated = await handleStorageRequest("hydrate") as WorkspaceSnapshot;
+    expect(hydrated.document.blocks).toEqual([{ id: "block-1", type: "paragraph", content: "Persisted draft" }]);
   });
 
   it("persists suggestions and rejects stale mutations", async () => {

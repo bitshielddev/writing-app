@@ -25,14 +25,6 @@ function initialRuntime(): AgentRuntime {
  * Why: callers need this behavior in one named place instead of duplicating it.
  * Called when: used by useAgentController when that path needs this behavior.
  */
-function upsert(items: AgentActivity[], activity: AgentActivity) {
-  const index = items.findIndex((item) => item.id === activity.id);
-  if (index < 0) return [...items, activity].slice(-AGENT_ACTIVITY_LIMIT);
-  const next = [...items];
-  next[index] = activity;
-  return next;
-}
-
 /**
  * What: applies several activity updates in one bounded state transition.
  *
@@ -40,7 +32,18 @@ function upsert(items: AgentActivity[], activity: AgentActivity) {
  * Called when: used by useAgentController when flushing queued desktop activity.
  */
 function upsertMany(items: AgentActivity[], activities: AgentActivity[]) {
-  return activities.reduce(upsert, items);
+  const byId = new Map(items.map((item, index) => [item.id, index]));
+  const next = [...items];
+  for (const activity of activities) {
+    const index = byId.get(activity.id);
+    if (index === undefined) {
+      byId.set(activity.id, next.length);
+      next.push(activity);
+    } else {
+      next[index] = activity;
+    }
+  }
+  return next.slice(-AGENT_ACTIVITY_LIMIT);
 }
 /**
  * What: returns whether the supplied value matches current scope.

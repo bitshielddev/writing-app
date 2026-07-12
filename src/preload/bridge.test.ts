@@ -6,7 +6,7 @@ import {
 } from "../contracts/operations/renderer";
 import type { DesktopEvent } from "../contracts/desktop-bridge";
 import {
-  createDocumentSnapshot,
+  createDocumentSaveReceipt,
   createSourceSnapshot,
   createWorkspaceSnapshot,
 } from "../test/desktopBridgeHarness";
@@ -28,7 +28,7 @@ function ipcHarness() {
     if (channel === DESKTOP_INVOKE_CHANNELS.hydrate) return createWorkspaceSnapshot();
     if (channel === DESKTOP_INVOKE_CHANNELS.startAgent) return { status: "working", cycleCount: 1 };
     if (channel === DESKTOP_INVOKE_CHANNELS.stopAgent) return { status: "stopped", cycleCount: 1 };
-    if (channel === DESKTOP_INVOKE_CHANNELS.saveDocument) return createDocumentSnapshot();
+    if (channel === DESKTOP_INVOKE_CHANNELS.saveDocument) return createDocumentSaveReceipt();
     if (channel === DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand) return {
       commandId: "command", status: "unchanged", suggestionRevision: 0,
       state: { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 },

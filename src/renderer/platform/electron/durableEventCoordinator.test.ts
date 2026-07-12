@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { DesktopBridge, DurableEventEnvelope } from "../../../contracts/desktop-bridge";
-import { deferred, createDocumentSnapshot, createWorkspaceSnapshot } from "../../../test/desktopBridgeHarness";
+import { deferred, createDocumentSaveReceipt, createWorkspaceSnapshot } from "../../../test/desktopBridgeHarness";
 import { DurableEventCoordinator } from "./durableEventCoordinator";
 
 const streamId = "document:default-document";
@@ -20,8 +20,7 @@ function event(sequence: number): DurableEventEnvelope {
     occurredAt: sequence,
     payload: {
       type: "document.saved",
-      document: createDocumentSnapshot({ revision: sequence }),
-      projectRevision: sequence,
+      ...createDocumentSaveReceipt({ documentRevision: sequence, projectRevision: sequence }),
     },
   };
 }
@@ -51,7 +50,7 @@ describe("durable renderer event coordination", () => {
     const applied: number[] = [];
     const coordinator = new DurableEventCoordinator({ desktop, installSnapshot: vi.fn(),
       applyEvent: (item) => {
-        if (item.type === "document.saved") applied.push(item.document.revision);
+        if (item.type === "document.saved") applied.push(item.documentRevision);
       } });
 
     const pending = coordinator.hydrate();
@@ -76,7 +75,7 @@ describe("durable renderer event coordination", () => {
     const applied: number[] = [];
     const coordinator = new DurableEventCoordinator({ desktop, installSnapshot: vi.fn(),
       applyEvent: (item) => {
-        if (item.type === "document.saved") applied.push(item.document.revision);
+        if (item.type === "document.saved") applied.push(item.documentRevision);
       } });
     await coordinator.hydrate();
 
@@ -93,7 +92,7 @@ describe("durable renderer event coordination", () => {
     const hydrate = vi.fn()
       .mockResolvedValueOnce(createWorkspaceSnapshot({ coveredThroughSequence: 0 }))
       .mockResolvedValueOnce(createWorkspaceSnapshot({ coveredThroughSequence: 3,
-        document: createDocumentSnapshot({ revision: 3 }) }));
+        ...createDocumentSaveReceipt({ documentRevision: 3 }) }));
     const desktop = bridge({ hydrate, replayEvents: vi.fn().mockResolvedValue({
       streamId, events: [], headSequence: 3, hasMore: false, historyAvailable: false,
     }) });

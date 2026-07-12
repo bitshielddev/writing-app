@@ -90,14 +90,14 @@ export function useDocumentAutosave(
           setError(undefined);
         }
         if (generation === generationRef.current) failureRef.current = undefined;
-        const document = await desktop.saveDocument({
+        const receipt = await desktop.saveDocument({
           projectId,
           documentId,
           blocks,
           expectedRevision: revisionRef.current,
         });
         if (generation !== generationRef.current) return;
-        revisionRef.current = document.revision;
+        revisionRef.current = receipt.documentRevision;
         if (mountedRef.current) setStatus("idle");
       })
       .catch((cause: unknown) => {
@@ -137,10 +137,10 @@ export function useDocumentAutosave(
 
   const onDesktopEvent = useCallback((event: DesktopEvent) => {
     if (event.type === "document.saved") {
-      if (event.document.id !== documentIdRef.current || event.document.projectId !== projectIdRef.current) return;
+      if (event.documentId !== documentIdRef.current || event.projectId !== projectIdRef.current) return;
       revisionRef.current = Math.max(
         revisionRef.current,
-        event.document.revision,
+        event.documentRevision,
       );
     }
   }, []);

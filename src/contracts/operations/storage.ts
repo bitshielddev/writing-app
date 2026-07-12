@@ -4,7 +4,7 @@ import { identifier, operation, revision, strict, text, type OperationName } fro
 import { SuggestionItemSchema } from "../../domain/suggestions/schema";
 import {
   AgentDocumentReadResultSchema,
-  DocumentSnapshotSchema,
+  DocumentSaveReceiptSchema,
   ObservationSeedSchema,
   SourceSnapshotSchema,
   SuggestionCommandRequestSchema,
@@ -49,7 +49,7 @@ export const StorageOperations = {
     streamId: identifier,
     sequence: Type.Integer({ minimum: 0 }),
   }, strict), acknowledgeResult),
-  "document.save": operation(saveDocumentParams, DocumentSnapshotSchema),
+  "document.save": operation(saveDocumentParams, DocumentSaveReceiptSchema),
   "suggestions.command": operation(SuggestionCommandRequestSchema, SuggestionCommandResultSchema),
   "source.import": operation(Type.Object({ ...documentScope.properties, path: text(10_000) }, strict), SourceSnapshotSchema),
   "agent.seed": operation(documentScope, ObservationSeedSchema),

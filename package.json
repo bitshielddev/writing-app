@@ -12,6 +12,8 @@
     "bundle:check": "node scripts/bundle-budget.mjs --check",
     "bundle:report": "node scripts/bundle-budget.mjs --report",
     "startup:measure": "node scripts/measure-startup.mjs",
+    "perf:contracts": "node scripts/measure-contracts.mjs",
+    "perf:renderer": "npm run build && playwright test e2e/performance.spec.ts",
     "desktop": "npm run build && electron .",
     "package": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",

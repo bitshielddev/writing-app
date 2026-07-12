@@ -3,6 +3,7 @@ import type {
   DesktopBridge,
   DesktopEvent,
   DesktopTransportEvent,
+  DocumentSaveReceipt,
   DocumentSnapshot,
   SourceSnapshot,
   WorkspaceSnapshot,
@@ -92,6 +93,19 @@ export function createDocumentSnapshot(
   };
 }
 
+export function createDocumentSaveReceipt(
+  overrides: Partial<DocumentSaveReceipt> = {},
+): DocumentSaveReceipt {
+  return {
+    projectId: "project-1",
+    documentId: "document-1",
+    documentRevision: 3,
+    projectRevision: 5,
+    updatedAt: 1,
+    ...overrides,
+  };
+}
+
 /**
  * What: creates source snapshot with the dependencies and defaults this workflow expects.
  *
@@ -146,7 +160,7 @@ export class DesktopBridgeHarness {
   readonly stopAgent = new ControlledOperation<[], AgentRuntime>();
   readonly saveDocument = new ControlledOperation<
     [Parameters<DesktopBridge["saveDocument"]>[0]],
-    DocumentSnapshot
+    DocumentSaveReceipt
   >();
   readonly executeSuggestionCommand = new ControlledOperation<
     [Parameters<DesktopBridge["executeSuggestionCommand"]>[0]],

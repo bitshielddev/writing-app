@@ -28,7 +28,7 @@ import {
   parseOrContractError,
   toContractError,
 } from "./validation";
-import { createDocumentSnapshot, createSourceSnapshot, createWorkspaceSnapshot } from "../test/desktopBridgeHarness";
+import { createDocumentSaveReceipt, createDocumentSnapshot, createSourceSnapshot, createWorkspaceSnapshot } from "../test/desktopBridgeHarness";
 import { createEmptySuggestionState } from "../domain/suggestions/state";
 
 const suggestion = {
@@ -88,7 +88,7 @@ const rendererFixtures = {
     result: { streamId: workspace.streamId, acknowledgedSequence: 0 } },
   "agent.start": { params: scope, result: { status: "working", cycleCount: 1 } },
   "agent.stop": { params: scope, result: { status: "stopped", cycleCount: 1 } },
-  "document.save": { params: { ...scope, blocks: [], expectedRevision: 0 }, result: document },
+  "document.save": { params: { ...scope, blocks: [], expectedRevision: 0 }, result: createDocumentSaveReceipt() },
   "suggestions.command": { params: command, result: commandResult },
   "source.import": { params: scope, result: source },
   "process.retry": { params: { process: "storage" as const }, result: health },

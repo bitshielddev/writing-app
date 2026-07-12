@@ -9,6 +9,7 @@ declare global {
       readiness(): Promise<{ ready: boolean; health: import("../contracts/desktop-bridge").ProcessHealthSnapshot; userDataPath: string }>;
       terminateStorage(): Promise<{ accepted: boolean }>;
       terminateAgent(): Promise<{ accepted: boolean }>;
+      injectActivity(count: number): Promise<{ accepted: boolean }>;
     };
     scribeFlush?: () => void | Promise<void>;
   }

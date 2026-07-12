@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createDocumentSnapshot, createSourceSnapshot } from "../../test/desktopBridgeHarness";
+import { createDocumentSaveReceipt, createSourceSnapshot } from "../../test/desktopBridgeHarness";
 import {
   createAgentMessageHandler,
   createStorageMessageHandler,
@@ -29,10 +29,10 @@ describe("main process message adapters", () => {
       getAgent: () => agent as never,
       broadcast,
     });
-    const document = createDocumentSnapshot({ revision: 8 });
+    const receipt = createDocumentSaveReceipt({ documentRevision: 8, projectRevision: 13 });
     const event = { eventId: "event-1", streamId: "document:default-document",
       sequence: 1, occurredAt: 1,
-      payload: { type: "document.saved" as const, document, projectRevision: 13 } };
+      payload: { type: "document.saved" as const, ...receipt } };
 
     await receive({ kind: "domain.event", protocolVersion: 1, event });
 

@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Faster contracts and activity rendering - comprehension review</title>
+  <style>
+    :root {
+      --paper: #f6f4ef;
+      --ink: #252a31;
+      --muted: #626973;
+      --line: #d9d5cc;
+      --panel: #fffdfa;
+      --navy: #253b56;
+      --blue: #356b89;
+      --green: #2f6b55;
+      --amber: #8a5a1f;
+      --red: #8a3f3f;
+      --code: #18222d;
+      --code-ink: #edf2f5;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font: 16px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--blue); }
+    .shell { display: grid; grid-template-columns: 230px minmax(0, 820px); gap: 52px; max-width: 1160px; margin: 0 auto; padding: 40px 28px 90px; }
+    nav { position: sticky; top: 28px; align-self: start; font-size: 14px; }
+    nav .label { color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    nav a { display: block; padding: 7px 0; color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; }
+    nav a:hover { color: var(--navy); border-color: var(--line); }
+    main { min-width: 0; }
+    header { padding: 42px 0 38px; border-bottom: 1px solid var(--line); }
+    .eyebrow { color: var(--blue); font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 10px 0 15px; max-width: 720px; color: var(--navy); font: 700 clamp(2.2rem, 6vw, 4.4rem)/1.02 Georgia, serif; letter-spacing: -.035em; }
+    .standfirst { max-width: 700px; margin: 0; color: #454d57; font-size: 1.16rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 23px; color: var(--muted); font-size: 13px; }
+    section { padding: 44px 0 4px; scroll-margin-top: 24px; }
+    h2 { margin: 0 0 16px; color: var(--navy); font: 700 2rem/1.15 Georgia, serif; letter-spacing: -.02em; }
+    h3 { margin: 28px 0 8px; color: var(--navy); font-size: 1.05rem; }
+    p { max-width: 72ch; margin: 10px 0 16px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    :not(pre) > code { padding: .12em .35em; border: 1px solid #d5d9dc; border-radius: 4px; background: #eef0f1; font-size: .88em; }
+    pre { overflow: auto; margin: 14px 0 8px; padding: 20px; border-radius: 9px; background: var(--code); color: var(--code-ink); font-size: 13px; line-height: 1.55; box-shadow: 0 10px 30px rgba(24,34,45,.12); }
+    pre .focus { color: #9ed9c2; font-weight: 700; }
+    .caption { margin: 8px 0 22px; color: var(--muted); font-size: 13px; }
+    .route { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 24px 0; }
+    .route div { min-height: 94px; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); font-size: 13px; }
+    .route strong { display: block; margin-bottom: 6px; color: var(--navy); }
+    .route .arrow { display: none; }
+    .callout { margin: 22px 0; padding: 18px 20px; border-left: 4px solid var(--blue); background: #eaf1f4; border-radius: 0 7px 7px 0; }
+    .callout.warn { border-color: var(--amber); background: #f7efe3; }
+    .callout.risk { border-color: var(--red); background: #f7eaea; }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout .tag { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    table { width: 100%; border-collapse: collapse; margin: 19px 0 28px; font-size: 14px; }
+    th, td { padding: 12px 13px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--navy); background: #ece9e1; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+    .file-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .file-groups article { padding: 17px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    .file-groups h3 { margin-top: 0; }
+    .file-groups p { margin-bottom: 0; font-size: 14px; }
+    .timeline { border-left: 2px solid #c8d4db; margin: 20px 0 0 7px; padding-left: 24px; }
+    .timeline article { position: relative; margin-bottom: 23px; }
+    .timeline article:before { content: ""; position: absolute; left: -31px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); }
+    .timeline h3 { margin: 0 0 2px; font-family: ui-monospace, monospace; font-size: 14px; }
+    .timeline p { margin: 0; color: var(--muted); font-size: 14px; }
+    ul { padding-left: 20px; }
+    li { margin: 7px 0; }
+    details { margin: 12px 0; padding: 15px 17px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    summary { cursor: pointer; color: var(--navy); font-weight: 700; }
+    details .answer { margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+    .status { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 18px 0; }
+    .status div { padding: 15px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+    .status strong { display: block; color: var(--green); }
+    .status .blocked strong { color: var(--amber); }
+    footer { margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    @media (max-width: 860px) {
+      .shell { display: block; padding: 20px 20px 70px; }
+      nav { position: static; display: flex; gap: 12px; overflow-x: auto; padding: 8px 0 18px; border-bottom: 1px solid var(--line); }
+      nav .label { display: none; }
+      nav a { white-space: nowrap; }
+      .route { grid-template-columns: 1fr; }
+      .file-groups, .status { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav aria-label="Review sections">
+      <div class="label">Reading path</div>
+      <a href="#change">The change in one pass</a>
+      <a href="#save">Follow a document save</a>
+      <a href="#validation">Contract validation</a>
+      <a href="#activity">A burst of activity</a>
+      <a href="#agent">Rich blocks and agent reads</a>
+      <a href="#history">How this fits the history</a>
+      <a href="#risks">Maintenance notes</a>
+      <a href="#tests">Verification</a>
+      <a href="#check">Comprehension check</a>
+    </nav>
+
+    <main>
+      <header>
+        <div class="eyebrow">Comprehension review / staged working tree</div>
+        <h1>Faster contracts and activity rendering</h1>
+        <p class="standfirst">This change removes full document snapshots from save responses and save events, compiles reusable contract validators, and reduces the work done when hundreds of agent activity items reach the renderer. It also tightens the agent's model of canonical BlockNote data.</p>
+        <div class="meta">
+          <span>Base: <code>30dfdae</code></span>
+          <span>30 staged files</span>
+          <span>251 additions / 92 deletions</span>
+          <span>Reviewed 2026-07-12</span>
+        </div>
+      </header>
+
+      <section id="change">
+        <h2>The change in one pass</h2>
+        <p>The staged work has two performance paths and one related correctness clarification. The save path now transports a five-field receipt after persistence instead of echoing the complete BlockNote document. Contract schemas are compiled once per schema object and cached. Agent activity uses indexed batch upserts and memoized React rows. New benchmarks exercise a 234 KB contract value and a 500-item renderer burst.</p>
+
+        <div class="file-groups">
+          <article>
+            <h3>Save boundary</h3>
+            <p><code>src/contracts/events.ts</code>, both operation registries, storage operations, autosave, the main message adapter, and their test fixtures adopt <code>DocumentSaveReceipt</code>.</p>
+          </article>
+          <article>
+            <h3>Validation cost</h3>
+            <p><code>src/contracts/validation.ts</code> replaces interpreted <code>Check</code>/<code>Errors</code> calls with cached TypeBox validators. <code>scripts/measure-contracts.mjs</code> records timing.</p>
+          </article>
+          <article>
+            <h3>Renderer burst cost</h3>
+            <p><code>useAgentController.ts</code> indexes IDs once per flush. <code>AgentActivityList.tsx</code> memoizes sorting, the list, and each row. The E2E-only bridge injects 500 activities.</p>
+          </article>
+          <article>
+            <h3>Agent document meaning</h3>
+            <p>The Pi system prompt and a storage test state that <code>blocks</code> retains canonical structure while <code>plainTextBlocks</code> is a helper for supported text anchors.</p>
+          </article>
+        </div>
+
+        <div class="callout">
+          <span class="tag">Scope boundary</span>
+          <p>The save <em>request</em> still contains the full <code>blocks</code> array. The optimization affects the return value and durable <code>document.saved</code> payload. Full document content remains available through hydration and agent document reads.</p>
+        </div>
+      </section>
+
+      <section id="save">
+        <h2>Follow a document save</h2>
+        <div class="route" aria-label="Document save data flow">
+          <div><strong>1. Editor</strong>Autosave sends scope, blocks, and expected revision.</div>
+          <div><strong>2. Storage</strong>Checks revision, persists blocks, increments project revision.</div>
+          <div><strong>3. Receipt</strong>Returns IDs, both revisions, and update time.</div>
+          <div><strong>4. Durable event</strong>Outbox publishes the same receipt fields.</div>
+          <div><strong>5. Consumers</strong>Autosave and agent seeding advance revision cursors.</div>
+        </div>
+
+        <h3>The new wire shape</h3>
+        <pre><code>export const DocumentSaveReceiptSchema = Type.Object(
+  {
+    projectId: identifier,
+    documentId: identifier,
+    <span class="focus">documentRevision: revision,</span>
+    <span class="focus">projectRevision: revision,</span>
+    updatedAt: timestamp,
+  },
+  strict,
+);
+
+// Durable payload
+Type.Object({
+  type: Type.Literal("document.saved"),
+  <span class="focus">...DocumentSaveReceiptSchema.properties</span>
+}, strict)</code></pre>
+        <p class="caption">Exact excerpt from <code>src/contracts/events.ts</code>. The previous event nested a complete <code>DocumentSnapshot</code> under <code>document</code>.</p>
+
+        <p>Storage builds the receipt from the saved document and the project's current revision. For a changed document this happens inside the transaction, after <code>incrementRevision</code>, so the operation result and outbox event share the same revision pair.</p>
+        <pre><code>const savedReceipt = receipt(document);
+this.deps.outbox.enqueue(input.projectId, input.documentId, {
+  type: "document.saved", ...savedReceipt,
+});
+return savedReceipt;</code></pre>
+
+        <p>The renderer no longer expects persisted blocks to come back from the save. It only advances its concurrency token:</p>
+        <pre><code>const receipt = await desktop.saveDocument({
+  projectId,
+  documentId,
+  blocks,
+  expectedRevision: revisionRef.current,
+});
+if (generation !== generationRef.current) return;
+<span class="focus">revisionRef.current = receipt.documentRevision;</span></code></pre>
+        <p class="caption"><code>src/renderer/features/workspace/useDocumentAutosave.ts</code>. Its generation guard still prevents a response for an obsolete workspace scope from changing current state.</p>
+
+        <table>
+          <thead><tr><th>Concern</th><th>Before</th><th>After</th></tr></thead>
+          <tbody>
+            <tr><td>Save response</td><td>Entire document, including rich blocks</td><td>Five scalar receipt fields</td></tr>
+            <tr><td>Durable save event</td><td>Nested document plus project revision</td><td>Flat receipt fields</td></tr>
+            <tr><td>Autosave revision</td><td><code>document.revision</code></td><td><code>receipt.documentRevision</code></td></tr>
+            <tr><td>Main-to-agent seed</td><td>Read revision from nested snapshot</td><td>Read <code>event.documentRevision</code></td></tr>
+            <tr><td>Content verification</td><td>Could inspect response blocks</td><td>Must hydrate/read after saving</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout warn">
+          <span class="tag">No-op saves</span>
+          <p>When incoming blocks equal stored blocks, storage still returns a receipt but does not increment revisions or enqueue an event. This preserves the existing no-op behavior while changing its return type.</p>
+        </div>
+      </section>
+
+      <section id="validation">
+        <h2>Validation pays compilation cost once</h2>
+        <p>Every desktop and utility-process boundary calls <code>parseOrContractError</code>. The old implementation interpreted a schema via <code>Check</code>, then separately created errors for invalid input. The new helper compiles each schema object once and retains the validator in a <code>WeakMap</code>.</p>
+        <pre><code>const validators = new WeakMap&lt;TSchema, Validator&gt;();
+
+function validatorFor(schema: TSchema): Validator {
+  const cached = validators.get(schema);
+  if (cached) return cached;
+  <span class="focus">const validator = Compile(schema);</span>
+  validators.set(schema, validator);
+  return validator;
+}
+
+const validator = validatorFor(schema);
+if (validator.Check(value)) return value as Static&lt;Schema&gt;;
+const errors = validator.Errors(value);</code></pre>
+        <p>The same cache is used when recognizing an existing <code>ContractError</code>. Error sanitation and the five-issue limit are unchanged.</p>
+
+        <div class="callout">
+          <span class="tag">Measured path</span>
+          <p><code>perf:contracts</code> warms the validator, then validates a 500-block document 100 times. On this run the 234,275-byte fixture measured 0.791 ms median, 2.925 ms p95, and 4.016 ms max. The script fails only when the median exceeds 2 ms.</p>
+        </div>
+        <p>The cache key is object identity. This works well with the imported schema constants used by the operation registries. Code that constructs a fresh equivalent schema for every call would compile every fresh object.</p>
+      </section>
+
+      <section id="activity">
+        <h2>A burst of activity now does bounded work</h2>
+        <p>The controller already queues activity until an animation frame, with a 100 ms fallback. The old flush reduced over queued items; each item called <code>findIndex</code> over the growing list and copied arrays repeatedly. The replacement builds one ID index, mutates one copied array, then applies the 500-item cap once.</p>
+        <pre><code>function upsertMany(items: AgentActivity[], activities: AgentActivity[]) {
+  <span class="focus">const byId = new Map(items.map((item, index) =&gt; [item.id, index]));</span>
+  const next = [...items];
+  for (const activity of activities) {
+    const index = byId.get(activity.id);
+    if (index === undefined) {
+      byId.set(activity.id, next.length);
+      next.push(activity);
+    } else {
+      next[index] = activity;
+    }
+  }
+  return next.slice(-AGENT_ACTIVITY_LIMIT);
+}</code></pre>
+        <p>The behavioral rules remain: an existing ID keeps its position and gets its value replaced; a new ID is appended; only the newest 500 positions survive.</p>
+
+        <h3>React work is reduced separately</h3>
+        <pre><code>const orderedItems = useMemo(() =&gt; [...items].sort(
+  (left, right) =&gt; right.timestamp - left.timestamp,
+), [items]);
+
+const MemoizedAgentActivityRow = memo(AgentActivityRow);
+export const AgentActivityList = memo(function AgentActivityList(...) { ... });</code></pre>
+        <p>Sorting runs only when the <code>items</code> array identity changes. Row memoization lets unchanged activity objects retain their rendered output when another item is added or replaced.</p>
+
+        <p>The new test-only route is intentionally behind the existing <code>SCRIBE_E2E</code> bridge exposure. It validates an integer count from 0 through 500, inserts synthetic items into the main-process ring, and broadcasts each event. The performance test records browser long tasks while editing and injecting the maximum burst, with a 50 ms maximum threshold.</p>
+      </section>
+
+      <section id="agent">
+        <h2>Canonical rich blocks stay separate from text anchors</h2>
+        <p>This portion does not alter the storage read implementation. It adds evidence and instruction around behavior introduced by <code>3fb34f5</code>: agent reads return exact persisted <code>blocks</code> plus a derived, top-level <code>plainTextBlocks</code> view.</p>
+        <pre><code>return {
+  projectId: document.projectId,
+  documentId: document.id,
+  title: document.title,
+  documentRevision: document.revision,
+  schemaVersion: document.schemaVersion,
+  <span class="focus">blocks: document.blocks,</span>
+  <span class="focus">plainTextBlocks: plainTextBlocksFromBlocks(document.blocks),</span>
+};</code></pre>
+        <p>The added test uses styled heading content, a nested list child, and a table. It proves the rich array is returned exactly. The helper extracts text from each top-level block's <code>content</code>; it does not flatten nested children, and the table fixture produces an empty text anchor.</p>
+
+        <div class="callout warn">
+          <span class="tag">Agent constraint</span>
+          <p>The system prompt now directs the agent to use <code>blocks</code> as canonical data and <code>plainTextBlocks</code> only for same-revision, single-block text edits. Tables, nested content, multi-block changes, and structural work must become note suggestions.</p>
+        </div>
+      </section>
+
+      <section id="history">
+        <h2>How this fits the recent history</h2>
+        <div class="timeline">
+          <article>
+            <h3>e94dff9 - Reduce agent noise and improve UI performance</h3>
+            <p>Introduced frame-batched activity updates and a 500-item limit. This staged change optimizes the batch merge and row rendering that remain on that path.</p>
+          </article>
+          <article>
+            <h3>3fb34f5 - Remove copied draft.md and use BlockNote as source of truth</h3>
+            <p>Made rich BlockNote blocks canonical and added plain-text anchor derivation. The new test and prompt spell out the boundary between those representations.</p>
+          </article>
+          <article>
+            <h3>ffb84ee / d7d9e64 - suggestion accuracy and autosave fixes</h3>
+            <p>Strengthened revision-aware autosave and suggestion behavior. The receipt refactor preserves that expected-revision loop while removing blocks from the response.</p>
+          </article>
+          <article>
+            <h3>30dfdae - Handle stale suggestions</h3>
+            <p>The current base improves stale-suggestion handling. The staged work follows it without changing suggestion transition semantics.</p>
+          </article>
+        </div>
+        <p>The repository already had explicit compatibility policy from <code>b3763b9</code>. This change documents an alpha exception: durable and wire shapes remain at version 1 and are replaced in place until compatibility-supported releases begin.</p>
+      </section>
+
+      <section id="risks">
+        <h2>What future maintainers need to preserve</h2>
+        <ul>
+          <li><code>document.save</code> and <code>document.saved</code> must agree on receipt field names across contracts, storage, main, preload, renderer, and fixtures.</li>
+          <li>The receipt's <code>documentRevision</code> must be the concurrency token autosave uses for its next <code>expectedRevision</code>.</li>
+          <li>Changed saves must calculate <code>projectRevision</code> after the project increment and publish the same values returned to the caller.</li>
+          <li>Consumers needing document content must use hydration or an explicit read. Adding blocks back to the receipt would restore serialization and validation cost.</li>
+          <li>Activity state must remain immutable at the array and object level for <code>useMemo</code> and <code>memo</code> to be reliable. The controller currently returns a fresh array and replaces updated objects.</li>
+          <li>Canonical rich blocks cannot be reconstructed from <code>plainTextBlocks</code>. The latter intentionally loses styles, child structure, and non-text content.</li>
+        </ul>
+
+        <div class="callout risk">
+          <span class="tag">Compatibility action required</span>
+          <p>The durable event shape changed without a version bump. <code>docs/compatibility.md</code> says this is permitted during alpha only, and developers must delete existing application user data before running a build with changed alpha contracts. There is no dual-read path for old <code>document.saved</code> payloads.</p>
+        </div>
+
+        <h3>Coverage gaps to keep visible</h3>
+        <p>The new E2E case checks aggregate long-task duration for 500 unique IDs. It does not directly assert duplicate-ID replacement, list ordering, or React render counts. Existing app tests cover receipt-shaped events and saves, while storage tests cover revision values and post-save hydration. The compiled-validator benchmark measures one valid large snapshot; invalid-input error cost is not benchmarked.</p>
+      </section>
+
+      <section id="tests">
+        <h2>Verification from this review run</h2>
+        <div class="status">
+          <div><strong>Passed</strong><span>55 Vitest files<br>272 tests</span></div>
+          <div><strong>Passed</strong><span>TypeScript/Vite build<br>contract benchmark</span></div>
+          <div class="blocked"><strong>Environment blocked</strong><span>Renderer performance E2E</span></div>
+        </div>
+        <p><code>git diff --cached --check</code> passed. <code>npm test -- --run</code> passed all 272 tests. <code>npm run perf:contracts</code> passed its 2 ms median budget. <code>npm run perf:renderer</code> completed the build, but Electron could not start because this host lacks <code>libglib-2.0.so.0</code>; the 50 ms renderer threshold was therefore not exercised in this review environment.</p>
+      </section>
+
+      <section id="check">
+        <h2>Can you carry the model forward?</h2>
+        <p>Open each item after answering it in your own words.</p>
+
+        <details>
+          <summary>1. After a successful autosave, where does the renderer get the next expected document revision?</summary>
+          <div class="answer">From <code>receipt.documentRevision</code>, returned by <code>desktop.saveDocument</code>. The renderer no longer receives a document snapshot from that operation.</div>
+        </details>
+
+        <details>
+          <summary>2. What would break if a consumer still read <code>event.document.revision</code>?</summary>
+          <div class="answer">The new durable event has no <code>document</code> field. Consumers must read the flat <code>event.documentRevision</code>; scope checks use <code>event.projectId</code> and <code>event.documentId</code>.</div>
+        </details>
+
+        <details>
+          <summary>3. Why does the activity merge create a Map before processing the queued burst?</summary>
+          <div class="answer">It resolves an activity ID to its position without scanning the list for every queued item. This retains upsert semantics while changing the merge from repeated searches and copies to one index, one copied array, and one final slice.</div>
+        </details>
+
+        <details>
+          <summary>4. An agent wants to edit a table cell using an empty plain-text anchor. Which path should it take?</summary>
+          <div class="answer">It should create a note suggestion. The canonical table remains in <code>blocks</code>, while <code>plainTextBlocks</code> cannot represent that structure and is restricted to supported single-block text edits.</div>
+        </details>
+
+        <details>
+          <summary>5. What deployment step follows from changing the durable save event during alpha?</summary>
+          <div class="answer">Recreate/delete existing application user data. The policy keeps format and protocol versions at 1 during alpha and provides no migration or dual reader for the old payload.</div>
+        </details>
+      </section>
+
+      <footer>
+        Generated from the staged diff against <code>30dfdae</code>, the changed source and tests, and recent repository history. Performance intent is inferred from the new benchmark scripts and the concrete reductions in transported and rendered data.
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

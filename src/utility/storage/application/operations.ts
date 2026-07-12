@@ -1,5 +1,6 @@
 import type {
   DocumentSnapshot,
+  DocumentSaveReceipt,
   ObservationSeed,
   SourceSnapshot,
   WorkspaceSnapshot,
@@ -247,7 +248,7 @@ export class StorageOperations {
    * Why: storage workflows need durable, transactional behavior behind the application contract.
    * Called when: used by operations and createStorageRequestHandler when that path needs this behavior.
    */
-  async saveDocument(input: Omit<Params<"document.save">, "projectId"> & { projectId?: string }): Promise<DocumentSnapshot> {
+  async saveDocument(input: Omit<Params<"document.save">, "projectId"> & { projectId?: string }): Promise<DocumentSaveReceipt> {
     const scoped = { ...this.selection(), ...input } as Params<"document.save">;
     this.assertScope(scoped);
     const key = scopeKey(scoped);
@@ -268,7 +269,14 @@ export class StorageOperations {
   private async performDocumentSave(input: Params<"document.save">) {
     const current = this.deps.documents.get(input.projectId, input.documentId);
     assertDocumentRevision(input.expectedRevision, current.revision);
-    if (JSON.stringify(input.blocks) === JSON.stringify(current.blocks)) return current;
+    const receipt = (document: DocumentSnapshot): DocumentSaveReceipt => ({
+      projectId: document.projectId,
+      documentId: document.id,
+      documentRevision: document.revision,
+      projectRevision: this.deps.projects.get(input.projectId).revision,
+      updatedAt: document.updatedAt,
+    });
+    if (JSON.stringify(input.blocks) === JSON.stringify(current.blocks)) return receipt(current);
     const saved = this.deps.transactions.run(() => {
       assertDocumentRevision(input.expectedRevision,
         this.deps.documents.get(input.projectId, input.documentId).revision);
@@ -277,11 +285,11 @@ export class StorageOperations {
         input.projectId, input.documentId, input.blocks, now,
       );
       this.deps.projects.incrementRevision(input.projectId, now);
+      const savedReceipt = receipt(document);
       this.deps.outbox.enqueue(input.projectId, input.documentId, {
-        type: "document.saved", document,
-        projectRevision: this.deps.projects.get(input.projectId).revision,
+        type: "document.saved", ...savedReceipt,
       });
-      return document;
+      return savedReceipt;
     });
     await this.deps.dispatcher.dispatch();
     return saved;

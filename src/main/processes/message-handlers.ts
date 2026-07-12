@@ -47,7 +47,7 @@ export function createStorageMessageHandler({
         streamId: message.event.streamId,
         sequence: message.event.sequence,
         projectRevision: event.projectRevision,
-        documentRevision: event.document.revision,
+        documentRevision: event.documentRevision,
       });
     } else if (event.type === "source.imported") {
       const seed = await storage.call("agent.seed", {

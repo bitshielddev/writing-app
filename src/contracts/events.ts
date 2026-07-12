@@ -139,6 +139,16 @@ export const DocumentSnapshotSchema = Type.Object(
   },
   strict,
 );
+export const DocumentSaveReceiptSchema = Type.Object(
+  {
+    projectId: identifier,
+    documentId: identifier,
+    documentRevision: revision,
+    projectRevision: revision,
+    updatedAt: timestamp,
+  },
+  strict,
+);
 export const AgentDocumentReadResultSchema = Type.Object(
   {
     projectId: identifier,
@@ -202,7 +212,7 @@ export const DurableEventPayloadSchema = Type.Union([
   Type.Object({ type: Type.Literal("suggestion.event"), event: SuggestionEventSchema,
     commandId: Type.Optional(identifier), suggestionRevision: revision,
     state: PersistedSuggestionStateSchema }, strict),
-  Type.Object({ type: Type.Literal("document.saved"), document: DocumentSnapshotSchema, projectRevision: revision }, strict),
+  Type.Object({ type: Type.Literal("document.saved"), ...DocumentSaveReceiptSchema.properties }, strict),
   Type.Object({ type: Type.Literal("source.imported"), source: SourceSnapshotSchema, projectRevision: revision }, strict),
 ]);
 export const DurableEventEnvelopeSchema = Type.Object({

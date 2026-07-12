@@ -5,6 +5,7 @@ import type { WritingEditor } from "../editor/schema";
 import type {
   DesktopBridge,
   DesktopEvent,
+  DocumentSaveReceipt,
   DocumentSnapshot,
   WorkspaceSnapshot,
 } from "../../../contracts/desktop-bridge";
@@ -139,13 +140,14 @@ describe("workspace controller", () => {
 
   it("serializes autosaves and advances the expected revision", async () => {
     const harness = createHarness();
-    let resolveFirst!: (document: DocumentSnapshot) => void;
-    const firstSave = new Promise<DocumentSnapshot>((resolve) => {
+    let resolveFirst!: (receipt: DocumentSaveReceipt) => void;
+    const firstSave = new Promise<DocumentSaveReceipt>((resolve) => {
       resolveFirst = resolve;
     });
     vi.mocked(harness.bridge.saveDocument)
       .mockReturnValueOnce(firstSave)
-      .mockResolvedValueOnce(documentSnapshot(5, []));
+      .mockResolvedValueOnce({ projectId: "project", documentId: "document", documentRevision: 5,
+        projectRevision: 5, updatedAt: 5 });
     const { result } = renderHook(() =>
       useWorkspaceController(harness.bridge, harness.editor),
     );
@@ -170,7 +172,8 @@ describe("workspace controller", () => {
     expect(harness.bridge.saveDocument).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      resolveFirst(documentSnapshot(4, []));
+      resolveFirst({ projectId: "project", documentId: "document", documentRevision: 4,
+        projectRevision: 4, updatedAt: 4 });
       await firstSave;
       await Promise.resolve();
     });

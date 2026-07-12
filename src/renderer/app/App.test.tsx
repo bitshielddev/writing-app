@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  createDocumentSnapshot,
+  createDocumentSaveReceipt,
   createSourceSnapshot,
   createWorkspaceSnapshot,
   DesktopBridgeHarness,
@@ -184,7 +184,7 @@ describe("App desktop boundary", () => {
     act(() => {
       desktop.emit({
         type: "document.saved",
-        document: createDocumentSnapshot({ revision: 9 }),
+        ...createDocumentSaveReceipt({ documentRevision: 9 }),
         projectRevision: 11,
       });
     });
@@ -205,7 +205,7 @@ describe("App desktop boundary", () => {
     await act(async () => {
       desktop.saveDocument.resolve(
         0,
-        createDocumentSnapshot({ revision: 4, blocks: savedBlocks }),
+        createDocumentSaveReceipt({ documentRevision: 4 }),
       );
       await Promise.resolve();
     });

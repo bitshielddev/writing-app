@@ -112,9 +112,11 @@ describe("storage application operations", () => {
       blocks: [{ id: "block-1", type: "paragraph", content: "new" }],
     });
 
-    expect(saved).toMatchObject({ revision: 1, updatedAt: 42 });
+    expect(saved).toMatchObject({ documentRevision: 1, projectRevision: 1, updatedAt: 42 });
     expect(context.events[0]?.payload).toMatchObject({
       type: "document.saved",
+      documentId: "document",
+      documentRevision: 1,
       projectRevision: 1,
     });
     expect(context.dispatcher.dispatch).toHaveBeenCalledOnce();
@@ -157,5 +159,31 @@ describe("storage application operations", () => {
         blocks: [{ id: "block-1", type: "paragraph", content: "old" }],
         plainTextBlocks: [{ id: "block-1", type: "paragraph", text: "old" }],
       });
+  });
+
+  it("keeps rich canonical blocks exact while exposing supplemental text anchors", () => {
+    const context = fixture();
+    const blocks = [
+      { id: "heading", type: "heading", content: [{ type: "text", text: "Opening", styles: { bold: true } }] },
+      { id: "list", type: "bulletListItem", content: "Parent", children: [
+        { id: "child", type: "paragraph", content: "Nested context" },
+      ] },
+      { id: "table", type: "table", content: { rows: [{ cells: ["One", "Two"] }] } },
+    ];
+    context.deps.documents.get = () => ({
+      id: "document", projectId: "project", title: "Draft", blocks,
+      schemaVersion: 1, revision: 7, updatedAt: 42,
+    });
+
+    const read = new StorageOperations(context.deps)
+      .readAgentDocument({ projectId: "project", documentId: "document" });
+
+    expect(read.blocks).toEqual(blocks);
+    expect(read.plainTextBlocks).toEqual([
+      { id: "heading", type: "heading", text: "Opening" },
+      { id: "list", type: "bulletListItem", text: "Parent" },
+      { id: "table", type: "table", text: "" },
+    ]);
+    expect(read.documentRevision).toBe(7);
   });
 });

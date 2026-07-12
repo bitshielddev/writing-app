@@ -498,6 +498,17 @@ async function start() {
       if (command === "readiness") return { ready: true, health, userDataPath };
       if (command === "terminate-storage") { storage.kill(); return { accepted: true }; }
       if (command === "terminate-agent") { agent.kill(); return { accepted: true }; }
+      if (typeof command === "object" && command !== null && "type" in command &&
+        command.type === "inject-activity" && "count" in command &&
+        Number.isInteger(command.count) && Number(command.count) >= 0 && Number(command.count) <= 500) {
+        const now = Date.now();
+        for (let index = 0; index < Number(command.count); index += 1) {
+          const item = activity.add({ id: `e2e-activity-${index}`, kind: "message", timestamp: now + index,
+            title: `Synthetic activity ${index}`, text: `Performance fixture ${index}` });
+          broadcast({ type: "agent.activity", activity: item });
+        }
+        return { accepted: true };
+      }
       throw new Error("Unknown test command");
     });
   }

@@ -10,6 +10,7 @@ import type {
   AgentStatusSchema,
   DesktopEventSchema,
   DocumentSnapshotSchema,
+  DocumentSaveReceiptSchema,
   DurableEventEnvelopeSchema,
   DurableEventPayloadSchema,
   EphemeralDesktopEventSchema,
@@ -29,6 +30,7 @@ export type AgentActivity = Static<typeof AgentActivitySchema>;
 export type AgentDocumentReadResult = Static<typeof AgentDocumentReadResultSchema>;
 export type AgentActivityInput = Static<typeof AgentActivityInputSchema>;
 export type DocumentSnapshot = Static<typeof DocumentSnapshotSchema>;
+export type DocumentSaveReceipt = Static<typeof DocumentSaveReceiptSchema>;
 export type SourceSnapshot = Static<typeof SourceSnapshotSchema>;
 export type WorkspaceCatalog = Static<typeof WorkspaceCatalogSchema>;
 export type WorkspaceSnapshot = Static<typeof WorkspaceSnapshotSchema>;

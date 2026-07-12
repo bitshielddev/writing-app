@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DESKTOP_INVOKE_CHANNELS } from "../../contracts/operations/renderer";
 import {
-  createDocumentSnapshot,
+  createDocumentSaveReceipt,
   createSourceSnapshot,
   createWorkspaceSnapshot,
 } from "../../test/desktopBridgeHarness";
@@ -56,7 +56,7 @@ function createHarness(eventConsumers?: RendererEventConsumers) {
         documentRevision: 4,
       };
     }
-    if (method === "document.save") return createDocumentSnapshot();
+    if (method === "document.save") return createDocumentSaveReceipt();
     if (method === "suggestions.command") return { commandId: "command", status: "unchanged", suggestionRevision: 0,
       state: { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 } };
     if (method === "source.import") return createSourceSnapshot();

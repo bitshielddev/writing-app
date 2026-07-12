@@ -2,6 +2,10 @@
 
 Scribe versions each durable JSON format independently from SQLite and requires exact compatibility between packaged processes. The executable registry is `src/contracts/compatibility.ts`; this document is the release and recovery policy.
 
+## Alpha policy
+
+Until the first compatibility-supported release, wire and durable JSON contracts remain version 1 and are replaced in place without dual-read paths or migrations. Test fixtures describe only the current alpha shape. Developers must remove the existing application user data before running a build whose alpha contracts changed; old alpha data is not supported.
+
 ## Supported versions
 
 | Boundary | Format/protocol name | Current | Minimum readable | Minimum migratable | Newer-version behaviour |
@@ -32,8 +36,8 @@ Every utility-process ready message contains the protocol name, exact version, b
 Before every release:
 
 1. Review the SQLite schema, event payloads, BlockNote serialization, suggestion projection and command result, Pi Scribe entries, and both operation registries.
-2. If a durable shape changed, increment only that format version, add a pure contiguous migration, retain all old fixture files unchanged, and add a new current fixture.
-3. If an operation registry or wire contract changed, increment the protocol version and update the build identifier. Storage and agent operation sets must match their ready handshakes.
+2. During alpha, replace durable shapes in place at version 1 and recreate user data. After compatibility support begins, increment only the changed format version, add a pure contiguous migration, retain old fixtures unchanged, and add a new current fixture.
+3. During alpha, keep wire protocols at version 1 and update current fixtures in place. After compatibility support begins, increment the protocol version for registry or wire changes. Storage and agent operation sets must always match their ready handshakes.
 4. Test oldest, every intermediate, current, future, invalid, failed-transform, and idempotent legacy-upgrade cases. Verify future/invalid source text remains preserved exactly once.
 5. Test a future event followed by a known event and confirm projection stops at the gap until snapshot recovery.
 6. During alpha, bump the database version and recreate the database. Do not add a migration until a release explicitly commits to database compatibility.

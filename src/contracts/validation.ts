@@ -1,5 +1,5 @@
 import type { Static, TSchema } from "typebox";
-import { Check, Errors } from "typebox/schema";
+import { Compile, type Validator } from "typebox/compile";
 
 import { ContractErrorSchema, type ContractError } from "./base";
 
@@ -8,6 +8,16 @@ export class ContractValidationError extends Error {
     super(contract.message);
     this.name = "ContractValidationError";
   }
+}
+
+const validators = new WeakMap<TSchema, Validator>();
+
+function validatorFor(schema: TSchema): Validator {
+  const cached = validators.get(schema);
+  if (cached) return cached;
+  const validator = Compile(schema);
+  validators.set(schema, validator);
+  return validator;
 }
 
 /**
@@ -29,8 +39,9 @@ export function parseOrContractError<Schema extends TSchema>(
   value: unknown,
   boundary: string,
 ): Static<Schema> {
-  if (Check(schema, value)) return value as Static<Schema>;
-  const [, errors] = Errors(schema, value);
+  const validator = validatorFor(schema);
+  if (validator.Check(value)) return value as Static<Schema>;
+  const errors = validator.Errors(value);
   const details: Record<string, string> = { boundary: clean(boundary, 100) };
   errors.slice(0, 5).forEach((issue, index) => {
     details[`issue${index + 1}`] = clean(`${issue.instancePath || "/"}: ${issue.message}`);
@@ -72,7 +83,7 @@ function durableCompatibilityContractError(error: unknown): ContractError | unde
  */
 export function toContractError(error: unknown): ContractError {
   if (error instanceof ContractValidationError) return error.contract;
-  if (typeof error === "object" && error !== null && "contract" in error && Check(ContractErrorSchema, error.contract)) {
+  if (typeof error === "object" && error !== null && "contract" in error && validatorFor(ContractErrorSchema).Check(error.contract)) {
     return error.contract as ContractError;
   }
   if (error instanceof Error && error.message === "DOCUMENT_REVISION_CONFLICT") {

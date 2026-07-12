@@ -135,6 +135,7 @@ export function exposePreloadBridges({
       readiness: () => ipcRenderer.invoke("scribe:test:control", "readiness"),
       terminateStorage: () => ipcRenderer.invoke("scribe:test:control", "terminate-storage"),
       terminateAgent: () => ipcRenderer.invoke("scribe:test:control", "terminate-agent"),
+      injectActivity: (count: number) => ipcRenderer.invoke("scribe:test:control", { type: "inject-activity", count }),
     });
   }
 }
