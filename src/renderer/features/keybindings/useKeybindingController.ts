@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   COMMANDS_BY_ID,
+  type AppCommandId,
   type CommandHandlers,
+  type CommandResult,
   type KeyStroke,
 } from "./commands";
 import { DEFAULT_KEYMAP, formatStroke } from "./defaultKeymap";
@@ -23,6 +25,29 @@ type KeybindingControllerOptions = {
   disabled?: boolean;
   handlers: CommandHandlers;
 };
+
+export function executeCommand(
+  handlers: CommandHandlers,
+  commandId: AppCommandId,
+): CommandResult {
+  switch (commandId) {
+    case "help.open": return handlers["help.open"]();
+    case "region.navigation.focus": return handlers["region.navigation.focus"]();
+    case "region.partner.focus": return handlers["region.partner.focus"]();
+    case "region.editor.focus": return handlers["region.editor.focus"]();
+    case "region.navigation.toggle": return handlers["region.navigation.toggle"]();
+    case "region.partner.toggle": return handlers["region.partner.toggle"]();
+    case "suggestion.next": return handlers["suggestion.next"]();
+    case "suggestion.previous": return handlers["suggestion.previous"]();
+    case "suggestion.open": return handlers["suggestion.open"]();
+    case "suggestion.back": return handlers["suggestion.back"]();
+    case "suggestion.pin.toggle": return handlers["suggestion.pin.toggle"]();
+    case "suggestion.preview": return handlers["suggestion.preview"]();
+    case "suggestion.accept": return handlers["suggestion.accept"]();
+    case "suggestion.dismiss": return handlers["suggestion.dismiss"]();
+    default: throw new Error("Unknown application command");
+  }
+}
 
 /**
  * What: returns whether the supplied value matches leader.
@@ -144,7 +169,7 @@ export function useKeybindingController({
       }
 
       cancelSequence();
-      const result = handlers[match.commandId]();
+      const result = executeCommand(handlers, match.commandId);
       if (result.status === "unavailable") showMessage(result.message);
     };
 

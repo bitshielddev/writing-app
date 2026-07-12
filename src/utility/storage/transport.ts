@@ -85,11 +85,17 @@ export function createStorageTransport(
   };
 }
 
-type Operation = (params?: unknown) => unknown | Promise<unknown>;
 type Params<Name extends StorageRpcMethod> = OperationParams<
   typeof StorageOperationContracts,
   Name
 >;
+
+const SCOPED_OPERATIONS = new Set<StorageRpcMethod>([
+  "hydrate", "events.replay", "events.acknowledge",
+  "document.save", "suggestions.command", "source.import", "agent.seed",
+  "agent.document.read", "agent.suggestions.list", "agent.suggestion.create",
+  "agent.suggestion.update", "agent.suggestion.retract",
+]);
 
 /**
  * What: performs the params for step for this file's workflow.
@@ -101,6 +107,60 @@ function paramsFor<Name extends StorageRpcMethod>(value: unknown): Params<Name> 
   return value as Params<Name>;
 }
 
+function executeProjectOperation(
+  operations: StorageOperations,
+  name: StorageRpcMethod,
+  params?: unknown,
+) {
+  switch (name) {
+    case "project.create": return operations.createProject(paramsFor<"project.create">(params));
+    case "project.rename": return operations.renameProject(paramsFor<"project.rename">(params));
+    case "project.delete": return operations.deleteProject(paramsFor<"project.delete">(params));
+    case "project.select": return operations.selectProject(paramsFor<"project.select">(params));
+    default: throw new Error("Unknown project operation");
+  }
+}
+
+function executeDocumentOperation(
+  operations: StorageOperations,
+  name: StorageRpcMethod,
+  params?: unknown,
+) {
+  switch (name) {
+    case "document.create": return operations.createDocument(paramsFor<"document.create">(params));
+    case "document.rename": return operations.renameDocument(paramsFor<"document.rename">(params));
+    case "document.delete": return operations.deleteDocument(paramsFor<"document.delete">(params));
+    case "document.select": return operations.selectDocument(paramsFor<"document.select">(params));
+    case "document.save": return operations.saveDocument(paramsFor<"document.save">(params));
+    default: throw new Error("Unknown document operation");
+  }
+}
+
+function executeEventOperation(
+  operations: StorageOperations,
+  name: StorageRpcMethod,
+  params?: unknown,
+) {
+  switch (name) {
+    case "events.replay": return operations.replayEvents(paramsFor<"events.replay">(params));
+    case "events.acknowledge": return operations.acknowledgeEvents(paramsFor<"events.acknowledge">(params));
+    default: throw new Error("Unknown event operation");
+  }
+}
+
+function executeAgentSuggestionOperation(
+  operations: StorageOperations,
+  name: StorageRpcMethod,
+  params?: unknown,
+) {
+  switch (name) {
+    case "agent.suggestion.create": return operations.createSuggestion(paramsFor<"agent.suggestion.create">(params));
+    case "agent.suggestion.update": return operations.updateSuggestion(paramsFor<"agent.suggestion.update">(params));
+    case "agent.suggestion.retract": return operations.retractSuggestion(paramsFor<"agent.suggestion.retract">(params));
+    default: throw new Error("Unknown agent suggestion operation");
+  }
+}
+
 /**
  * What: creates storage request handler with the dependencies and defaults this workflow expects.
  *
@@ -108,46 +168,40 @@ function paramsFor<Name extends StorageRpcMethod>(value: unknown): Params<Name> 
  * Called when: used by service and createStorageService when that path needs this behavior.
  */
 export function createStorageRequestHandler(operations: StorageOperations) {
-  const operationMap = {
-    "health.ping": () => {
+  function executeOperation(name: StorageRpcMethod, params?: unknown) {
+    if (name.startsWith("project.")) {
+      return executeProjectOperation(operations, name, params);
+    }
+    if (name.startsWith("document.")) {
+      return executeDocumentOperation(operations, name, params);
+    }
+    if (name.startsWith("events.")) {
+      return executeEventOperation(operations, name, params);
+    }
+    if (name.startsWith("agent.suggestion.")) {
+      return executeAgentSuggestionOperation(operations, name, params);
+    }
+    switch (name) {
+    case "health.ping":
       operations.catalog();
       return { respondedAt: Date.now(), databaseReadable: true };
-    },
-    "workspace.catalog": () => operations.catalog(),
-    "project.create": (params) => operations.createProject(paramsFor<"project.create">(params)),
-    "project.rename": (params) => operations.renameProject(paramsFor<"project.rename">(params)),
-    "project.delete": (params) => operations.deleteProject(paramsFor<"project.delete">(params)),
-    "project.select": (params) => operations.selectProject(paramsFor<"project.select">(params)),
-    "document.create": (params) => operations.createDocument(paramsFor<"document.create">(params)),
-    "document.rename": (params) => operations.renameDocument(paramsFor<"document.rename">(params)),
-    "document.delete": (params) => operations.deleteDocument(paramsFor<"document.delete">(params)),
-    "document.select": (params) => operations.selectDocument(paramsFor<"document.select">(params)),
-    hydrate: (params) => operations.hydrate(paramsFor<"hydrate">(params)),
-    "events.replay": (params) => operations.replayEvents(paramsFor<"events.replay">(params)),
-    "events.acknowledge": (params) => operations.acknowledgeEvents(paramsFor<"events.acknowledge">(params)),
-    "document.save": (params) => operations.saveDocument(paramsFor<"document.save">(params)),
-    "suggestions.command": (params) => operations.executeSuggestionCommand(paramsFor<"suggestions.command">(params)),
-    "source.import": (params) => operations.importSource(paramsFor<"source.import">(params)),
-    "agent.seed": (params) => operations.getObservationSeed(paramsFor<"agent.seed">(params)),
-    "agent.document.read": (params) => operations.readAgentDocument(paramsFor<"agent.document.read">(params)),
-    "agent.suggestions.list": (params) => operations.listSuggestions(paramsFor<"agent.suggestions.list">(params)),
-    "agent.suggestion.create": (params) => operations.createSuggestion(paramsFor<"agent.suggestion.create">(params)),
-    "agent.suggestion.update": (params) => operations.updateSuggestion(paramsFor<"agent.suggestion.update">(params)),
-    "agent.suggestion.retract": (params) => operations.retractSuggestion(paramsFor<"agent.suggestion.retract">(params)),
-  } satisfies Record<StorageRpcMethod, Operation>;
+    case "workspace.catalog": return operations.catalog();
+    case "hydrate": return operations.hydrate(paramsFor<"hydrate">(params));
+    case "suggestions.command": return operations.executeSuggestionCommand(paramsFor<"suggestions.command">(params));
+    case "source.import": return operations.importSource(paramsFor<"source.import">(params));
+    case "agent.seed": return operations.getObservationSeed(paramsFor<"agent.seed">(params));
+    case "agent.document.read": return operations.readAgentDocument(paramsFor<"agent.document.read">(params));
+    case "agent.suggestions.list": return operations.listSuggestions(paramsFor<"agent.suggestions.list">(params));
+    default: throw new Error("Unknown storage operation");
+    }
+  }
 
   return async (method: string, params?: unknown) => {
-    if (!Object.prototype.hasOwnProperty.call(operationMap, method)) {
+    if (!Object.prototype.hasOwnProperty.call(StorageOperationContracts, method)) {
       throw new Error("Unknown storage operation");
     }
     const name = method as StorageRpcMethod;
-    const scopedOperations = new Set([
-      "hydrate", "events.replay", "events.acknowledge",
-      "document.save", "suggestions.command", "source.import", "agent.seed",
-      "agent.document.read", "agent.suggestions.list", "agent.suggestion.create", "agent.suggestion.update",
-      "agent.suggestion.retract",
-    ]);
-    if (scopedOperations.has(name)) {
+    if (SCOPED_OPERATIONS.has(name)) {
       params = { ...operations.catalog().selection,
         ...(typeof params === "object" && params !== null ? params : {}) };
     }
@@ -156,7 +210,7 @@ export function createStorageRequestHandler(operations: StorageOperations) {
       params,
       `storage.${name}.params`,
     );
-    const result = await (operationMap[name] as Operation)(input);
+    const result = await executeOperation(name, input);
     return parseOrContractError(
       StorageOperationContracts[name].result,
       result,

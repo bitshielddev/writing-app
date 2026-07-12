@@ -7,7 +7,10 @@ import {
   type CommandHandlers,
 } from "./commands";
 import { KeybindingCommandStrip } from "./KeybindingCommandStrip";
-import { useKeybindingController } from "./useKeybindingController";
+import {
+  executeCommand,
+  useKeybindingController,
+} from "./useKeybindingController";
 
 /**
  * What: creates handlers with the dependencies and defaults this workflow expects.
@@ -50,6 +53,26 @@ function press(key: string, options: KeyboardEventInit = {}) {
 }
 
 afterEach(() => vi.useRealTimers());
+
+describe("executeCommand", () => {
+  it("statically dispatches every application command", () => {
+    const handlers = createHandlers();
+
+    for (const commandId of APP_COMMAND_IDS) {
+      expect(executeCommand(handlers, commandId)).toEqual({
+        status: "executed",
+      });
+      expect(handlers[commandId]).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("fails closed for an unknown application command", () => {
+    expect(() => executeCommand(
+      createHandlers(),
+      "unknown.command" as (typeof APP_COMMAND_IDS)[number],
+    )).toThrow("Unknown application command");
+  });
+});
 
 describe("useKeybindingController", () => {
   it("arms with Ctrl+; and executes a recognized command", () => {

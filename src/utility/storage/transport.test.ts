@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createStorageTransport } from "./transport";
+import type { StorageOperations } from "./application/operations";
+import {
+  createStorageRequestHandler,
+  createStorageTransport,
+} from "./transport";
 
 describe("storage transport", () => {
   it("correlates successful and failed request envelopes", async () => {
@@ -66,5 +70,28 @@ describe("storage transport", () => {
         retryable: true,
       },
     });
+  });
+});
+
+describe("storage request handler", () => {
+  it("dispatches a known operation through its static handler", async () => {
+    const catalog = vi.fn(() => ({ projects: [] }));
+    const handleRequest = createStorageRequestHandler({
+      catalog,
+    } as unknown as StorageOperations);
+
+    await expect(handleRequest("health.ping")).resolves.toEqual({
+      respondedAt: expect.any(Number),
+      databaseReadable: true,
+    });
+    expect(catalog).toHaveBeenCalledOnce();
+  });
+
+  it("rejects operation names outside the storage contract", async () => {
+    const handleRequest = createStorageRequestHandler({} as StorageOperations);
+
+    await expect(handleRequest("constructor")).rejects.toThrow(
+      "Unknown storage operation",
+    );
   });
 });
