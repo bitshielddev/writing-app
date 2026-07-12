@@ -26,7 +26,7 @@ type KeybindingControllerOptions = {
   handlers: CommandHandlers;
 };
 
-function executeCommand(
+export function executeCommand(
   handlers: CommandHandlers,
   commandId: AppCommandId,
 ): CommandResult {
@@ -45,6 +45,7 @@ function executeCommand(
     case "suggestion.preview": return handlers["suggestion.preview"]();
     case "suggestion.accept": return handlers["suggestion.accept"]();
     case "suggestion.dismiss": return handlers["suggestion.dismiss"]();
+    default: throw new Error("Unknown application command");
   }
 }
 

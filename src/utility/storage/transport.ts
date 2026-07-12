@@ -90,6 +90,13 @@ type Params<Name extends StorageRpcMethod> = OperationParams<
   Name
 >;
 
+const SCOPED_OPERATIONS = new Set<StorageRpcMethod>([
+  "hydrate", "events.replay", "events.acknowledge",
+  "document.save", "suggestions.command", "source.import", "agent.seed",
+  "agent.document.read", "agent.suggestions.list", "agent.suggestion.create",
+  "agent.suggestion.update", "agent.suggestion.retract",
+]);
+
 /**
  * What: performs the params for step for this file's workflow.
  *
@@ -175,10 +182,9 @@ export function createStorageRequestHandler(operations: StorageOperations) {
       return executeAgentSuggestionOperation(operations, name, params);
     }
     switch (name) {
-    case "health.ping": {
+    case "health.ping":
       operations.catalog();
       return { respondedAt: Date.now(), databaseReadable: true };
-    }
     case "workspace.catalog": return operations.catalog();
     case "hydrate": return operations.hydrate(paramsFor<"hydrate">(params));
     case "suggestions.command": return operations.executeSuggestionCommand(paramsFor<"suggestions.command">(params));
@@ -195,13 +201,7 @@ export function createStorageRequestHandler(operations: StorageOperations) {
       throw new Error("Unknown storage operation");
     }
     const name = method as StorageRpcMethod;
-    const scopedOperations = new Set([
-      "hydrate", "events.replay", "events.acknowledge",
-      "document.save", "suggestions.command", "source.import", "agent.seed",
-      "agent.document.read", "agent.suggestions.list", "agent.suggestion.create", "agent.suggestion.update",
-      "agent.suggestion.retract",
-    ]);
-    if (scopedOperations.has(name)) {
+    if (SCOPED_OPERATIONS.has(name)) {
       params = { ...operations.catalog().selection,
         ...(typeof params === "object" && params !== null ? params : {}) };
     }
