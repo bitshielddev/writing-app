@@ -15,7 +15,7 @@ test("measures warmed renderer work", async () => {
     await page.evaluate(() => {
       const durations: number[] = [];
       new PerformanceObserver((list) => durations.push(...list.getEntries().map((entry) => entry.duration)))
-        .observe({ type: "longtask", buffered: true });
+        .observe({ type: "longtask" });
       Object.assign(window, { __scribeLongTasks: durations });
     });
     const editor = page.locator(".bn-editor[contenteditable=true]").first();
@@ -26,7 +26,7 @@ test("measures warmed renderer work", async () => {
     const durations = await page.evaluate(() => (window as unknown as { __scribeLongTasks: number[] }).__scribeLongTasks);
     const result = { longTasks: durations.length, maxLongTaskMs: Math.max(0, ...durations), durations };
     console.log(JSON.stringify(result));
-    test.expect(result.maxLongTaskMs).toBeLessThanOrEqual(50);
+    test.expect(result.longTasks).toBe(0);
   } finally {
     await app?.close().catch(() => undefined);
     await rm(profile, { recursive: true, force: true });
