@@ -32,9 +32,54 @@ const rendererAcknowledgeParams = Type.Object({
   sequence: Type.Integer({ minimum: 0 }),
 }, strict);
 
+const themeColor = Type.String({ pattern: "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" });
+export const ThemeColorsSchema = Type.Object({
+  background: themeColor,
+  foreground: themeColor,
+  panel: themeColor,
+  panel_foreground: themeColor,
+  surface: themeColor,
+  surface_foreground: themeColor,
+  surface_raised: themeColor,
+  muted: themeColor,
+  muted_foreground: themeColor,
+  border: themeColor,
+  primary: themeColor,
+  primary_hover: themeColor,
+  primary_foreground: themeColor,
+  accent: themeColor,
+  accent_foreground: themeColor,
+  focus: themeColor,
+  overlay: themeColor,
+  success: themeColor,
+  success_foreground: themeColor,
+  warning: themeColor,
+  warning_foreground: themeColor,
+  danger: themeColor,
+  danger_foreground: themeColor,
+  pin: themeColor,
+  pin_header: themeColor,
+  pin_foreground: themeColor,
+  pin_border: themeColor,
+}, strict);
+export const ThemeDefinitionSchema = Type.Object({
+  id: identifier,
+  schema_version: Type.Literal(1),
+  display_name: Type.String({ minLength: 1 }),
+  appearance: Type.Union([Type.Literal("light"), Type.Literal("dark")]),
+  source: Type.Optional(Type.String({ minLength: 1 })),
+  colors: ThemeColorsSchema,
+}, strict);
+export const ThemeCatalogSchema = Type.Object({
+  activeThemeId: identifier,
+  themes: Type.Array(ThemeDefinitionSchema, { minItems: 1 }),
+}, strict);
+
 export const RendererOperations = {
   "events.subscribe": operation(noParams, Type.Object({ consumerId: identifier }, strict)),
   "workspace.catalog": operation(noParams, WorkspaceCatalogSchema),
+  "theme.catalog": operation(noParams, ThemeCatalogSchema),
+  "theme.select": operation(Type.Object({ themeId: identifier }, strict), ThemeCatalogSchema),
   "project.create": operation(namedProject, WorkspaceCatalogSchema),
   "project.rename": operation(renamedProject, WorkspaceCatalogSchema),
   "project.delete": operation(projectIdentity, WorkspaceCatalogSchema),
@@ -57,6 +102,8 @@ export const RendererOperations = {
 export const DESKTOP_INVOKE_CHANNELS = {
   subscribeEvents: "scribe:events.subscribe",
   workspaceCatalog: "scribe:workspace.catalog",
+  themeCatalog: "scribe:theme.catalog",
+  selectTheme: "scribe:theme.select",
   createProject: "scribe:project.create",
   renameProject: "scribe:project.rename",
   deleteProject: "scribe:project.delete",
@@ -79,6 +126,8 @@ export const DESKTOP_EVENT_CHANNEL = "scribe:event" as const;
 export const RENDERER_OPERATION_CHANNELS = {
   "events.subscribe": DESKTOP_INVOKE_CHANNELS.subscribeEvents,
   "workspace.catalog": DESKTOP_INVOKE_CHANNELS.workspaceCatalog,
+  "theme.catalog": DESKTOP_INVOKE_CHANNELS.themeCatalog,
+  "theme.select": DESKTOP_INVOKE_CHANNELS.selectTheme,
   "project.create": DESKTOP_INVOKE_CHANNELS.createProject,
   "project.rename": DESKTOP_INVOKE_CHANNELS.renameProject,
   "project.delete": DESKTOP_INVOKE_CHANNELS.deleteProject,

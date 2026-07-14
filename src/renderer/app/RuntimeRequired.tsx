@@ -10,12 +10,12 @@ type RuntimeRequiredProps = {
  */
 export function RuntimeRequired({ message }: RuntimeRequiredProps) {
   return (
-    <main className="grid min-h-dvh place-items-center bg-[#f7f6ff] p-8">
-      <section className="max-w-lg rounded-2xl border border-[#dedbe9] bg-white p-8 shadow-xl shadow-brand-900/5">
-        <h1 className="text-2xl font-extrabold text-[#1a1b22]">
+    <main className="grid min-h-dvh place-items-center bg-panel p-8">
+      <section className="max-w-lg rounded-2xl border border-border bg-surface-raised p-8 shadow-xl shadow-brand-900/5">
+        <h1 className="text-2xl font-extrabold text-foreground">
           Electron desktop runtime required
         </h1>
-        <p className="mt-3 text-sm leading-6 text-[#686577]">{message}</p>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">{message}</p>
       </section>
     </main>
   );

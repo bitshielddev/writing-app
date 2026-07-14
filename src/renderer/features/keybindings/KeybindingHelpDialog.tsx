@@ -1,7 +1,7 @@
-import { Keyboard, X } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { Keyboard } from "lucide-react";
+import { useMemo } from "react";
 
-import { useModalFocus } from "../../ui/useModalFocus";
+import { ModalDialog } from "../../ui/ModalDialog";
 import { COMMAND_CATALOG, type CommandDefinition } from "./commands";
 import { DEFAULT_KEYMAP, formatSequence } from "./defaultKeymap";
 
@@ -26,8 +26,6 @@ export function KeybindingHelpDialog({
   open,
   onClose,
 }: KeybindingHelpDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const groupedCommands = useMemo(
     () =>
       GROUPS.map((group) => ({
@@ -37,61 +35,11 @@ export function KeybindingHelpDialog({
     [],
   );
 
-  useModalFocus({
-    containerRef: dialogRef,
-    initialFocusRef: closeButtonRef,
-    open,
-    onClose,
-  });
-
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center p-4 sm:p-8">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-[#13141c]/55 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="keybinding-help-title"
-        aria-describedby="keybinding-help-description"
-        className="relative flex max-h-[min(48rem,calc(100dvh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#d7d4e8] bg-[#fbfaff] shadow-2xl"
-      >
-        <header className="flex shrink-0 items-start gap-3 border-b border-[#dedbe9] px-5 py-4 sm:px-7 sm:py-5">
-          <span className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-lg bg-brand-600 text-white">
-            <Keyboard className="size-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2
-              id="keybinding-help-title"
-              className="text-xl font-extrabold tracking-[-0.025em] text-[#1a1b22]"
-            >
-              Keyboard shortcuts
-            </h2>
-            <p
-              id="keybinding-help-description"
-              className="mt-1 text-sm leading-5 text-[#686577]"
-            >
-              Start every shortcut with Ctrl+;. The sequence expires after two
-              seconds, and ordinary typing remains unchanged.
-            </p>
-          </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            aria-label="Close keyboard shortcuts"
-            className="grid size-9 shrink-0 place-items-center rounded-md text-[#5d5b6d] hover:bg-[#e8e7f1] hover:text-brand-700"
-            onClick={onClose}
-          >
-            <X className="size-5" aria-hidden="true" />
-          </button>
-        </header>
-
-        <div className="min-h-0 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+    <ModalDialog open={open} onClose={onClose} titleId="keybinding-help-title"
+      descriptionId="keybinding-help-description" title="Keyboard shortcuts"
+      description="Start every shortcut with Ctrl+;. The sequence expires after two seconds, and ordinary typing remains unchanged."
+      icon={Keyboard} closeLabel="Close keyboard shortcuts">
           <div className="grid gap-7">
             {groupedCommands.map(({ group, commands }) => (
               <section key={group} aria-labelledby={`shortcut-group-${group}`}>
@@ -101,17 +49,17 @@ export function KeybindingHelpDialog({
                 >
                   {group}
                 </h3>
-                <dl className="mt-3 divide-y divide-[#e5e2ef] rounded-xl border border-[#dedbe9] bg-white/75 px-4">
+                <dl className="mt-3 divide-y divide-border rounded-xl border border-border bg-surface-raised px-4">
                   {commands.map((command) => (
                     <div
                       key={command.id}
                       className="grid gap-2 py-3.5 sm:grid-cols-[minmax(13rem,1fr)_auto] sm:items-center sm:gap-5"
                     >
                       <div>
-                        <dt className="text-sm font-bold text-[#292a34]">
+                        <dt className="text-sm font-bold text-foreground">
                           {command.label}
                         </dt>
-                        <dd className="mt-0.5 text-xs leading-5 text-[#777386]">
+                        <dd className="mt-0.5 text-xs leading-5 text-muted-foreground">
                           {command.description}
                         </dd>
                       </div>
@@ -120,7 +68,7 @@ export function KeybindingHelpDialog({
                           (key, index) => (
                             <kbd
                               key={`${key}-${index}`}
-                              className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md border border-[#c9c5dc] bg-[#f2f0f8] px-2 font-mono text-xs font-bold text-[#393844] shadow-sm"
+                              className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md border border-border bg-muted px-2 font-mono text-xs font-bold text-foreground shadow-sm"
                             >
                               {key}
                             </kbd>
@@ -133,8 +81,6 @@ export function KeybindingHelpDialog({
               </section>
             ))}
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalDialog>
   );
 }

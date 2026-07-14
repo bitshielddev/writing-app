@@ -8,6 +8,7 @@ import type { DesktopEvent } from "../contracts/desktop-bridge";
 import {
   createDocumentSaveReceipt,
   createSourceSnapshot,
+  createThemeCatalog,
   createWorkspaceSnapshot,
 } from "../test/desktopBridgeHarness";
 import {
@@ -34,6 +35,7 @@ function ipcHarness() {
       state: { entries: [], pinnedEntries: [], workspacePins: [], seenKeys: {}, nextZIndex: 1 },
     };
     if (channel === DESKTOP_INVOKE_CHANNELS.importSource) return createSourceSnapshot();
+    if (channel === DESKTOP_INVOKE_CHANNELS.themeCatalog || channel === DESKTOP_INVOKE_CHANNELS.selectTheme) return createThemeCatalog();
     return undefined;
   });
   const on = vi.fn();
@@ -65,6 +67,8 @@ describe("preload bridge contract", () => {
     await bridge.saveDocument(saveInput);
     await bridge.executeSuggestionCommand(suggestionCommand);
     await bridge.importSource(scope);
+    await bridge.getThemeCatalog();
+    await bridge.selectTheme({ themeId: "scribe-light" });
 
     expect(harness.invoke.mock.calls).toEqual([
       [DESKTOP_INVOKE_CHANNELS.subscribeEvents],
@@ -74,6 +78,8 @@ describe("preload bridge contract", () => {
       [DESKTOP_INVOKE_CHANNELS.saveDocument, saveInput],
       [DESKTOP_INVOKE_CHANNELS.executeSuggestionCommand, suggestionCommand],
       [DESKTOP_INVOKE_CHANNELS.importSource, scope],
+      [DESKTOP_INVOKE_CHANNELS.themeCatalog],
+      [DESKTOP_INVOKE_CHANNELS.selectTheme, { themeId: "scribe-light" }],
     ]);
   });
 

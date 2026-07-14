@@ -4,6 +4,7 @@ import { DESKTOP_INVOKE_CHANNELS } from "../../contracts/operations/renderer";
 import {
   createDocumentSaveReceipt,
   createSourceSnapshot,
+  createThemeCatalog,
   createWorkspaceSnapshot,
 } from "../../test/desktopBridgeHarness";
 import {
@@ -87,6 +88,8 @@ function createHarness(eventConsumers?: RendererEventConsumers) {
     ],
     eventConsumers,
     logger: { error: vi.fn() },
+    getThemeCatalog: () => createThemeCatalog(),
+    selectTheme: async () => createThemeCatalog(),
   });
   /**
    * What: performs the invoke step for this file's workflow.

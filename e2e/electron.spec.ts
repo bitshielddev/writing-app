@@ -36,6 +36,10 @@ test("built app starts, persists edits, and recovers utility processes", async (
     let page = await app.firstWindow();
     await waitForHealth(page, "storage", "healthy");
     await waitForHealth(page, "agent", "healthy");
+    await page.getByRole("button", { name: "Settings" }).click();
+    await page.getByRole("radio", { name: /Nord/ }).click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("nord");
+    await page.getByRole("button", { name: "Close settings" }).click();
     const editor = await editableEditor(page);
     await editor.fill("Persistent e2e draft");
     await page.evaluate(() => window.scribeFlush?.());
@@ -55,6 +59,7 @@ test("built app starts, persists edits, and recovers utility processes", async (
     app = undefined;
     ({ app, page } = await launch(profile));
     await waitForHealth(page, "storage", "healthy");
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("nord");
     await expect(await editableEditor(page)).toContainText("Persistent e2e draft", { timeout: 15_000 });
   } finally {
     await app?.close().catch(() => undefined);

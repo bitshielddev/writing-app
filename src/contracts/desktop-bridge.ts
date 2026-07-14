@@ -21,6 +21,7 @@ import type {
   WorkspaceCatalogSchema,
   WorkspaceSnapshotSchema,
 } from "./events";
+import type { ThemeCatalogSchema, ThemeColorsSchema, ThemeDefinitionSchema } from "./operations/renderer";
 import type { RendererOperations } from "./operations/renderer";
 
 export type AgentStatus = Static<typeof AgentStatusSchema>;
@@ -43,11 +44,16 @@ export type EphemeralDesktopEvent = Static<typeof EphemeralDesktopEventSchema>;
 export type ObservationSeed = Static<typeof ObservationSeedSchema>;
 export type ProcessHealth = Static<typeof ProcessHealthSchema>;
 export type ProcessHealthSnapshot = Static<typeof ProcessHealthSnapshotSchema>;
+export type ThemeColors = Static<typeof ThemeColorsSchema>;
+export type ThemeDefinition = Static<typeof ThemeDefinitionSchema>;
+export type ThemeCatalog = Static<typeof ThemeCatalogSchema>;
 export type { PersistedSuggestionState } from "../domain/suggestions/state";
 
 export type DesktopBridge = {
   subscribeEvents?(): Promise<OperationResult<typeof RendererOperations, "events.subscribe">>;
   getWorkspaceCatalog(): Promise<OperationResult<typeof RendererOperations, "workspace.catalog">>;
+  getThemeCatalog(): Promise<OperationResult<typeof RendererOperations, "theme.catalog">>;
+  selectTheme(input: OperationParams<typeof RendererOperations, "theme.select">): Promise<OperationResult<typeof RendererOperations, "theme.select">>;
   createProject(input: OperationParams<typeof RendererOperations, "project.create">): Promise<OperationResult<typeof RendererOperations, "project.create">>;
   renameProject(input: OperationParams<typeof RendererOperations, "project.rename">): Promise<OperationResult<typeof RendererOperations, "project.rename">>;
   deleteProject(input: OperationParams<typeof RendererOperations, "project.delete">): Promise<OperationResult<typeof RendererOperations, "project.delete">>;

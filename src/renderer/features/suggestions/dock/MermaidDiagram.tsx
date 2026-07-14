@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-let mermaidInitialized = false;
 let mermaidModule: Promise<typeof import("mermaid")> | undefined;
+let mermaidThemeSignature: string | undefined;
 
 type MermaidDiagramProps = {
   source: string;
@@ -45,6 +45,13 @@ function MermaidDiagramRender({
   const [status, setStatus] = useState<"loading" | "ready" | "failed">(
     "loading",
   );
+  const [themeRevision, setThemeRevision] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setThemeRevision((revision) => revision + 1);
+    window.addEventListener("scribe-theme-change", refresh);
+    return () => window.removeEventListener("scribe-theme-change", refresh);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -62,16 +69,26 @@ function MermaidDiagramRender({
       try {
         mermaidModule ??= import("mermaid");
         const mermaid = (await mermaidModule).default;
-        if (!mermaidInitialized) {
-          mermaid.initialize({
+          const styles = getComputedStyle(document.documentElement);
+          const themeVariables = {
+            background: styles.getPropertyValue("--surface").trim(),
+            primaryColor: styles.getPropertyValue("--panel").trim(),
+            primaryTextColor: styles.getPropertyValue("--foreground").trim(),
+            primaryBorderColor: styles.getPropertyValue("--border").trim(),
+            lineColor: styles.getPropertyValue("--muted-foreground").trim(),
+            secondaryColor: styles.getPropertyValue("--accent").trim(),
+            tertiaryColor: styles.getPropertyValue("--muted").trim(),
+          };
+          const themeSignature = JSON.stringify(themeVariables);
+          if (themeSignature !== mermaidThemeSignature) mermaid.initialize({
             startOnLoad: false,
             securityLevel: "strict",
             theme: "base",
             suppressErrorRendering: true,
             mindmap: { useMaxWidth: true },
+            themeVariables,
           });
-          mermaidInitialized = true;
-        }
+          mermaidThemeSignature = themeSignature;
 
         if (!active) return;
 
@@ -92,16 +109,16 @@ function MermaidDiagramRender({
     return () => {
       active = false;
     };
-  }, [source]);
+  }, [source, themeRevision]);
 
   if (status === "failed") {
     return (
       <div
         role="status"
-        className="rounded-xl border border-dashed border-[#c9c5dc] bg-white/60 px-5 py-8 text-center"
+        className="rounded-xl border border-dashed border-border bg-surface-raised/60 px-5 py-8 text-center"
       >
-        <p className="text-sm font-semibold text-[#393844]">Diagram unavailable</p>
-        <p className="mt-1 text-xs leading-5 text-[#777386]">{description}</p>
+        <p className="text-sm font-semibold text-foreground">Diagram unavailable</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
       </div>
     );
   }
@@ -111,7 +128,7 @@ function MermaidDiagramRender({
       role={status === "ready" ? "img" : undefined}
       aria-label={status === "ready" ? `${title}. ${description}` : undefined}
       aria-busy={status === "loading"}
-      className="mermaid-diagram relative min-h-56 overflow-auto rounded-xl border border-[#d7d4e8] bg-white p-4"
+      className="mermaid-diagram relative min-h-56 overflow-auto rounded-xl border border-border bg-surface-raised p-4"
     >
       <div
         ref={renderHostRef}
@@ -121,7 +138,7 @@ function MermaidDiagramRender({
       {status === "loading" ? (
         <div
           role="status"
-          className="absolute inset-0 grid place-items-center bg-white/55 text-sm text-[#777386]"
+          className="absolute inset-0 grid place-items-center bg-surface-raised/55 text-sm text-muted-foreground"
         >
           Rendering diagram…
         </div>

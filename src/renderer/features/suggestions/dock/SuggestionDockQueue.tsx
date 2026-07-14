@@ -79,10 +79,10 @@ function QueueRow({
   const { item } = entry;
   return (
     <article
-      className={`group relative rounded-xl border bg-white/75 shadow-sm shadow-slate-900/5 transition hover:border-brand-300 hover:bg-white ${
+      className={`group relative rounded-xl border bg-surface-raised/75 shadow-sm  transition hover:border-brand-300 hover:bg-surface-raised ${
         keyboardActive
           ? "border-brand-400 ring-2 ring-brand-500/25"
-          : "border-[#dedbe9]"
+          : "border-border"
       } ${entry.disabledReason ? "opacity-60 grayscale" : ""}`}
     >
       {!entry.viewed ? (
@@ -103,23 +103,23 @@ function QueueRow({
         onFocus={onTarget}
       >
         <KindBadge kind={item.kind} />
-        <h3 className="mt-3 text-sm font-bold leading-5 text-[#20212a]">
+        <h3 className="mt-3 text-sm font-bold leading-5 text-foreground">
           {item.title}
         </h3>
-        <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-[#686577]">
+        <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-muted-foreground">
           {item.summary}
         </p>
         {entry.disabledReason ? (
-          <p className="mt-2 text-xs font-semibold text-slate-600">
+          <p className="mt-2 text-xs font-semibold text-muted-foreground">
             Disabled: source text changed
           </p>
         ) : null}
         <div className="mt-3 flex items-center justify-between gap-2">
-          <span className="truncate text-xs text-[#8b8798]">
+          <span className="truncate text-xs text-muted-foreground">
             {item.sourceLabels[0] ?? "From the evolving draft"}
           </span>
           <ChevronRight
-            className="size-4 shrink-0 text-[#aaa6bd] transition group-hover:translate-x-0.5 group-hover:text-brand-600"
+            className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-brand-600"
             aria-hidden="true"
           />
         </div>
@@ -131,7 +131,7 @@ function QueueRow({
         className={`absolute top-3 right-3 grid size-9 place-items-center rounded-md transition ${
           pinned
             ? "bg-brand-100 text-brand-700 hover:bg-brand-200"
-            : "text-[#777386] hover:bg-brand-50 hover:text-brand-700"
+            : "text-muted-foreground hover:bg-brand-50 hover:text-brand-700"
         }`}
         onClick={onPinToggle}
         onFocus={onTarget}
@@ -202,20 +202,20 @@ export function SuggestionDockQueue({
     <div className="px-5 py-6 2xl:px-7 2xl:py-7">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <span className="grid size-9 place-items-center rounded-lg bg-brand-600 text-white">
+          <span className="grid size-9 place-items-center rounded-lg bg-brand-600 text-primary-foreground">
             <Sparkles className="size-5" aria-hidden="true" />
           </span>
           <div>
-            <h2 className="text-lg font-extrabold text-[#1a1b22]">
+            <h2 className="text-lg font-extrabold text-foreground">
               Writing partner
             </h2>
-            <p className="mt-0.5 text-xs font-semibold text-[#777386]">
+            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
               {presentation.summary}
             </p>
           </div>
         </div>
         {unreadCount ? (
-          <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full bg-brand-600 px-2 text-xs font-bold text-white">
+          <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full bg-brand-600 px-2 text-xs font-bold text-primary-foreground">
             <span className="sr-only">Unread suggestions: </span>
             {unreadCount}
           </span>
@@ -223,7 +223,7 @@ export function SuggestionDockQueue({
       </header>
 
       {error ? (
-        <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+        <div className="mt-5 rounded-lg border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
           <p>{error}</p>
         </div>
       ) : null}
@@ -237,7 +237,7 @@ export function SuggestionDockQueue({
             >
               Pins
             </h2>
-            <span className="text-xs font-semibold text-[#8b8798]">
+            <span className="text-xs font-semibold text-muted-foreground">
               {pinnedEntries.length}
             </span>
           </div>
@@ -262,11 +262,11 @@ export function SuggestionDockQueue({
         <div className="flex items-center justify-between gap-3">
           <h2
             id="suggestion-inbox-title"
-            className="text-xs font-extrabold tracking-[0.1em] text-[#686577] uppercase"
+            className="text-xs font-extrabold tracking-[0.1em] text-muted-foreground uppercase"
           >
             Suggestion inbox
           </h2>
-          <span className="text-xs font-semibold text-[#8b8798]">
+          <span className="text-xs font-semibold text-muted-foreground">
             {entries.length} of {SUGGESTION_ENTRY_LIMIT}
           </span>
         </div>
@@ -285,7 +285,7 @@ export function SuggestionDockQueue({
             />
           ))}
           {!entries.length ? (
-            <div className="grid min-h-44 place-items-center rounded-xl border border-dashed border-[#c9c5dc] bg-white/35 px-6 text-center">
+            <div className="grid min-h-44 place-items-center rounded-xl border border-dashed border-border bg-surface-raised/35 px-6 text-center">
               <div>
                 {presentation.working ? (
                   <Sparkles
@@ -294,11 +294,11 @@ export function SuggestionDockQueue({
                   />
                 ) : (
                   <Lightbulb
-                    className="mx-auto size-7 text-[#aaa6bd]"
+                    className="mx-auto size-7 text-muted-foreground"
                     aria-hidden="true"
                   />
                 )}
-                <p className="mt-3 text-sm font-semibold text-[#5d5b6d]">
+                <p className="mt-3 text-sm font-semibold text-muted-foreground">
                   {presentation.emptyMessage}
                 </p>
               </div>

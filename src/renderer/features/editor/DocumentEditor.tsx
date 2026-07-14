@@ -12,6 +12,7 @@ import { preloadKeybindingHelp } from "../keybindings/loadKeybindingHelp";
 import { markPerformance, PERFORMANCE_MARKS } from "../../platform/performance/marks";
 import { WorkspacePins } from "../suggestions/workspace-pins/WorkspacePins";
 import { createInitialWorkspacePinRect } from "../suggestions/workspace-pins/geometry";
+import { useTheme } from "../themes/useTheme";
 
 type DocumentEditorProps = {
   editor: WritingEditor;
@@ -42,6 +43,7 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   const scrollRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const { activeTheme } = useTheme();
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -106,7 +108,7 @@ export function DocumentEditor({
     <section
       ref={scrollRef}
       aria-label="Document editor"
-      className="min-h-0 flex-1 overflow-y-auto bg-white px-0 py-10 lg:py-14"
+      className="min-h-0 flex-1 overflow-y-auto bg-background px-0 py-10 lg:py-14"
     >
       <div
         ref={canvasRef}
@@ -119,7 +121,7 @@ export function DocumentEditor({
           <BlockNoteView
             editor={editor}
             editable={editable}
-            theme="light"
+            theme={activeTheme.appearance}
             aria-label="Editable draft content"
             data-editor-surface
             onChange={onChange}

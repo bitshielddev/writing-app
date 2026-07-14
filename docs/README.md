@@ -19,13 +19,14 @@ Electron owns SQLite and Pi in utility processes, imports UTF-8 Markdown sources
 ## Fastest route into the codebase
 
 1. Follow [Getting started](getting-started.md) to run the app, configure the Pi agent under Electron `userData`, import Markdown sources, and run the checks.
-2. Read [Architecture](architecture.md) for state ownership and module boundaries.
-3. Read [Editor and suggestion system](editor-and-suggestions.md) before changing feed, preview, pin, or inbox behavior.
-4. Use [UI and accessibility](ui-and-accessibility.md) for responsive layout, resizing, styling, and keyboard behavior.
-5. Use [Testing and quality](testing-and-quality.md) before submitting a change.
-6. Read [Desktop runtime](desktop-runtime.md) before changing persistence, IPC, source import, or Pi behaviour.
-7. Use [Extension guide](extension-guide.md) when extending those boundaries or adding a new suggestion kind.
-8. Review [Compatibility](compatibility.md) before changing any durable format, migration, process contract, or operation registry.
+2. See [Themes](themes.md) to select a bundled palette or add a strict YAML theme.
+3. Read [Architecture](architecture.md) for state ownership and module boundaries.
+4. Read [Editor and suggestion system](editor-and-suggestions.md) before changing feed, preview, pin, or inbox behavior.
+5. Use [UI and accessibility](ui-and-accessibility.md) for responsive layout, resizing, styling, and keyboard behavior.
+6. Use [Testing and quality](testing-and-quality.md) before submitting a change.
+7. Read [Desktop runtime](desktop-runtime.md) before changing persistence, IPC, source import, or Pi behaviour.
+8. Use [Extension guide](extension-guide.md) when extending those boundaries or adding a new suggestion kind.
+9. Review [Compatibility](compatibility.md) before changing any durable format, migration, process contract, or operation registry.
 
 ## Current user-visible behavior
 

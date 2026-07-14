@@ -47,7 +47,7 @@ export function WorkspacePinCard({
       role="region"
       aria-label={`Workspace pin: ${pin.item.title}`}
       data-workspace-pin={pin.item.id}
-      className={`pointer-events-auto absolute flex overflow-hidden rounded-xl border border-brand-300 bg-[#fffdf4] shadow-[0_18px_42px_rgb(35_31_66/22%)] ${
+      className={`pointer-events-auto absolute flex overflow-hidden rounded-xl border border-pin-border bg-pin text-pin-foreground shadow-xl ${
         pin.disabledReason ? "opacity-60 grayscale" : ""
       }`}
       style={{
@@ -60,20 +60,20 @@ export function WorkspacePinCard({
       onPointerDown={onRaise}
     >
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-12 shrink-0 items-stretch border-b border-[#e4dcae] bg-[#fff7c9]">
+        <header className="flex min-h-12 shrink-0 items-stretch border-b border-pin-border bg-pin-header text-primary-foreground">
           <button
             type="button"
             aria-label={`Move ${pin.item.title}`}
-            className="flex min-w-0 flex-1 touch-none items-center gap-2 px-3 text-left text-sm font-bold text-[#393426] active:cursor-grabbing"
+            className="flex min-w-0 flex-1 touch-none items-center gap-2 px-3 text-left text-sm font-bold active:cursor-grabbing"
             {...moveHandleProps}
           >
-            <GripVertical className="size-4 shrink-0 text-[#93875b]" aria-hidden="true" />
+            <GripVertical className="size-4 shrink-0 opacity-70" aria-hidden="true" />
             <span className="truncate">{pin.item.title}</span>
           </button>
           <button
             type="button"
             aria-label={`Return ${pin.item.title} to pins`}
-            className="grid w-11 shrink-0 place-items-center text-[#625b42] hover:bg-[#f4e99e] hover:text-brand-700"
+            className="grid w-11 shrink-0 place-items-center hover:bg-surface/20"
             onClick={onReturnToPins}
           >
             <Undo2 className="size-4" aria-hidden="true" />
@@ -82,17 +82,17 @@ export function WorkspacePinCard({
 
         <div className="min-h-0 flex-1 overflow-auto p-4">
           <KindBadge kind={pin.item.kind} />
-          <p className="mt-3 text-sm font-semibold leading-5 text-[#4d493b]">
+          <p className="mt-3 text-sm font-semibold leading-5">
             {pin.item.summary}
           </p>
           {pin.disabledReason ? (
-            <p className="mt-2 text-xs font-bold text-slate-600">
+            <p className="mt-2 text-xs font-bold text-muted-foreground">
               Disabled: source text changed
             </p>
           ) : null}
           <SuggestionMarkdown
             markdown={pin.item.body}
-            className="mt-3 text-sm leading-6 text-[#5d5849]"
+            className="mt-3 text-sm leading-6"
           />
           {isVisualSuggestion(pin.item) ? (
             <div className="mt-4">
@@ -105,7 +105,7 @@ export function WorkspacePinCard({
       <button
         type="button"
         aria-label={`Resize ${pin.item.title}`}
-        className="absolute right-0 bottom-0 grid size-8 touch-none place-items-center rounded-tl-lg bg-[#fff7c9] text-[#7d724d] hover:text-brand-700"
+        className="absolute right-0 bottom-0 grid size-8 touch-none place-items-center rounded-tl-lg bg-pin-header text-primary-foreground"
         {...resizeHandleProps}
       >
         <MoveDiagonal2 className="size-4" aria-hidden="true" />

@@ -1,5 +1,5 @@
 import { useCreateBlockNote } from "@blocknote/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { ColumnResizeHandle } from "../ui/ColumnResizeHandle";
 import { EditorWorkspace } from "../features/editor/EditorWorkspace";
@@ -9,6 +9,7 @@ import { SuggestionDock } from "../features/suggestions/dock/SuggestionDock";
 import { writingSchema, type WritingPartialBlock } from "../features/editor/schema";
 import { KeybindingCommandStrip } from "../features/keybindings/KeybindingCommandStrip";
 import { KeybindingHelpBoundary } from "../features/keybindings/KeybindingHelpBoundary";
+import { SettingsBoundary } from "../features/themes/SettingsBoundary";
 import { useWorkspaceKeybindings } from "../features/keybindings/useWorkspaceKeybindings";
 import { markPerformance, PERFORMANCE_MARKS } from "../platform/performance/marks";
 import type { DesktopBridge, ProcessHealthSnapshot } from "../../contracts/desktop-bridge";
@@ -49,18 +50,18 @@ function ProcessHealthBanner({
   if (health.storage.state !== "healthy") {
     const retryable = health.storage.state === "failed" || health.storage.state === "degraded";
     return (
-      <div role="alert" className="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-4 bg-red-800 px-4 py-2 text-sm text-white">
+      <div role="alert" className="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-4 bg-danger px-4 py-2 text-sm text-primary-foreground">
         <span>Storage is unavailable. Editing and workspace changes are read-only; unsaved text is retained.</span>
-        {retryable && canRetry ? <button className="rounded border border-white/60 px-3 py-1 font-semibold" onClick={() => void retry("storage")}>Retry storage</button> : null}
+        {retryable && canRetry ? <button className="rounded border border-primary-foreground/60 px-3 py-1 font-semibold" onClick={() => void retry("storage")}>Retry storage</button> : null}
       </div>
     );
   }
   if (health.agent.state === "healthy") return null;
   const retryable = health.agent.state === "failed" || health.agent.state === "degraded";
   return (
-    <div role="status" className="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-4 bg-amber-100 px-4 py-2 text-sm text-amber-950">
+    <div role="status" className="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-4 bg-warning/15 px-4 py-2 text-sm text-warning">
       <span>The writing agent is unavailable. Document editing and saving remain available.</span>
-      {retryable && canRetry ? <button className="rounded border border-amber-700 px-3 py-1 font-semibold" onClick={() => void retry("agent")}>Retry agent</button> : null}
+      {retryable && canRetry ? <button className="rounded border border-warning px-3 py-1 font-semibold" onClick={() => void retry("agent")}>Retry agent</button> : null}
     </div>
   );
 }
@@ -72,6 +73,7 @@ function ProcessHealthBanner({
  * Called when: used by main when that path needs this behavior.
  */
 export default function App({ desktop }: AppProps) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const layout = useWorkspaceLayout();
   const {
     workspaceRef,
@@ -152,6 +154,7 @@ export default function App({ desktop }: AppProps) {
     onUnpin: inbox.unpin,
     onPreview: handlePreview,
     onAccept: handleAcceptSuggestion,
+    disabled: settingsOpen,
   });
 
   useEffect(() => {
@@ -207,12 +210,12 @@ export default function App({ desktop }: AppProps) {
   );
 
   return (
-    <div className="min-h-dvh bg-white">
+    <div className="min-h-dvh bg-surface-raised">
       <ProcessHealthBanner health={health} canRetry={Boolean(desktop.retryProcess)} retry={retryProcess} />
       <main
         ref={workspaceRef}
         aria-label="ScribeAI writing workspace"
-        className={`workspace-grid grid h-dvh min-h-0 overflow-hidden bg-white ${
+        className={`workspace-grid grid h-dvh min-h-0 overflow-hidden bg-surface-raised ${
           inbox.selectedEntry ? "workspace-grid--detail" : ""
         } ${
           navigationPanelOpen ? "" : "workspace-grid--navigation-closed"
@@ -244,6 +247,7 @@ export default function App({ desktop }: AppProps) {
             onDeleteDocument={deleteDocument}
             regionRef={navigationRegionRef}
             onOpenKeybindingHelp={keybindings.openHelp}
+            onOpenSettings={() => setSettingsOpen(true)}
             onUploadSource={handleUploadSource}
           />
           {navigationPanelOpen ? (
@@ -327,6 +331,7 @@ export default function App({ desktop }: AppProps) {
           onRenameDocument={renameDocument}
           onDeleteDocument={deleteDocument}
           onOpenKeybindingHelp={keybindings.openHelp}
+          onOpenSettings={() => setSettingsOpen(true)}
           onUploadSource={handleUploadSource}
         />
       </ResponsiveDrawer>
@@ -347,6 +352,7 @@ export default function App({ desktop }: AppProps) {
         open={keybindings.helpOpen}
         onClose={keybindings.closeHelp}
       />
+      <SettingsBoundary open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

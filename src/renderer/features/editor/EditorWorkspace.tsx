@@ -51,7 +51,7 @@ export function EditorWorkspace({
   return (
     <section
       aria-label="Draft workspace"
-      className="flex min-h-0 min-w-0 flex-col bg-white xl:col-start-2"
+      className="flex min-h-0 min-w-0 flex-col bg-surface-raised xl:col-start-2"
     >
       <DocumentHeader
         navigationPanelOpen={navigationPanelOpen}

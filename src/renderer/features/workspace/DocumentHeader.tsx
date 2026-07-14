@@ -59,14 +59,14 @@ function IconButton({
       aria-controls={controls}
       aria-expanded={expanded}
       aria-haspopup={hasPopup}
-      className={`relative grid size-10 shrink-0 place-items-center rounded-md text-[#5d5b6d] transition-colors hover:bg-[#eeedf7] hover:text-brand-700 ${className}`}
+      className={`relative grid size-10 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-brand-700 ${className}`}
       onClick={onClick}
     >
       <Icon className="size-[1.3rem]" aria-hidden="true" />
       {unreadCount ? (
         <span
           aria-hidden="true"
-          className="absolute -top-0.5 -right-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[0.625rem] font-bold leading-none text-white shadow-sm ring-2 ring-[#fbf8ff]"
+          className="absolute -top-0.5 -right-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[0.625rem] font-bold leading-none text-primary-foreground shadow-sm ring-2 ring-surface"
         >
           {unreadCount}
         </span>
@@ -95,7 +95,7 @@ export function DocumentHeader({
   onToggleNavigationPanel,
 }: DocumentHeaderProps) {
   return (
-    <header className="flex min-h-20 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#e8e5f2] bg-[#fbf8ff] px-4 py-3 lg:px-7 2xl:flex-nowrap 2xl:gap-x-6 2xl:py-0">
+    <header className="flex min-h-20 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-surface px-4 py-3 lg:px-7 2xl:flex-nowrap 2xl:gap-x-6 2xl:py-0">
       <IconButton
         icon={Menu}
         label="Open project navigation"
@@ -118,7 +118,7 @@ export function DocumentHeader({
         <h1 className="truncate text-xl font-extrabold tracking-[-0.03em] text-brand-700 lg:text-2xl">
           Untitled Draft
         </h1>
-        <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#e8e7f1] px-2.5 text-[0.7rem] font-bold text-[#686577]">
+        <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-muted px-2.5 text-[0.7rem] font-bold text-muted-foreground">
           Draft
         </span>
       </div>
@@ -135,7 +135,7 @@ export function DocumentHeader({
             className={`h-full border-b-[3px] px-0.5 text-sm font-semibold ${
               index === 0
                 ? "border-brand-600 text-brand-700"
-                : "border-transparent text-[#686577] hover:text-brand-700"
+                : "border-transparent text-muted-foreground hover:text-brand-700"
             }`}
           >
             {tab}
@@ -153,7 +153,7 @@ export function DocumentHeader({
         </button>
         <button
           type="button"
-          className="hidden min-h-10 items-center rounded-md bg-brand-600 px-3.5 text-sm font-semibold text-white shadow-md shadow-brand-600/15 hover:bg-brand-700 lg:inline-flex"
+          className="hidden min-h-10 items-center rounded-md bg-brand-600 px-3.5 text-sm font-semibold text-primary-foreground shadow-md shadow-brand-600/15 hover:bg-brand-700 lg:inline-flex"
         >
           Share
         </button>

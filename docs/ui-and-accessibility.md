@@ -113,7 +113,7 @@ The shortcut reference is a modal dialog with initial close-button focus, Tab wr
 - an absolute workspace-card layer over the full editor canvas;
 - extra minimum canvas height when a workspace card extends beyond the document.
 
-BlockNote receives explicit labels for the editor region and editable draft surface. The app supplies a custom light theme through CSS variables and uses:
+BlockNote receives explicit labels for the editor region and editable draft surface. The app supplies the selected light or dark YAML theme through semantic CSS variables and uses:
 
 - Inter for headings and interface text;
 - Literata for paragraphs and preview content;
@@ -184,7 +184,7 @@ Use Tailwind utilities in components for local layout and presentation. Add glob
 
 The brand palette is declared as `brand-50` through `brand-900` in [`index.css`](../src/renderer/index.css). BlockNote has a parallel set of `--bn-*` variables in the same file. When changing a core color, check both systems as well as hard-coded neutral colors in components.
 
-There is a `dark` custom variant declaration, but the current app forces a light color scheme and does not implement theme switching.
+Settings and keyboard help share the same focus-trapped modal shell. Theme selection applies immediately, including to BlockNote, Markdown, Mermaid diagrams, workspace pins, drawers, and overlays, and persists to the canonical Electron profile settings file.
 
 ## Static prototype surfaces
 

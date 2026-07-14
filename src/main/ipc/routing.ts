@@ -56,6 +56,8 @@ export function registerMainIpc({
   onScopeSelected,
   getHealth,
   retryProcess,
+  getThemeCatalog,
+  selectTheme,
   logger = console,
 }: {
   ipcMain: IpcMainAdapter;
@@ -71,6 +73,8 @@ export function registerMainIpc({
   onScopeSelected?: (scope: { projectId: string; documentId: string }) => void | Promise<void>;
   getHealth?: () => ProcessHealthSnapshot;
   retryProcess?: (process: "storage" | "agent") => Promise<void>;
+  getThemeCatalog: () => OperationResult<typeof RendererOperations, "theme.catalog">;
+  selectTheme: (themeId: string) => Promise<OperationResult<typeof RendererOperations, "theme.select">>;
   logger?: Pick<Console, "error">;
 }) {
   /**
@@ -131,6 +135,8 @@ export function registerMainIpc({
   }));
 
   register("workspace.catalog", DESKTOP_INVOKE_CHANNELS.workspaceCatalog, () => storage.call("workspace.catalog"));
+  register("theme.catalog", DESKTOP_INVOKE_CHANNELS.themeCatalog, () => getThemeCatalog());
+  register("theme.select", DESKTOP_INVOKE_CHANNELS.selectTheme, (_event, input) => selectTheme(input.themeId));
   register("project.create", DESKTOP_INVOKE_CHANNELS.createProject, async (_event, input) => {
     const result = await storage.call("project.create", input);
     await onScopeSelected?.(result.selection);

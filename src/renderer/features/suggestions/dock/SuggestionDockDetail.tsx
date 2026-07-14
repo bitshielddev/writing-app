@@ -48,7 +48,7 @@ function SourceLabels({ labels }: { labels: string[] }) {
       {labels.map((label) => (
         <span
           key={label}
-          className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-[#dedbe9] bg-white/65 px-2 text-xs text-[#686577]"
+          className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-border bg-surface-raised/65 px-2 text-xs text-muted-foreground"
         >
           <FileText className="size-3.5" aria-hidden="true" />
           {label}
@@ -63,23 +63,23 @@ function EditDiff({ item }: { item: Extract<SuggestionItem, { kind: "edit" }> })
     <div className="mt-5 grid gap-3">
       <section
         aria-label="Source text"
-        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3"
+        className="rounded-lg border border-danger bg-danger/10 px-4 py-3"
       >
-        <h3 className="text-xs font-extrabold tracking-[0.08em] text-red-800 uppercase">
+        <h3 className="text-xs font-extrabold tracking-[0.08em] text-danger uppercase">
           Source
         </h3>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-red-950">
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-danger">
           {item.sourceText}
         </p>
       </section>
       <section
         aria-label="New text"
-        className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3"
+        className="rounded-lg border border-success bg-success/10 px-4 py-3"
       >
-        <h3 className="text-xs font-extrabold tracking-[0.08em] text-emerald-800 uppercase">
+        <h3 className="text-xs font-extrabold tracking-[0.08em] text-success uppercase">
           New
         </h3>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-emerald-950">
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-success">
           {item.newText || "Delete the source text."}
         </p>
       </section>
@@ -114,10 +114,10 @@ function DetailActions({
 }: DetailActionsProps) {
   const { item } = entry;
   return (
-    <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#dedbe9] pt-5">
+    <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
       <button
         type="button"
-        className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-[#686577] hover:bg-white hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-45"
+        className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-muted-foreground hover:bg-surface-raised hover:text-danger disabled:cursor-not-allowed disabled:opacity-45"
         disabled={previewIsActive}
         onClick={onDismiss}
       >
@@ -127,7 +127,7 @@ function DetailActions({
       <div className="flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
-          className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-brand-700 hover:bg-white"
+          className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-brand-700 hover:bg-surface-raised"
           onClick={onPinToggle}
         >
           {pinned ? (
@@ -140,7 +140,7 @@ function DetailActions({
         {pinned && supportsWorkspacePlacement(item) ? (
           <button
             type="button"
-            className="hidden min-h-10 items-center gap-2 rounded-md border border-brand-300 bg-white px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45 xl:inline-flex"
+            className="hidden min-h-10 items-center gap-2 rounded-md border border-brand-300 bg-surface-raised px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45 xl:inline-flex"
             disabled={previewIsActive}
             onClick={() => onPlaceOnWorkspace(item)}
           >
@@ -152,7 +152,7 @@ function DetailActions({
           <>
             <button
               type="button"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-brand-300 bg-white px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-brand-300 bg-surface-raised px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-45"
               disabled={entry.withdrawn || disabled || Boolean(previewIsActive || anotherPreviewIsActive)}
               onClick={() => onPreview(item)}
             >
@@ -165,7 +165,7 @@ function DetailActions({
             </button>
             <button
               type="button"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow-md shadow-brand-600/15 hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-[#aaa6bd] disabled:shadow-none"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-primary-foreground shadow-md shadow-brand-600/15 hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-muted disabled:shadow-none"
               disabled={entry.withdrawn || disabled || Boolean(previewIsActive || anotherPreviewIsActive)}
               onClick={() => onAccept(item)}
             >
@@ -204,7 +204,7 @@ export function SuggestionDockDetail({
     <div className="min-h-full px-5 py-5 2xl:px-7 2xl:py-7">
       <button
         type="button"
-        className="inline-flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-semibold text-[#5d5b6d] hover:bg-white/70 hover:text-brand-700"
+        className="inline-flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-semibold text-muted-foreground hover:bg-surface-raised/70 hover:text-brand-700"
         onClick={onBack}
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
@@ -213,15 +213,15 @@ export function SuggestionDockDetail({
 
       <article className={`mx-auto mt-5 max-w-2xl ${disabled ? "opacity-65" : ""}`}>
         <KindBadge kind={item.kind} />
-        <h2 className="mt-5 text-2xl font-extrabold tracking-[-0.025em] text-[#1a1b22]">
+        <h2 className="mt-5 text-2xl font-extrabold tracking-[-0.025em] text-foreground">
           {item.title}
         </h2>
-        <p className="mt-3 text-base font-medium leading-7 text-[#4d4b59]">
+        <p className="mt-3 text-base font-medium leading-7 text-foreground">
           {item.summary}
         </p>
 
         {entry.withdrawn ? (
-          <div className="mt-5 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="mt-5 flex gap-3 rounded-lg border border-warning bg-warning/10 px-4 py-3 text-sm text-warning">
             <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <p>
               This suggestion was withdrawn by the agent. An existing preview
@@ -229,7 +229,7 @@ export function SuggestionDockDetail({
             </p>
           </div>
         ) : disabled ? (
-          <div className="mt-5 flex gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+          <div className="mt-5 flex gap-3 rounded-lg border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
             <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <p>
               This edit is disabled because its source text is no longer uniquely
@@ -246,7 +246,7 @@ export function SuggestionDockDetail({
           </div>
         ) : null}
 
-        <div className="mt-6 rounded-xl border border-[#dedbe9] bg-white/75 p-5 text-[0.95rem] leading-7 text-[#393844] shadow-sm shadow-slate-900/5">
+        <div className="mt-6 rounded-xl border border-border bg-surface-raised/75 p-5 text-[0.95rem] leading-7 text-foreground shadow-sm ">
           <SuggestionMarkdown markdown={item.body} />
         </div>
 
@@ -263,7 +263,7 @@ export function SuggestionDockDetail({
         </div>
 
         {pinned ? (
-          <p className="mt-5 text-xs font-semibold text-[#777386] xl:hidden">
+          <p className="mt-5 text-xs font-semibold text-muted-foreground xl:hidden">
             Workspace placement is available in the desktop layout.
           </p>
         ) : null}

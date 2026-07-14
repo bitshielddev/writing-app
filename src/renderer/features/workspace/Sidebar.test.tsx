@@ -12,4 +12,13 @@ describe("Sidebar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Help" }));
     expect(onOpenKeybindingHelp).toHaveBeenCalledOnce();
   });
+
+  it("places Settings in the secondary navigation and removes Archive", async () => {
+    const onOpenSettings = vi.fn();
+    render(<Sidebar onOpenSettings={onOpenSettings} />);
+
+    expect(screen.queryByRole("button", { name: "Archive" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
 });

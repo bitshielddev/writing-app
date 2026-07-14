@@ -218,7 +218,7 @@ export function ColumnResizeHandle({
     >
       <span
         aria-hidden="true"
-        className={`w-px bg-[#d7d4e8] transition-[width,background-color,box-shadow] group-hover:w-1 group-hover:bg-brand-400 group-focus-visible:w-1 group-focus-visible:bg-brand-500 group-focus-visible:shadow-[0_0_0_3px_rgb(87_72_229/18%)] ${
+        className={`w-px bg-border transition-[width,background-color,box-shadow] group-hover:w-1 group-hover:bg-brand-400 group-focus-visible:w-1 group-focus-visible:bg-brand-500 group-focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--focus)_25%,transparent)] ${
           active ? "w-1 bg-brand-500" : ""
         }`}
       />

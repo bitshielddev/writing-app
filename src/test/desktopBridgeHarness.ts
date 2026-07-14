@@ -7,6 +7,7 @@ import type {
   DocumentSnapshot,
   SourceSnapshot,
   WorkspaceSnapshot,
+  ThemeCatalog,
 } from "../contracts/desktop-bridge";
 import { createEmptySuggestionState } from "../domain/suggestions/state";
 
@@ -127,6 +128,24 @@ export function createSourceSnapshot(
   };
 }
 
+export function createThemeCatalog(): ThemeCatalog {
+  return {
+    activeThemeId: "scribe-light",
+    themes: [{
+      id: "scribe-light", schema_version: 1, display_name: "Scribe Light", appearance: "light",
+      colors: {
+        background: "#ffffff", foreground: "#1a1b22", panel: "#f4f2fd", panel_foreground: "#1a1b22",
+        surface: "#fbfaff", surface_foreground: "#1a1b22", surface_raised: "#ffffff", muted: "#e8e7f1",
+        muted_foreground: "#686577", border: "#d7d4e8", primary: "#5748e5", primary_hover: "#4434c9",
+        primary_foreground: "#ffffff", accent: "#eceaff", accent_foreground: "#1a1b22", focus: "#5748e5",
+        overlay: "#00000099", success: "#238636", success_foreground: "#ffffff", warning: "#9a6700",
+        warning_foreground: "#ffffff", danger: "#cf222e", danger_foreground: "#ffffff", pin: "#ffffff",
+        pin_header: "#5748e5", pin_foreground: "#1a1b22", pin_border: "#d7d4e8",
+      },
+    }],
+  };
+}
+
 /**
  * What: creates workspace snapshot with the dependencies and defaults this workflow expects.
  *
@@ -170,6 +189,8 @@ export class DesktopBridgeHarness {
   private readonly listeners = new Set<(event: DesktopTransportEvent) => void>();
 
   readonly bridge: DesktopBridge = {
+    getThemeCatalog: async () => createThemeCatalog(),
+    selectTheme: async () => createThemeCatalog(),
     getWorkspaceCatalog: async () => ({
       projects: [{ id: "project-1", name: "Writing project", revision: 5 }],
       documents: [{ id: "document-1", projectId: "project-1", title: "Draft", revision: 3 }],

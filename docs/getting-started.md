@@ -44,6 +44,7 @@ The running app owns this tree:
 
 ```text
 <userData>/
+  settings.yaml
   scribe.sqlite3
   pi/
     settings.json

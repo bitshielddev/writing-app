@@ -31,7 +31,7 @@ export function KeybindingHelpBoundary({
         <div
           role="status"
           aria-label="Loading keyboard shortcuts"
-          className="fixed inset-0 z-[80] grid place-items-center bg-[#13141c]/55 p-4 text-sm font-semibold text-white"
+          className="fixed inset-0 z-[80] grid place-items-center bg-overlay/55 p-4 text-sm font-semibold text-primary-foreground"
         >
           Loading keyboard shortcuts…
         </div>

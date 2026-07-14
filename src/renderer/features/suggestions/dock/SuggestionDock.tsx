@@ -67,7 +67,7 @@ function DockToolbar({
   if (controlPending === "stop") controlLabel = "Stopping…";
 
   return (
-    <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-[#d7d4e8] bg-[#f4f2fd]/95 p-2 backdrop-blur">
+    <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-panel/95 p-2 backdrop-blur">
         <nav
           className="grid min-w-0 flex-1 grid-cols-2"
           aria-label="Writing partner views"
@@ -77,8 +77,8 @@ function DockToolbar({
             aria-current={view === "suggestions" ? "page" : undefined}
             className={`min-h-9 rounded-md text-sm font-bold ${
               view === "suggestions"
-                ? "bg-white text-brand-700 shadow-sm"
-                : "text-[#686577]"
+                ? "bg-surface-raised text-brand-700 shadow-sm"
+                : "text-muted-foreground"
             }`}
             onClick={() => onViewChange("suggestions")}
           >
@@ -89,8 +89,8 @@ function DockToolbar({
             aria-current={view === "activity" ? "page" : undefined}
             className={`min-h-9 rounded-md text-sm font-bold ${
               view === "activity"
-                ? "bg-white text-brand-700 shadow-sm"
-                : "text-[#686577]"
+                ? "bg-surface-raised text-brand-700 shadow-sm"
+                : "text-muted-foreground"
             }`}
             onClick={() => onViewChange("activity")}
           >
@@ -102,8 +102,8 @@ function DockToolbar({
           disabled={runtime.status === "offline" || Boolean(controlPending)}
           className={`min-h-9 shrink-0 rounded-md px-3 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-50 ${
             agentIsEnabled
-              ? "border border-[#c9c5dc] bg-white text-[#5d5b6d] hover:border-red-300 hover:text-red-700"
-              : "bg-brand-600 text-white shadow-sm hover:bg-brand-700"
+              ? "border border-border bg-surface-raised text-muted-foreground hover:border-danger hover:text-danger"
+              : "bg-brand-600 text-primary-foreground shadow-sm hover:bg-brand-700"
           }`}
           onClick={agentIsEnabled ? onStopAgent : onStartAgent}
         >
@@ -204,7 +204,7 @@ export function SuggestionDock(props: SuggestionDockProps) {
       ref={dockRef}
       tabIndex={props.regionRef ? -1 : undefined}
       aria-label="Writing partner"
-      className="h-full min-h-0 overflow-y-auto border-l border-[#d7d4e8] bg-[#f4f2fd]"
+      className="h-full min-h-0 overflow-y-auto border-l border-border bg-panel"
     >
       <p className="sr-only" aria-live="polite">
         Agent status: {props.runtime.status}
@@ -214,13 +214,13 @@ export function SuggestionDock(props: SuggestionDockProps) {
       {props.persistenceError ? (
         <div
           role="alert"
-          className="m-3 flex items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900"
+          className="m-3 flex items-center justify-between gap-3 rounded-md border border-danger bg-danger/10 p-3 text-sm text-danger"
         >
           <span>{props.persistenceError}</span>
           <button
             type="button"
             disabled={props.persistenceStatus.state !== "failed"}
-            className="shrink-0 rounded-md border border-red-400 bg-white px-3 py-1.5 font-bold disabled:cursor-wait disabled:opacity-60"
+            className="shrink-0 rounded-md border border-danger bg-surface-raised px-3 py-1.5 font-bold disabled:cursor-wait disabled:opacity-60"
             onClick={props.onRetrySuggestionSave}
           >
             Retry

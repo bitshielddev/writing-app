@@ -26,7 +26,8 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.80.2",
-    "typebox": "1.1.38"
+    "typebox": "1.1.38",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@blocknote/core": "0.51.4",

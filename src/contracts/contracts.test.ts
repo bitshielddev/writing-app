@@ -28,7 +28,7 @@ import {
   parseOrContractError,
   toContractError,
 } from "./validation";
-import { createDocumentSaveReceipt, createDocumentSnapshot, createSourceSnapshot, createWorkspaceSnapshot } from "../test/desktopBridgeHarness";
+import { createDocumentSaveReceipt, createDocumentSnapshot, createSourceSnapshot, createThemeCatalog, createWorkspaceSnapshot } from "../test/desktopBridgeHarness";
 import { createEmptySuggestionState } from "../domain/suggestions/state";
 
 const suggestion = {
@@ -74,6 +74,8 @@ const documentRead = {
 const rendererFixtures = {
   "events.subscribe": { params: undefined, result: { consumerId: "consumer" } },
   "workspace.catalog": { params: undefined, result: catalog },
+  "theme.catalog": { params: undefined, result: createThemeCatalog() },
+  "theme.select": { params: { themeId: "scribe-light" }, result: createThemeCatalog() },
   "project.create": { params: { name: "Project" }, result: catalog },
   "project.rename": { params: { projectId: scope.projectId, name: "Renamed" }, result: catalog },
   "project.delete": { params: { projectId: scope.projectId }, result: catalog },
@@ -133,6 +135,8 @@ describe("process contract inventory", () => {
     expect(DESKTOP_INVOKE_CHANNELS).toEqual({
       subscribeEvents: "scribe:events.subscribe",
       workspaceCatalog: "scribe:workspace.catalog",
+      themeCatalog: "scribe:theme.catalog",
+      selectTheme: "scribe:theme.select",
       createProject: "scribe:project.create",
       renameProject: "scribe:project.rename",
       deleteProject: "scribe:project.delete",

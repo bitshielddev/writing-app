@@ -1,5 +1,4 @@
 import {
-  Archive,
   BookOpen,
   Clock3,
   FileText,
@@ -26,12 +25,11 @@ const navigationItems: NavigationItem[] = [
   { icon: Clock3, label: "Recent", active: true },
   { icon: FileText, label: "Templates" },
   { icon: FolderClosed, label: "Collections" },
-  { icon: Settings2, label: "Settings" },
 ];
 
 const footerItems: NavigationItem[] = [
   { icon: HelpCircle, label: "Help" },
-  { icon: Archive, label: "Archive" },
+  { icon: Settings2, label: "Settings" },
 ];
 
 type SidebarProps = {
@@ -41,6 +39,7 @@ type SidebarProps = {
   switchError?: string;
   regionRef?: Ref<HTMLElement>;
   onOpenKeybindingHelp?: () => void;
+  onOpenSettings?: () => void;
   onUploadSource?: () => void;
   onCreateDocument?: () => void;
   onSelectDocument?: (projectId: string, documentId: string) => void;
@@ -71,8 +70,8 @@ function NavigationButton({
       aria-current={active ? "page" : undefined}
       className={`flex min-h-11 w-full items-center gap-3.5 rounded-md px-3.5 text-left text-[0.95rem] font-medium transition-colors ${
         active
-          ? "bg-[#e8e7f1] font-bold text-brand-700"
-          : "text-[#5d5b6d] hover:bg-[#eceaf4] hover:text-brand-700"
+          ? "bg-muted font-bold text-brand-700"
+          : "text-muted-foreground hover:bg-muted hover:text-brand-700"
       }`}
       onClick={onClick}
     >
@@ -95,6 +94,7 @@ export function Sidebar({
   switchError,
   regionRef,
   onOpenKeybindingHelp,
+  onOpenSettings,
   onUploadSource,
   onCreateDocument,
   onSelectDocument,
@@ -111,18 +111,18 @@ export function Sidebar({
       ref={regionRef}
       tabIndex={regionRef ? -1 : undefined}
       aria-label="Project navigation"
-      className="h-full min-h-0 overflow-y-auto border-r border-[#d7d4e8] bg-[#f4f2fd]"
+      className="h-full min-h-0 overflow-y-auto border-r border-border bg-panel"
     >
       <div className="flex min-h-full flex-col gap-5 px-5 py-6 2xl:px-6 2xl:py-8">
         <div className="flex items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-600 text-white shadow-sm shadow-brand-500/20">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-600 text-primary-foreground shadow-sm shadow-brand-500/20">
             <Sparkles className="size-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
             <p className="truncate text-[1.7rem] font-extrabold leading-none tracking-[-0.04em] text-brand-700">
               ScribeAI
             </p>
-            <p className="mt-1 truncate text-[0.65rem] font-bold tracking-[0.12em] text-[#686577] uppercase">
+            <p className="mt-1 truncate text-[0.65rem] font-bold tracking-[0.12em] text-muted-foreground uppercase">
               AI-assisted drafts
             </p>
           </div>
@@ -132,7 +132,7 @@ export function Sidebar({
           type="button"
           disabled={switching}
           onClick={onCreateDocument}
-          className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white shadow-lg shadow-brand-600/15 transition-colors hover:bg-brand-700"
+          className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-brand-600/15 transition-colors hover:bg-brand-700"
         >
           <Plus className="size-5" aria-hidden="true" />
           <span>New Document</span>
@@ -145,7 +145,7 @@ export function Sidebar({
             {catalog.projects.map((project) => (
               <section key={project.id} aria-label={project.name}>
                 <div className="flex items-center gap-1 px-2">
-                  <h2 className="min-w-0 flex-1 truncate text-xs font-bold text-[#686577]">{project.name}</h2>
+                  <h2 className="min-w-0 flex-1 truncate text-xs font-bold text-muted-foreground">{project.name}</h2>
                   <button type="button" aria-label={`Rename ${project.name}`} onClick={() => onRenameProject?.(project.id, project.name)}>✎</button>
                   <button type="button" aria-label={`Delete ${project.name}`} onClick={() => onDeleteProject?.(project.id)}>×</button>
                 </div>
@@ -154,7 +154,7 @@ export function Sidebar({
                     const selected = catalog.selection.documentId === document.id;
                     return <div key={document.id} className="flex items-center gap-1">
                       <button type="button" aria-current={selected ? "page" : undefined} disabled={switching}
-                        className={`min-h-9 min-w-0 flex-1 truncate rounded-md px-3 text-left text-sm ${selected ? "bg-[#e8e7f1] font-bold text-brand-700" : "text-[#5d5b6d] hover:bg-white/70"}`}
+                        className={`min-h-9 min-w-0 flex-1 truncate rounded-md px-3 text-left text-sm ${selected ? "bg-muted font-bold text-brand-700" : "text-muted-foreground hover:bg-surface-raised/70"}`}
                         onClick={() => onSelectDocument?.(project.id, document.id)}>{document.title}</button>
                       <button type="button" aria-label={`Rename ${document.title}`} onClick={() => onRenameDocument?.(project.id, document.id, document.title)}>✎</button>
                       <button type="button" aria-label={`Delete ${document.title}`} onClick={() => onDeleteDocument?.(project.id, document.id)}>×</button>
@@ -163,7 +163,7 @@ export function Sidebar({
                 </div>
               </section>
             ))}
-            {switchError ? <div role="alert" className="px-2 text-xs text-red-700">
+            {switchError ? <div role="alert" className="px-2 text-xs text-danger">
               <p>{switchError}</p>
               <div className="mt-2 flex gap-2">
                 <button type="button" className="underline" onClick={onRetrySwitch}>Retry</button>
@@ -180,7 +180,7 @@ export function Sidebar({
         </nav>
 
         <section aria-label="AI research context" className="mt-auto pt-4">
-          <h2 className="text-[0.65rem] font-extrabold tracking-[0.12em] text-[#686577] uppercase">
+          <h2 className="text-[0.65rem] font-extrabold tracking-[0.12em] text-muted-foreground uppercase">
             AI research context
           </h2>
           <div className="mt-3 grid gap-2">
@@ -188,10 +188,10 @@ export function Sidebar({
               <button
                 key={source.id}
                 type="button"
-                className="flex min-h-10 items-center gap-2.5 rounded-md border border-transparent bg-white/55 px-3 text-left text-xs text-[#393844] hover:border-[#d7d4e8] hover:bg-white"
+                className="flex min-h-10 items-center gap-2.5 rounded-md border border-transparent bg-surface-raised/55 px-3 text-left text-xs text-foreground hover:border-border hover:bg-surface-raised"
               >
                 <FileText
-                  className={`size-4 shrink-0 ${index % 2 ? "text-brand-600" : "text-amber-700"}`}
+                  className={`size-4 shrink-0 ${index % 2 ? "text-brand-600" : "text-warning"}`}
                   aria-hidden="true"
                 />
                 <span className="min-w-0 truncate">{source.title}</span>
@@ -199,7 +199,7 @@ export function Sidebar({
             ))}
             <button
               type="button"
-              className="flex min-h-10 items-center gap-2.5 rounded-md px-3 text-left text-xs font-semibold text-[#686577] hover:bg-white/65 hover:text-brand-700"
+              className="flex min-h-10 items-center gap-2.5 rounded-md px-3 text-left text-xs font-semibold text-muted-foreground hover:bg-surface-raised/65 hover:text-brand-700"
               onClick={onUploadSource}
             >
               <Upload className="size-4" aria-hidden="true" />
@@ -208,12 +208,12 @@ export function Sidebar({
           </div>
         </section>
 
-        <nav aria-label="Secondary sections" className="grid gap-1 border-t border-[#d7d4e8] pt-4">
+        <nav aria-label="Secondary sections" className="grid gap-1 border-t border-border pt-4">
           {footerItems.map((item) => (
             <NavigationButton
               key={item.label}
               {...item}
-              onClick={item.label === "Help" ? onOpenKeybindingHelp : undefined}
+              onClick={item.label === "Help" ? onOpenKeybindingHelp : onOpenSettings}
             />
           ))}
         </nav>

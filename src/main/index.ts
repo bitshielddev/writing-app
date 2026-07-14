@@ -16,6 +16,7 @@ import {
 import { ActivityRing } from "./diagnostics/activity.js";
 import { DurableEventBroker } from "./ipc/durable-event-broker.js";
 import { registerMainIpc } from "./ipc/routing.js";
+import { ThemeService } from "./themes/catalog.js";
 import { ChildRpc } from "./processes/child-rpc.js";
 import { ProcessSupervisor, type ProcessHealth } from "./processes/process-supervisor.js";
 import {
@@ -71,6 +72,7 @@ let health: ProcessHealthSnapshot = {
   agent: { state: "starting" },
 };
 let quitting = false;
+let themeService: ThemeService;
 const activity = new ActivityRing();
 const durableEvents = new DurableEventBroker(DESKTOP_EVENT_CHANNEL, randomUUID);
 
@@ -233,6 +235,8 @@ function registerIpc(
     onScopeSelected,
     getHealth: () => health,
     retryProcess,
+    getThemeCatalog: () => themeService.catalog(),
+    selectTheme: (themeId) => themeService.select(themeId),
   });
 }
 
@@ -243,12 +247,16 @@ function registerIpc(
  * Called when: used by start and index when that path needs this behavior.
  */
 function createWindow() {
+  const activeTheme = themeService.catalog().themes.find(
+    (theme) => theme.id === themeService.catalog().activeThemeId,
+  );
+  if (!activeTheme) throw new Error("Canonical selected theme is missing");
   const window = new BrowserWindow({
     width: 1440,
     height: 940,
     minWidth: 900,
     minHeight: 640,
-    backgroundColor: "#ffffff",
+    backgroundColor: activeTheme.colors.background,
     webPreferences: secureWebPreferences(),
   });
   const webContentsId = window.webContents.id;
@@ -354,6 +362,8 @@ async function flushRendererForShutdown(window: BrowserWindow) {
  * Called when: used by index when that path needs this behavior.
  */
 async function start() {
+  themeService = new ThemeService(app.getPath("userData"));
+  await themeService.initialize();
   const userDataPath = app.getPath("userData");
   const dbPath = join(userDataPath, "scribe.sqlite3");
   const agentDir = join(userDataPath, "pi");
@@ -525,6 +535,7 @@ void runDesktopStartup(
     console.error("Desktop startup failed", error);
     const guidance = databaseStartupGuidance(error);
     if (guidance) dialog.showErrorBox("Workspace database could not be opened", guidance);
+    else dialog.showErrorBox("ScribeAI could not start", error instanceof Error ? error.message : String(error));
     app.quit();
   },
 );

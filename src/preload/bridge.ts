@@ -68,6 +68,8 @@ export function createDesktopBridge(ipcRenderer: PreloadIpcRenderer): DesktopBri
   return {
     subscribeEvents,
     getWorkspaceCatalog: () => invoke(ipcRenderer, "workspace.catalog", DESKTOP_INVOKE_CHANNELS.workspaceCatalog),
+    getThemeCatalog: () => invoke(ipcRenderer, "theme.catalog", DESKTOP_INVOKE_CHANNELS.themeCatalog),
+    selectTheme: (input) => invoke(ipcRenderer, "theme.select", DESKTOP_INVOKE_CHANNELS.selectTheme, input),
     createProject: (input) => invoke(ipcRenderer, "project.create", DESKTOP_INVOKE_CHANNELS.createProject, input),
     renameProject: (input) => invoke(ipcRenderer, "project.rename", DESKTOP_INVOKE_CHANNELS.renameProject, input),
     deleteProject: (input) => invoke(ipcRenderer, "project.delete", DESKTOP_INVOKE_CHANNELS.deleteProject, input),

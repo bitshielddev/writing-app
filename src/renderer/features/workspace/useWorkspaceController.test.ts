@@ -87,6 +87,8 @@ function createHarness() {
     setTextCursorPosition: vi.fn(),
   } as unknown as WritingEditor;
   const bridge: DesktopBridge = {
+    getThemeCatalog: vi.fn(),
+    selectTheme: vi.fn(),
     hydrate: vi.fn().mockResolvedValue(snapshot()),
     startAgent: vi.fn().mockResolvedValue({ status: "working", cycleCount: 0 }),
     stopAgent: vi.fn().mockResolvedValue({ status: "stopped", cycleCount: 0 }),

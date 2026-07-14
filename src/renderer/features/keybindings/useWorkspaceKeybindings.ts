@@ -31,6 +31,7 @@ type WorkspaceKeybindingOptions = {
   onUnpin: (id: string) => void;
   onPreview: (item: SuggestionItem) => void;
   onAccept: (item: SuggestionItem) => void;
+  disabled?: boolean;
 };
 
 /**
@@ -54,6 +55,7 @@ export function useWorkspaceKeybindings({
   onUnpin,
   onPreview,
   onAccept,
+  disabled = false,
 }: WorkspaceKeybindingOptions) {
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -214,7 +216,7 @@ export function useWorkspaceKeybindings({
   );
 
   const controller = useKeybindingController({
-    disabled: helpOpen,
+    disabled: helpOpen || disabled,
     handlers,
   });
   const cancelSequence = controller.cancelSequence;
@@ -229,6 +231,6 @@ export function useWorkspaceKeybindings({
     helpOpen,
     openHelp,
     closeHelp,
-    stripState: helpOpen ? undefined : controller.stripState,
+    stripState: helpOpen || disabled ? undefined : controller.stripState,
   };
 }
