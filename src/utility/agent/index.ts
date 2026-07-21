@@ -12,6 +12,11 @@ import { ScribeLoopState } from "./domain/loop.js";
 import { classifyEventSequence } from "../../domain/events/sequence.js";
 import type { AgentSessionPort } from "./application/session-port.js";
 import { createPiAgentRuntime, createPiEventBus } from "./pi/runtime.js";
+import {
+  loadAgentPromptBootstrap,
+  renderReviewCyclePrompt,
+  type AgentPrompts,
+} from "./prompt-config.js";
 import type { AgentActivity, AgentRuntime } from "../../contracts/desktop-bridge.js";
 import {
   PROTOCOL_VERSION,
@@ -40,8 +45,9 @@ import {
 const workspaceRoot = process.argv[2];
 const agentDir = process.argv[3];
 const sessionDirectory = process.argv[4];
-if (!workspaceRoot || !agentDir || !sessionDirectory) {
-  throw new Error("Agent process requires workspace, Pi config, and session paths");
+const promptSnapshotPath = process.argv[5];
+if (!workspaceRoot || !agentDir || !sessionDirectory || !promptSnapshotPath) {
+  throw new Error("Agent process requires workspace, Pi config, session, and prompt snapshot paths");
 }
 
 const eventBus = createPiEventBus();
@@ -49,6 +55,7 @@ let session: AgentSessionPort | undefined;
 let configured = false;
 let draining = false;
 let activeScope: { projectId: string; documentId: string } | undefined;
+let prompts: AgentPrompts | undefined;
 
 const storageClient = new AgentStorageClient(randomUUID, (message) =>
   process.parentPort?.postMessage(message),
@@ -207,7 +214,8 @@ function scheduleWorkingCycle() {
  */
 async function drain() {
   const activeSession = session;
-  if (!canDrain(activeSession)) return;
+  const activePrompts = prompts;
+  if (!canDrain(activeSession) || !activePrompts) return;
   const cycle = host.loop.beginCycle();
   if (!cycle) {
     host.persist();
@@ -226,9 +234,7 @@ async function drain() {
     status: "working",
   });
   try {
-    await activeSession.prompt(
-      `Review the durable Scribe project revision ${cycle.projectRevision} (document revision ${cycle.documentRevision}). Call read_document for the current BlockNote document and read relevant Markdown files in sources/. Manage only concrete, high-value suggestions. If no useful work remains for this revision, call wait_for_changes.`,
-    );
+    await activeSession.prompt(renderReviewCyclePrompt(activePrompts.reviewCycle, cycle));
     if (!host.loop.isEnabled()) return;
     const continueRunning = host.loop.finishCycle();
     host.persist();
@@ -359,6 +365,7 @@ async function initialize() {
     mkdir(agentDir, { recursive: true }),
     mkdir(sessionDirectory, { recursive: true }),
   ]);
+  prompts = await loadAgentPromptBootstrap(promptSnapshotPath);
   const created = await createPiAgentRuntime({
     workspaceRoot,
     agentDir,
@@ -366,6 +373,7 @@ async function initialize() {
     eventBus,
     extensionFactory: createScribeExtension(host),
     scribeToolNames: SCRIBE_TOOL_NAMES,
+    systemAppendPrompt: prompts.systemAppend,
   });
   session = created.session;
   session.subscribeActivity(postActivity);

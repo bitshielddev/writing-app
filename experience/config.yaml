@@ -1,0 +1,3 @@
+schema_version: 1
+# Change this relative path to select another prompt set, then relaunch ScribeAI.
+prompt_file: prompts/default.yaml

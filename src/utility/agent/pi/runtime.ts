@@ -39,6 +39,7 @@ export async function createPiAgentRuntime({
   eventBus,
   extensionFactory,
   scribeToolNames,
+  systemAppendPrompt,
 }: {
   workspaceRoot: string;
   agentDir: string;
@@ -46,6 +47,7 @@ export async function createPiAgentRuntime({
   eventBus: PiEventBus;
   extensionFactory: ExtensionFactory;
   scribeToolNames: readonly string[];
+  systemAppendPrompt: string;
 }): Promise<{
   session: AgentSessionPort;
   diagnostics: string[];
@@ -62,9 +64,7 @@ export async function createPiAgentRuntime({
     eventBus,
     extensionFactories: [extensionFactory],
     noExtensions: true,
-    appendSystemPrompt: [
-      "You are Scribe's autonomous writing partner. Treat the BlockNote document returned by read_document and every file in sources/ as read-only. The blocks field is the canonical persisted BlockNote document and preserves structure such as tables and nested children; plainTextBlocks is only a same-revision helper for anchoring supported single-block text edits. Never edit project files. Publish proposed changes only through Scribe suggestion tools. Call read_document before creating or updating edit suggestions, and anchor edits to one returned plain-text block with sourceDocumentRevision, sourceBlockId, sourceStart, sourceEnd, and exact sourceText. For changes spanning multiple blocks, tables, nested structure, or structural edits, create a note suggestion instead of an edit. Cite the exact source filename for sourced claims. Call wait_for_changes when useful work for the current durable revision is exhausted.",
-    ],
+    appendSystemPrompt: [systemAppendPrompt],
   });
   await resourceLoader.reload({ resolveProjectTrust: async () => true });
   const sessionManager = SessionManager.continueRecent(workspaceRoot, sessionDirectory);

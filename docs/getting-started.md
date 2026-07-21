@@ -82,6 +82,8 @@ Credentials can either live in Pi's native `<userData>/pi/auth.json` file or be 
 
 Restart the app after changing these files. If Pi cannot load settings, models, or credentials, the writing partner remains offline, Start Agent is unavailable, and the reason appears in the Activity tab. A configured agent remains stopped until the writer starts it. It reads the active BlockNote document through Scribe's read-only `read_document` tool plus Markdown files in `sources/`, but it cannot edit them directly; it publishes suggestions through Scribe's suggestion tools.
 
+Scribe's agent instructions live in [`experience/prompts/default.yaml`](../experience/prompts/default.yaml). To test a variant, copy that file, edit `system_append` or `review_cycle`, select the copy with `prompt_file` in [`experience/config.yaml`](../experience/config.yaml), then stop and relaunch the app. The review prompt supports `{{project_revision}}` and `{{document_revision}}`; other placeholders are rejected. An invalid prompt configuration leaves the editor available but keeps the agent offline with the validation error in Activity.
+
 ## Import writing sources
 
 Use the Electron app to import sources:

@@ -68,6 +68,7 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
+      "experience/**/*",
       "package.json"
     ],
     "directories": {

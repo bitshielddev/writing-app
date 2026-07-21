@@ -53,6 +53,7 @@ import { DESKTOP_EVENT_CHANNEL } from "../contracts/operations/renderer.js";
 import {
   parseOrContractError,
 } from "../contracts/validation.js";
+import { writeAgentPromptBootstrap } from "../utility/agent/prompt-config.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const developmentServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -365,6 +366,11 @@ async function start() {
   themeService = new ThemeService(app.getPath("userData"));
   await themeService.initialize();
   const userDataPath = app.getPath("userData");
+  const promptSnapshotPath = join(userDataPath, "agent-prompts-launch.json");
+  await writeAgentPromptBootstrap(
+    join(app.getAppPath(), "experience"),
+    promptSnapshotPath,
+  );
   const dbPath = join(userDataPath, "scribe.sqlite3");
   const agentDir = join(userDataPath, "pi");
   const storageEndpoint = {
@@ -446,7 +452,7 @@ async function start() {
     const sessionDirectory = join(documentWorkspace, ".pi", "sessions");
     return agent = spawnChild(
       join(here, "agent.js"),
-      [documentWorkspace, agentDir, sessionDirectory],
+      [documentWorkspace, agentDir, sessionDirectory, promptSnapshotPath],
       AgentOperations,
       AgentChildMessageSchema,
       "agent-process",
